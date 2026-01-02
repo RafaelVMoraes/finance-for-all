@@ -1,13 +1,19 @@
 import React, { createContext, useContext, ReactNode } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
-import { User } from '@/types/finance';
+
+interface AuthUser {
+  id: string;
+  email: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
+  session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string) => Promise<{ error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
