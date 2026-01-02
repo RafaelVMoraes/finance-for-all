@@ -14,7 +14,274 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      budgets: {
+        Row: {
+          category_id: string
+          created_at: string
+          expected_amount: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["category_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          type?: Database["public"]["Enums"]["category_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["category_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      import_batches: {
+        Row: {
+          filename: string
+          id: string
+          imported_at: string
+          row_count: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          filename: string
+          id?: string
+          imported_at?: string
+          row_count?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          filename?: string
+          id?: string
+          imported_at?: string
+          row_count?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investment_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          investment_id: string
+          month: string
+          total_value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          investment_id: string
+          month: string
+          total_value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          investment_id?: string
+          month?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_snapshots_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investments: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          initial_amount: number
+          investment_type: string
+          monthly_contribution: number
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          initial_amount?: number
+          investment_type: string
+          monthly_contribution?: number
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          initial_amount?: number
+          investment_type?: string
+          monthly_contribution?: number
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      monthly_settings: {
+        Row: {
+          created_at: string
+          expected_income: number
+          id: string
+          month: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_income?: number
+          id?: string
+          month: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_income?: number
+          id?: string
+          month?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          edited_label: string | null
+          id: string
+          import_batch_id: string | null
+          original_category: string | null
+          original_label: string
+          payment_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          edited_label?: string | null
+          id?: string
+          import_batch_id?: string | null
+          original_category?: string | null
+          original_label: string
+          payment_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          edited_label?: string | null
+          id?: string
+          import_batch_id?: string | null
+          original_category?: string | null
+          original_label?: string
+          payment_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +290,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      category_type: "fixed" | "variable" | "income"
+      currency: "EUR" | "USD" | "BRL"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +418,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      category_type: ["fixed", "variable", "income"],
+      currency: ["EUR", "USD", "BRL"],
+    },
   },
 } as const
