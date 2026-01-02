@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,16 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuthContext();
+  const { user, login, signup } = useAuthContext();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (action: 'login' | 'signup') => {
     setLoading(true);
@@ -32,9 +39,13 @@ export default function Auth() {
     } else {
       toast({
         title: action === 'login' ? 'Welcome back!' : 'Account created!',
-        description: 'Redirecting to dashboard...',
+        description: action === 'signup' 
+          ? 'Please check your email to confirm your account.' 
+          : 'Redirecting to dashboard...',
       });
-      navigate('/dashboard');
+      if (action === 'login') {
+        navigate('/dashboard');
+      }
     }
     
     setLoading(false);

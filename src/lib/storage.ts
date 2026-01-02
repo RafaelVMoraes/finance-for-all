@@ -1,7 +1,7 @@
 // LocalStorage wrapper for data persistence
+// Note: Authentication is handled by Supabase, not localStorage
 
 const STORAGE_KEYS = {
-  USER: 'fintrack_user',
   TRANSACTIONS: 'fintrack_transactions',
   CATEGORIES: 'fintrack_categories',
   BUDGETS: 'fintrack_budgets',
