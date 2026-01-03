@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+
+// Validation schemas
+const emailSchema = z.string().trim().email('Please enter a valid email address');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[0-9]/, 'Password must contain a number');
 
 interface AuthUser {
   id: string;
@@ -37,12 +46,14 @@ export function useAuth() {
       return { error: 'Email and password are required' };
     }
     
-    if (password.length < 6) {
-      return { error: 'Password must be at least 6 characters' };
+    // Validate email format
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      return { error: emailResult.error.errors[0].message };
     }
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: emailResult.data,
       password,
     });
 
@@ -58,14 +69,22 @@ export function useAuth() {
       return { error: 'Email and password are required' };
     }
     
-    if (password.length < 6) {
-      return { error: 'Password must be at least 6 characters' };
+    // Validate email format
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      return { error: emailResult.error.errors[0].message };
+    }
+    
+    // Validate password strength
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
+      return { error: passwordResult.error.errors[0].message };
     }
 
     const redirectUrl = `${window.location.origin}/`;
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: emailResult.data,
       password,
       options: {
         emailRedirectTo: redirectUrl,
