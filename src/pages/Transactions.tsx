@@ -317,14 +317,14 @@ export default function Transactions() {
                         <TableCell>
                           {isEditing ? (
                             <Select 
-                              value={editCategoryId || ''} 
-                              onValueChange={(v) => setEditCategoryId(v || null)}
+                              value={editCategoryId || '__none__'} 
+                              onValueChange={(v) => setEditCategoryId(v === '__none__' ? null : v)}
                             >
                               <SelectTrigger className="h-8 w-40">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="__none__">None</SelectItem>
                                 {activeCategories.map(cat => (
                                   <SelectItem key={cat.id} value={cat.id}>
                                     <div className="flex items-center gap-2">
