@@ -385,14 +385,14 @@ export default function Import() {
                       </TableCell>
                       <TableCell>
                         <Select 
-                          value={row.category || ''} 
-                          onValueChange={(v) => updateRow(idx, 'category', v || undefined)}
+                          value={row.category || '__none__'} 
+                          onValueChange={(v) => updateRow(idx, 'category', v === '__none__' ? undefined : v)}
                         >
                           <SelectTrigger className="h-8 w-36">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="__none__">None</SelectItem>
                             {activeCategories.map(cat => (
                               <SelectItem key={cat.id} value={cat.name}>
                                 <div className="flex items-center gap-2">
