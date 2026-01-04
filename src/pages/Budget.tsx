@@ -1,29 +1,42 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Check, TrendingDown, TrendingUp, PiggyBank } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Pencil, Check, X, TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 
 export default function Budget() {
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [editingIncome, setEditingIncome] = useState(false);
   const [tempIncome, setTempIncome] = useState(0);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [tempBudgetAmount, setTempBudgetAmount] = useState(0);
 
   const { toast } = useToast();
-  const { budgets, monthlySettings, loading: budgetsLoading, upsertBudget, updateExpectedIncome, refetch } = useBudgets();
+  const { budgets, monthlySettings, loading: budgetsLoading, upsertBudget, updateExpectedIncome } = useBudgets();
   const { activeCategories, loading: categoriesLoading } = useCategories();
   const { transactions } = useTransactions({
-    dateFrom: startOfMonth(new Date()),
-    dateTo: endOfMonth(new Date()),
+    dateFrom: startOfMonth(selectedMonth),
+    dateTo: endOfMonth(selectedMonth),
   });
+
+  // Month navigation
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setSelectedMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
+  };
 
   // Calculate spent per category
   const spentByCategory = useMemo(() => {
@@ -37,11 +50,10 @@ export default function Budget() {
   }, [transactions]);
 
   // Calculate totals by type
-  const { fixedCategories, variableCategories, incomeCategories } = useMemo(() => {
+  const { fixedCategories, variableCategories } = useMemo(() => {
     const fixed = activeCategories.filter(c => c.type === 'fixed');
     const variable = activeCategories.filter(c => c.type === 'variable');
-    const income = activeCategories.filter(c => c.type === 'income');
-    return { fixedCategories: fixed, variableCategories: variable, incomeCategories: income };
+    return { fixedCategories: fixed, variableCategories: variable };
   }, [activeCategories]);
 
   const getBudgetAmount = (categoryId: string) => {
@@ -78,6 +90,11 @@ export default function Budget() {
     setTempBudgetAmount(getBudgetAmount(categoryId));
   };
 
+  const cancelEditBudget = () => {
+    setEditingBudgetId(null);
+    setTempBudgetAmount(0);
+  };
+
   const saveBudget = async () => {
     if (!editingBudgetId) return;
     
@@ -92,6 +109,7 @@ export default function Budget() {
       toast({ title: 'Budget updated' });
     }
     setEditingBudgetId(null);
+    setTempBudgetAmount(0);
   };
 
   const getProgressColor = (spent: number, expected: number) => {
@@ -126,9 +144,17 @@ export default function Budget() {
                 value={tempBudgetAmount}
                 onChange={(e) => setTempBudgetAmount(Number(e.target.value))}
                 className="h-8 w-24"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveBudget();
+                  if (e.key === 'Escape') cancelEditBudget();
+                }}
               />
               <Button size="sm" variant="ghost" onClick={saveBudget}>
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4 text-emerald-600" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelEditBudget}>
+                <X className="h-4 w-4 text-destructive" />
               </Button>
             </div>
           ) : (
@@ -146,18 +172,27 @@ export default function Budget() {
             </div>
           )}
         </div>
-        <Progress 
-          value={percent} 
-          className={`h-2 ${getProgressColor(spent, expected)}`}
-        />
-        <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">
-            €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
-          </span>
-          <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-            {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
-          </span>
-        </div>
+        {expected > 0 && (
+          <>
+            <Progress 
+              value={percent} 
+              className={`h-2 ${getProgressColor(spent, expected)}`}
+            />
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">
+                €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+              </span>
+              <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+                {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+              </span>
+            </div>
+          </>
+        )}
+        {expected === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Click the pencil to set a budget
+          </p>
+        )}
       </div>
     );
   };
@@ -170,15 +205,22 @@ export default function Budget() {
     );
   }
 
-  const currentMonth = format(new Date(), 'MMMM yyyy');
-
   return (
     <div className="space-y-6">
+      {/* Header with Month Navigation */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Budget Planning</h1>
-        <Badge variant="outline" className="text-sm">
-          {currentMonth}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => navigateMonth('prev')}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Badge variant="outline" className="min-w-[140px] justify-center text-sm">
+            {format(selectedMonth, 'MMMM yyyy')}
+          </Badge>
+          <Button variant="outline" size="icon" onClick={() => navigateMonth('next')}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Income & Savings Overview */}
@@ -199,6 +241,10 @@ export default function Budget() {
                   value={tempIncome}
                   onChange={(e) => setTempIncome(Number(e.target.value))}
                   className="h-9"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveIncome();
+                    if (e.key === 'Escape') setEditingIncome(false);
+                  }}
                 />
                 <Button size="sm" onClick={handleSaveIncome}>
                   <Check className="h-4 w-4" />
