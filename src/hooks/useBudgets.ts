@@ -27,13 +27,18 @@ export interface MonthlySettings {
   updated_at: string;
 }
 
-export function useBudgets() {
+interface UseBudgetsOptions {
+  month?: Date;
+}
+
+export function useBudgets(options?: UseBudgetsOptions) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [monthlySettings, setMonthlySettings] = useState<MonthlySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthContext();
   
-  const currentMonth = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const targetMonth = options?.month ?? new Date();
+  const monthStr = format(startOfMonth(targetMonth), 'yyyy-MM-dd');
 
   const fetchBudgets = useCallback(async () => {
     if (!user) return;
@@ -60,17 +65,17 @@ export function useBudgets() {
       setBudgets(budgetsData || []);
     }
 
-    // Fetch monthly settings
+    // Fetch monthly settings for the target month
     const { data: settingsData } = await supabase
       .from('monthly_settings')
       .select('*')
       .eq('user_id', user.id)
-      .eq('month', currentMonth)
+      .eq('month', monthStr)
       .maybeSingle();
 
     setMonthlySettings(settingsData);
     setLoading(false);
-  }, [user, currentMonth]);
+  }, [user, monthStr]);
 
   useEffect(() => {
     fetchBudgets();
@@ -79,62 +84,98 @@ export function useBudgets() {
   const upsertBudget = useCallback(async (categoryId: string, expectedAmount: number) => {
     if (!user) return { error: 'Not authenticated' };
 
-    const { data, error } = await supabase
-      .from('budgets')
-      .upsert({
-        user_id: user.id,
-        category_id: categoryId,
-        expected_amount: expectedAmount
-      }, {
-        onConflict: 'user_id,category_id'
-      })
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          color,
-          type
-        )
-      `)
-      .single();
+    // Check if budget exists for this category
+    const existingBudget = budgets.find(b => b.category_id === categoryId);
+    
+    let result;
+    if (existingBudget) {
+      // Update existing budget
+      result = await supabase
+        .from('budgets')
+        .update({ expected_amount: expectedAmount })
+        .eq('id', existingBudget.id)
+        .select(`
+          *,
+          categories (
+            id,
+            name,
+            color,
+            type
+          )
+        `)
+        .single();
+    } else {
+      // Insert new budget
+      result = await supabase
+        .from('budgets')
+        .insert({
+          user_id: user.id,
+          category_id: categoryId,
+          expected_amount: expectedAmount
+        })
+        .select(`
+          *,
+          categories (
+            id,
+            name,
+            color,
+            type
+          )
+        `)
+        .single();
+    }
 
-    if (error) {
-      return { error: error.message };
+    if (result.error) {
+      return { error: result.error.message };
     }
 
     setBudgets(prev => {
       const existing = prev.findIndex(b => b.category_id === categoryId);
       if (existing >= 0) {
-        return prev.map((b, i) => i === existing ? data : b);
+        return prev.map((b, i) => i === existing ? result.data : b);
       }
-      return [...prev, data];
+      return [...prev, result.data];
     });
-    return { data };
-  }, [user]);
+    return { data: result.data };
+  }, [user, budgets]);
 
   const updateExpectedIncome = useCallback(async (amount: number) => {
     if (!user) return { error: 'Not authenticated' };
 
-    const { data, error } = await supabase
-      .from('monthly_settings')
-      .upsert({
-        user_id: user.id,
-        month: currentMonth,
-        expected_income: amount
-      }, {
-        onConflict: 'user_id,month'
-      })
-      .select()
-      .single();
+    // Check if settings exist for this month
+    if (monthlySettings) {
+      const { data, error } = await supabase
+        .from('monthly_settings')
+        .update({ expected_income: amount })
+        .eq('id', monthlySettings.id)
+        .select()
+        .single();
 
-    if (error) {
-      return { error: error.message };
+      if (error) {
+        return { error: error.message };
+      }
+
+      setMonthlySettings(data);
+      return { data };
+    } else {
+      const { data, error } = await supabase
+        .from('monthly_settings')
+        .insert({
+          user_id: user.id,
+          month: monthStr,
+          expected_income: amount
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      setMonthlySettings(data);
+      return { data };
     }
-
-    setMonthlySettings(data);
-    return { data };
-  }, [user, currentMonth]);
+  }, [user, monthStr, monthlySettings]);
 
   return {
     budgets,

@@ -1,22 +1,121 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Pencil, Check, X, TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBudgets } from '@/hooks/useBudgets';
-import { useCategories } from '@/hooks/useCategories';
+import { useCategories, Category } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+
+// Props for the category budget card
+interface CategoryBudgetCardProps {
+  category: Category;
+  expected: number;
+  spent: number;
+  isEditing: boolean;
+  tempBudgetAmount: number;
+  onTempBudgetChange: (value: number) => void;
+  onStartEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+// Moved outside to prevent re-creation on each render
+function CategoryBudgetCard({
+  category,
+  expected,
+  spent,
+  isEditing,
+  tempBudgetAmount,
+  onTempBudgetChange,
+  onStartEdit,
+  onSave,
+  onCancel,
+}: CategoryBudgetCardProps) {
+  const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
+  const remaining = expected - spent;
+
+  const getProgressColor = (spentAmount: number, expectedAmount: number) => {
+    if (expectedAmount === 0) return 'bg-muted';
+    const pct = (spentAmount / expectedAmount) * 100;
+    if (pct >= 100) return 'bg-destructive';
+    if (pct >= 85) return 'bg-amber-500';
+    return 'bg-emerald-500';
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div 
+            className="h-3 w-3 rounded-full flex-shrink-0" 
+            style={{ backgroundColor: category.color }}
+          />
+          <span className="font-medium">{category.name}</span>
+        </div>
+        {isEditing ? (
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Input
+              type="number"
+              value={tempBudgetAmount}
+              onChange={(e) => onTempBudgetChange(Number(e.target.value))}
+              className="h-8 w-24"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSave();
+                if (e.key === 'Escape') onCancel();
+              }}
+            />
+            <Button size="sm" variant="ghost" onClick={onSave}>
+              <Check className="h-4 w-4 text-emerald-600" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onCancel}>
+              <X className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Budget:</span>
+            <span className="font-medium">€{expected.toFixed(0)}</span>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={onStartEdit}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+      {expected > 0 && (
+        <>
+          <Progress 
+            value={percent} 
+            className={`h-2 ${getProgressColor(spent, expected)}`}
+          />
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">
+              €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+            </span>
+            <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+              {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+            </span>
+          </div>
+        </>
+      )}
+      {expected === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Click the pencil to set a budget
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function Budget() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -26,7 +125,7 @@ export default function Budget() {
   const [tempBudgetAmount, setTempBudgetAmount] = useState(0);
 
   const { toast } = useToast();
-  const { budgets, monthlySettings, loading: budgetsLoading, upsertBudget, updateExpectedIncome } = useBudgets();
+  const { budgets, monthlySettings, loading: budgetsLoading, upsertBudget, updateExpectedIncome } = useBudgets({ month: selectedMonth });
   const { activeCategories, loading: categoriesLoading } = useCategories();
   const { transactions } = useTransactions({
     dateFrom: startOfMonth(selectedMonth),
@@ -34,9 +133,12 @@ export default function Budget() {
   });
 
   // Month navigation
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     setSelectedMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
-  };
+    // Reset editing state when changing months
+    setEditingBudgetId(null);
+    setEditingIncome(false);
+  }, []);
 
   // Calculate spent per category
   const spentByCategory = useMemo(() => {
@@ -56,22 +158,34 @@ export default function Budget() {
     return { fixedCategories: fixed, variableCategories: variable };
   }, [activeCategories]);
 
-  const getBudgetAmount = (categoryId: string) => {
+  const getBudgetAmount = useCallback((categoryId: string) => {
     const budget = budgets.find(b => b.category_id === categoryId);
     return budget?.expected_amount || 0;
-  };
+  }, [budgets]);
 
   const expectedIncome = monthlySettings?.expected_income || 0;
   
-  const totalFixedBudget = fixedCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0);
-  const totalVariableBudget = variableCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0);
-  const totalFixedSpent = fixedCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0);
-  const totalVariableSpent = variableCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0);
+  const totalFixedBudget = useMemo(() => 
+    fixedCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0), 
+    [fixedCategories, getBudgetAmount]
+  );
+  const totalVariableBudget = useMemo(() => 
+    variableCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0), 
+    [variableCategories, getBudgetAmount]
+  );
+  const totalFixedSpent = useMemo(() => 
+    fixedCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0),
+    [fixedCategories, spentByCategory]
+  );
+  const totalVariableSpent = useMemo(() => 
+    variableCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0),
+    [variableCategories, spentByCategory]
+  );
   
   const estimatedSavings = expectedIncome - totalFixedBudget - totalVariableBudget;
   const actualSavings = expectedIncome - totalFixedSpent - totalVariableSpent;
 
-  const handleSaveIncome = async () => {
+  const handleSaveIncome = useCallback(async () => {
     const result = await updateExpectedIncome(tempIncome);
     if (result.error) {
       toast({
@@ -83,19 +197,19 @@ export default function Budget() {
       toast({ title: 'Expected income updated' });
     }
     setEditingIncome(false);
-  };
+  }, [tempIncome, updateExpectedIncome, toast]);
 
-  const startEditBudget = (categoryId: string) => {
+  const startEditBudget = useCallback((categoryId: string) => {
     setEditingBudgetId(categoryId);
     setTempBudgetAmount(getBudgetAmount(categoryId));
-  };
+  }, [getBudgetAmount]);
 
-  const cancelEditBudget = () => {
+  const cancelEditBudget = useCallback(() => {
     setEditingBudgetId(null);
     setTempBudgetAmount(0);
-  };
+  }, []);
 
-  const saveBudget = async () => {
+  const saveBudget = useCallback(async () => {
     if (!editingBudgetId) return;
     
     const result = await upsertBudget(editingBudgetId, tempBudgetAmount);
@@ -110,92 +224,7 @@ export default function Budget() {
     }
     setEditingBudgetId(null);
     setTempBudgetAmount(0);
-  };
-
-  const getProgressColor = (spent: number, expected: number) => {
-    if (expected === 0) return 'bg-muted';
-    const percent = (spent / expected) * 100;
-    if (percent >= 100) return 'bg-destructive';
-    if (percent >= 85) return 'bg-amber-500';
-    return 'bg-emerald-500';
-  };
-
-  const CategoryBudgetCard = ({ category }: { category: typeof activeCategories[0] }) => {
-    const expected = getBudgetAmount(category.id);
-    const spent = spentByCategory[category.id] || 0;
-    const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
-    const remaining = expected - spent;
-    const isEditing = editingBudgetId === category.id;
-
-    return (
-      <div className="space-y-2 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div 
-              className="h-3 w-3 rounded-full flex-shrink-0" 
-              style={{ backgroundColor: category.color }}
-            />
-            <span className="font-medium">{category.name}</span>
-          </div>
-          {isEditing ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                value={tempBudgetAmount}
-                onChange={(e) => setTempBudgetAmount(Number(e.target.value))}
-                className="h-8 w-24"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveBudget();
-                  if (e.key === 'Escape') cancelEditBudget();
-                }}
-              />
-              <Button size="sm" variant="ghost" onClick={saveBudget}>
-                <Check className="h-4 w-4 text-emerald-600" />
-              </Button>
-              <Button size="sm" variant="ghost" onClick={cancelEditBudget}>
-                <X className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Budget:</span>
-              <span className="font-medium">€{expected.toFixed(0)}</span>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-6 w-6 p-0"
-                onClick={() => startEditBudget(category.id)}
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-        </div>
-        {expected > 0 && (
-          <>
-            <Progress 
-              value={percent} 
-              className={`h-2 ${getProgressColor(spent, expected)}`}
-            />
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">
-                €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
-              </span>
-              <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-                {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
-              </span>
-            </div>
-          </>
-        )}
-        {expected === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Click the pencil to set a budget
-          </p>
-        )}
-      </div>
-    );
-  };
+  }, [editingBudgetId, tempBudgetAmount, upsertBudget, toast]);
 
   if (budgetsLoading || categoriesLoading) {
     return (
@@ -241,6 +270,7 @@ export default function Budget() {
                   value={tempIncome}
                   onChange={(e) => setTempIncome(Number(e.target.value))}
                   className="h-9"
+                  autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveIncome();
                     if (e.key === 'Escape') setEditingIncome(false);
@@ -332,7 +362,18 @@ export default function Budget() {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {fixedCategories.map(cat => (
-              <CategoryBudgetCard key={cat.id} category={cat} />
+              <CategoryBudgetCard 
+                key={cat.id} 
+                category={cat}
+                expected={getBudgetAmount(cat.id)}
+                spent={spentByCategory[cat.id] || 0}
+                isEditing={editingBudgetId === cat.id}
+                tempBudgetAmount={tempBudgetAmount}
+                onTempBudgetChange={setTempBudgetAmount}
+                onStartEdit={() => startEditBudget(cat.id)}
+                onSave={saveBudget}
+                onCancel={cancelEditBudget}
+              />
             ))}
           </CardContent>
         </Card>
@@ -349,7 +390,18 @@ export default function Budget() {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {variableCategories.map(cat => (
-              <CategoryBudgetCard key={cat.id} category={cat} />
+              <CategoryBudgetCard 
+                key={cat.id} 
+                category={cat}
+                expected={getBudgetAmount(cat.id)}
+                spent={spentByCategory[cat.id] || 0}
+                isEditing={editingBudgetId === cat.id}
+                tempBudgetAmount={tempBudgetAmount}
+                onTempBudgetChange={setTempBudgetAmount}
+                onStartEdit={() => startEditBudget(cat.id)}
+                onSave={saveBudget}
+                onCancel={cancelEditBudget}
+              />
             ))}
           </CardContent>
         </Card>
