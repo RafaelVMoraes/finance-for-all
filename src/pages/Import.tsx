@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,24 +35,27 @@ import {
   Download, 
   Trash2,
   AlertTriangle,
-  Eye,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useImport, ImportRow } from '@/hooks/useImport';
+import { useImportSources } from '@/hooks/useImportSources';
 import { useCategories } from '@/hooks/useCategories';
 import { format } from 'date-fns';
+import { APP_START_DATE_STRING } from '@/constants/app';
 
 export default function Import() {
-  const [step, setStep] = useState<'upload' | 'validation' | 'preview' | 'complete'>('upload');
+  const [step, setStep] = useState<'upload' | 'validation' | 'complete'>('upload');
   const [parsedData, setParsedData] = useState<ImportRow[]>([]);
   const [editableData, setEditableData] = useState<ImportRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [reviewBatchId, setReviewBatchId] = useState<string | null>(null);
-  const [batchTransactions, setBatchTransactions] = useState<any[]>([]);
   const [currentFilename, setCurrentFilename] = useState('');
   const [importResult, setImportResult] = useState({ imported: 0 });
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [showNewSource, setShowNewSource] = useState(false);
   
   const { toast } = useToast();
   const { 
@@ -65,11 +68,34 @@ export default function Import() {
     deleteImportBatch,
     generateTemplate 
   } = useImport();
+  const { sources, createSource, loading: sourcesLoading } = useImportSources();
   const { categories, activeCategories, loading: categoriesLoading } = useCategories();
 
   useEffect(() => {
     fetchImportBatches();
   }, [fetchImportBatches]);
+
+  // Sort data: duplicates first, then errors, then valid
+  const sortedEditableData = useMemo(() => {
+    return [...editableData].sort((a, b) => {
+      // Database duplicates first
+      if (a.isDuplicate && !b.isDuplicate) return -1;
+      if (!a.isDuplicate && b.isDuplicate) return 1;
+      // File duplicates next
+      if (a.isDuplicateInFile && !b.isDuplicateInFile) return -1;
+      if (!a.isDuplicateInFile && b.isDuplicateInFile) return 1;
+      // Errors next
+      if (!a.isValid && b.isValid) return -1;
+      if (a.isValid && !b.isValid) return 1;
+      return 0;
+    });
+  }, [editableData]);
+
+  // Get original index for selection
+  const getOriginalIndex = useCallback((sortedIndex: number) => {
+    const sortedRow = sortedEditableData[sortedIndex];
+    return editableData.findIndex(r => r === sortedRow);
+  }, [sortedEditableData, editableData]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -95,7 +121,7 @@ export default function Import() {
       // Select all valid, non-duplicate rows by default
       const validIndices = new Set(
         withDuplicates
-          .map((row, idx) => (row.isValid && !row.isDuplicate ? idx : -1))
+          .map((row, idx) => (row.isValid && !row.isDuplicate && !row.isDuplicateInFile ? idx : -1))
           .filter(idx => idx >= 0)
       );
       setSelectedRows(validIndices);
@@ -110,33 +136,35 @@ export default function Import() {
     }
   }, [parseFile, checkDuplicates, toast]);
 
-  const updateRow = (index: number, field: keyof ImportRow, value: any) => {
+  const updateRow = (originalIndex: number, field: 'label' | 'category', value: string | undefined) => {
     setEditableData(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      
-      // Revalidate
-      const errors: string[] = [];
-      if (!updated[index].date) errors.push('Invalid date');
-      if (!updated[index].label) errors.push('Label is required');
-      if (updated[index].value === 0 && typeof updated[index].value !== 'number') {
-        errors.push('Invalid value');
+      if (field === 'label') {
+        updated[originalIndex] = { ...updated[originalIndex], label: value || '' };
+      } else if (field === 'category') {
+        updated[originalIndex] = { ...updated[originalIndex], category: value };
       }
       
-      updated[index].errors = errors;
-      updated[index].isValid = errors.length === 0;
+      // Revalidate
+      const row = updated[originalIndex];
+      const errors: string[] = [];
+      if (!row.date) errors.push('Invalid date');
+      if (!row.label) errors.push('Label is required');
+      
+      updated[originalIndex].errors = errors;
+      updated[originalIndex].isValid = errors.length === 0;
       
       return updated;
     });
   };
 
-  const toggleRow = (index: number) => {
+  const toggleRow = (originalIndex: number) => {
     setSelectedRows(prev => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
+      if (next.has(originalIndex)) {
+        next.delete(originalIndex);
       } else {
-        next.add(index);
+        next.add(originalIndex);
       }
       return next;
     });
@@ -144,13 +172,30 @@ export default function Import() {
 
   const selectAllValid = () => {
     const validIndices = editableData
-      .map((row, idx) => (row.isValid ? idx : -1))
+      .map((row, idx) => (row.isValid && !row.isDuplicate ? idx : -1))
       .filter(idx => idx >= 0);
     setSelectedRows(new Set(validIndices));
   };
 
   const deselectAll = () => {
     setSelectedRows(new Set());
+  };
+
+  const handleCreateSource = async () => {
+    if (!newSourceName.trim()) return;
+    
+    const result = await createSource(newSourceName);
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to create source',
+        description: result.error,
+      });
+    } else if (result.data) {
+      setSelectedSourceId(result.data.id);
+      setNewSourceName('');
+      setShowNewSource(false);
+    }
   };
 
   const handleImport = async () => {
@@ -165,13 +210,13 @@ export default function Import() {
       return;
     }
     
-    // Build category map
+    // Build category map (case-insensitive)
     const categoryMap: Record<string, string> = {};
     categories.forEach(cat => {
-      categoryMap[cat.name.toLowerCase()] = cat.id;
+      categoryMap[cat.name.toLowerCase().trim()] = cat.id;
     });
     
-    const result = await importTransactions(rowsToImport, currentFilename, categoryMap);
+    const result = await importTransactions(rowsToImport, currentFilename, categoryMap, selectedSourceId);
     
     if (result.error) {
       toast({
@@ -195,6 +240,7 @@ export default function Import() {
     setEditableData([]);
     setSelectedRows(new Set());
     setCurrentFilename('');
+    setSelectedSourceId(null);
     setStep('upload');
   };
 
@@ -214,9 +260,19 @@ export default function Import() {
     }
   };
 
-  const validCount = editableData.filter(r => r.isValid).length;
+  const handleDownloadTemplate = () => {
+    const categoryData = categories.map(c => ({
+      name: c.name,
+      type: c.type,
+      color: c.color,
+    }));
+    generateTemplate(categoryData);
+  };
+
+  const validCount = editableData.filter(r => r.isValid && !r.isDuplicate && !r.isDuplicateInFile).length;
   const errorCount = editableData.filter(r => !r.isValid).length;
-  const duplicateCount = editableData.filter(r => r.isDuplicate).length;
+  const dbDuplicateCount = editableData.filter(r => r.isDuplicate).length;
+  const fileDuplicateCount = editableData.filter(r => r.isDuplicateInFile).length;
   const selectedCount = selectedRows.size;
 
   return (
@@ -224,7 +280,7 @@ export default function Import() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Import Transactions</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={generateTemplate}>
+          <Button variant="outline" onClick={handleDownloadTemplate}>
             <Download className="mr-2 h-4 w-4" />
             Download Template
           </Button>
@@ -241,10 +297,56 @@ export default function Import() {
             <CardTitle>Upload Excel File</CardTitle>
             <CardDescription>
               Upload an .xlsx file containing your financial transactions. 
-              Required columns: date, label, value. Optional: category
+              Required columns: date, label, value. Optional: category.
+              <br />
+              <span className="text-muted-foreground">Note: Only transactions from {APP_START_DATE_STRING} onwards are allowed.</span>
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Source selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Import Source (optional)</label>
+              <div className="flex gap-2">
+                <Select 
+                  value={selectedSourceId || '__none__'} 
+                  onValueChange={(v) => setSelectedSourceId(v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Select source..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No source</SelectItem>
+                    {sources.map(source => (
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setShowNewSource(!showNewSource)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {showNewSource && (
+                <div className="flex gap-2">
+                  <Input
+                    value={newSourceName}
+                    onChange={(e) => setNewSourceName(e.target.value)}
+                    placeholder="e.g., Boursorama, Revolut, BNP..."
+                    className="w-64"
+                  />
+                  <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>
+                    Add Source
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <label 
               htmlFor="file-upload"
               className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/50 p-12 transition-colors hover:border-primary hover:bg-muted"
@@ -273,6 +375,9 @@ export default function Import() {
             </CardTitle>
             <CardDescription>
               File: {currentFilename} • {editableData.length} rows found
+              {selectedSourceId && sources.find(s => s.id === selectedSourceId) && (
+                <> • Source: {sources.find(s => s.id === selectedSourceId)?.name}</>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -286,9 +391,14 @@ export default function Import() {
                   {errorCount} Errors
                 </Badge>
               )}
-              {duplicateCount > 0 && (
+              {dbDuplicateCount > 0 && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                  {duplicateCount} Duplicates
+                  {dbDuplicateCount} DB Duplicates
+                </Badge>
+              )}
+              {fileDuplicateCount > 0 && (
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                  {fileDuplicateCount} File Duplicates
                 </Badge>
               )}
               <Badge variant="outline">
@@ -306,118 +416,118 @@ export default function Import() {
               </Button>
             </div>
 
-            {/* Data table */}
+            {/* Data table - only label and category are editable */}
             <ScrollArea className="h-[400px] rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox 
-                        checked={selectedCount === validCount && validCount > 0}
-                        onCheckedChange={(checked) => checked ? selectAllValid() : deselectAll()}
-                      />
-                    </TableHead>
+                    <TableHead className="w-12">Import</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Label</TableHead>
-                    <TableHead>Value</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
                     <TableHead>Category</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {editableData.map((row, idx) => (
-                    <TableRow 
-                      key={idx} 
-                      className={
-                        row.isDuplicate ? 'bg-amber-50 dark:bg-amber-950/20' : 
-                        !row.isValid ? 'bg-red-50 dark:bg-red-950/20' : ''
-                      }
-                    >
-                      <TableCell>
-                        <Checkbox 
-                          checked={selectedRows.has(idx)}
-                          onCheckedChange={() => toggleRow(idx)}
-                          disabled={!row.isValid}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {row.isDuplicate ? (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                            <AlertTriangle className="mr-1 h-3 w-3" />
-                            Duplicate
-                          </Badge>
-                        ) : !row.isValid ? (
-                          <Badge variant="destructive">
-                            <X className="mr-1 h-3 w-3" />
-                            Error
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="bg-emerald-600">
-                            <Check className="mr-1 h-3 w-3" />
-                            Valid
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="date"
-                          value={row.date}
-                          onChange={(e) => updateRow(idx, 'date', e.target.value)}
-                          className={`h-8 w-32 ${!row.date ? 'border-destructive' : ''}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={row.label}
-                          onChange={(e) => updateRow(idx, 'label', e.target.value)}
-                          className={`h-8 ${!row.label ? 'border-destructive' : ''}`}
-                          placeholder="Transaction label"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={row.value}
-                          onChange={(e) => updateRow(idx, 'value', parseFloat(e.target.value))}
-                          className="h-8 w-28"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={row.category || '__none__'} 
-                          onValueChange={(v) => updateRow(idx, 'category', v === '__none__' ? undefined : v)}
-                        >
-                          <SelectTrigger className="h-8 w-36">
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">None</SelectItem>
-                            {activeCategories.map(cat => (
-                              <SelectItem key={cat.id} value={cat.name}>
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className="h-3 w-3 rounded-full" 
-                                    style={{ backgroundColor: cat.color }}
-                                  />
-                                  {cat.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sortedEditableData.map((row, sortedIdx) => {
+                    const originalIdx = getOriginalIndex(sortedIdx);
+                    
+                    return (
+                      <TableRow 
+                        key={sortedIdx} 
+                        className={
+                          row.isDuplicate || row.isDuplicateInFile ? 'bg-amber-50 dark:bg-amber-950/20' : 
+                          !row.isValid ? 'bg-red-50 dark:bg-red-950/20' : ''
+                        }
+                      >
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedRows.has(originalIdx)}
+                            onCheckedChange={() => toggleRow(originalIdx)}
+                            disabled={!row.isValid}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {row.isDuplicate ? (
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              DB Duplicate
+                            </Badge>
+                          ) : row.isDuplicateInFile ? (
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              File Dup #{row.duplicateIndex}
+                            </Badge>
+                          ) : !row.isValid ? (
+                            <Badge variant="destructive">
+                              <X className="mr-1 h-3 w-3" />
+                              {row.errors[0]}
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="bg-emerald-600">
+                              <Check className="mr-1 h-3 w-3" />
+                              Valid
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                          {row.date}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={row.label}
+                            onChange={(e) => updateRow(originalIdx, 'label', e.target.value)}
+                            className={`h-8 ${!row.label ? 'border-destructive' : ''}`}
+                            placeholder="Transaction label"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {row.value.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Select 
+                            value={row.category || '__none__'} 
+                            onValueChange={(v) => updateRow(originalIdx, 'category', v === '__none__' ? undefined : v)}
+                          >
+                            <SelectTrigger className="h-8 w-36">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
+                              {activeCategories.map(cat => (
+                                <SelectItem key={cat.id} value={cat.name}>
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="h-3 w-3 rounded-full" 
+                                      style={{ backgroundColor: cat.color }}
+                                    />
+                                    {cat.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </ScrollArea>
 
-            {/* Info box */}
-            {duplicateCount > 0 && (
+            {/* Info boxes */}
+            {dbDuplicateCount > 0 && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
-                <span>{duplicateCount} duplicate(s) detected based on date + label + value. They are deselected by default.</span>
+                <span>{dbDuplicateCount} duplicate(s) already exist in your database. They are shown first and deselected by default.</span>
+              </div>
+            )}
+            
+            {fileDuplicateCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm dark:border-orange-900 dark:bg-orange-950">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <span>{fileDuplicateCount} duplicate(s) found within this file. If you import them, they'll be renamed with a number suffix.</span>
               </div>
             )}
 
@@ -455,7 +565,7 @@ export default function Import() {
 
       {/* Import History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Import History</DialogTitle>
           </DialogHeader>
@@ -466,26 +576,40 @@ export default function Import() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Import Date</TableHead>
+                    <TableHead>Date Range</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Filename</TableHead>
-                    <TableHead>Rows</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Rows</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {importBatches.map(batch => (
                     <TableRow key={batch.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {format(new Date(batch.imported_at), 'MMM dd, yyyy HH:mm')}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{batch.filename}</TableCell>
-                      <TableCell>{batch.row_count}</TableCell>
-                      <TableCell>
-                        <Badge variant={batch.status === 'completed' ? 'default' : 'secondary'}>
-                          {batch.status}
-                        </Badge>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {batch.date_from && batch.date_to ? (
+                          <>
+                            {format(new Date(batch.date_from), 'MMM dd')} - {format(new Date(batch.date_to), 'MMM dd, yyyy')}
+                          </>
+                        ) : (
+                          '-'
+                        )}
                       </TableCell>
+                      <TableCell>
+                        {batch.import_sources?.name ? (
+                          <Badge variant="outline">{batch.import_sources.name}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[150px] truncate font-mono text-sm">
+                        {batch.filename}
+                      </TableCell>
+                      <TableCell className="text-right">{batch.row_count}</TableCell>
                       <TableCell className="text-right">
                         <Button 
                           variant="ghost" 

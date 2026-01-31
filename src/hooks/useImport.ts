@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { parse, isValid, format } from 'date-fns';
+import { parse, isValid, format, isBefore } from 'date-fns';
+import { APP_START_DATE } from '@/constants/app';
 
 export interface ImportRow {
   date: string;
@@ -12,6 +13,8 @@ export interface ImportRow {
   isValid: boolean;
   errors: string[];
   isDuplicate?: boolean;
+  isDuplicateInFile?: boolean;
+  duplicateIndex?: number; // For naming duplicates
 }
 
 export interface ImportBatch {
@@ -21,12 +24,20 @@ export interface ImportBatch {
   row_count: number;
   imported_at: string;
   status: string;
+  source_id: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  import_sources?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface ParsedImportData {
   rows: ImportRow[];
   hasErrors: boolean;
   hasDuplicates: boolean;
+  hasDuplicatesInFile: boolean;
 }
 
 // Date formats to try
@@ -80,18 +91,13 @@ function parseAmount(value: unknown): number | null {
   let strValue = String(value).trim();
   
   // Handle European format (comma as decimal separator)
-  // If there's both comma and period, determine which is decimal
   if (strValue.includes(',') && strValue.includes('.')) {
-    // Period before comma = European (1.234,56)
     if (strValue.lastIndexOf('.') < strValue.lastIndexOf(',')) {
       strValue = strValue.replace(/\./g, '').replace(',', '.');
     } else {
-      // Comma before period = US (1,234.56)
       strValue = strValue.replace(/,/g, '');
     }
   } else if (strValue.includes(',')) {
-    // Just comma - could be decimal or thousand separator
-    // If comma is followed by exactly 2 digits at the end, it's decimal
     if (/,\d{2}$/.test(strValue)) {
       strValue = strValue.replace(',', '.');
     } else {
@@ -104,6 +110,11 @@ function parseAmount(value: unknown): number | null {
   
   const num = parseFloat(strValue);
   return isNaN(num) ? null : num;
+}
+
+// Create a unique key for duplicate detection
+function createRowKey(date: string, label: string, value: number): string {
+  return `${date}|${label.toLowerCase().trim()}|${value}`;
 }
 
 export function useImport() {
@@ -140,18 +151,10 @@ export function useImport() {
             return;
           }
           
-          // Detect date format from first data row
-          let detectedDateFormat: string | null = null;
-          for (let i = 1; i < Math.min(jsonData.length, 5); i++) {
-            const row = jsonData[i] as unknown[];
-            const { format: fmt } = parseDate(row[dateIdx]);
-            if (fmt) {
-              detectedDateFormat = fmt;
-              break;
-            }
-          }
-          
           const rows: ImportRow[] = [];
+          
+          // Track duplicates within file
+          const seenInFile = new Map<string, number>(); // key -> first occurrence index
           
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i] as unknown[];
@@ -163,6 +166,8 @@ export function useImport() {
             const { date } = parseDate(row[dateIdx]);
             if (!date) {
               errors.push('Invalid date format');
+            } else if (isBefore(date, APP_START_DATE)) {
+              errors.push('Date before September 2025 is not allowed');
             }
             
             // Parse label
@@ -182,19 +187,37 @@ export function useImport() {
               ? String(row[categoryIdx]).trim() 
               : undefined;
             
+            const dateStr = date ? format(date, 'yyyy-MM-dd') : '';
+            const rowKey = createRowKey(dateStr, label, value ?? 0);
+            
+            // Check for duplicate within file
+            let isDuplicateInFile = false;
+            let duplicateIndex: number | undefined;
+            
+            if (seenInFile.has(rowKey)) {
+              isDuplicateInFile = true;
+              duplicateIndex = (seenInFile.get(rowKey) || 0) + 1;
+              seenInFile.set(rowKey, duplicateIndex);
+            } else {
+              seenInFile.set(rowKey, 1);
+            }
+            
             rows.push({
-              date: date ? format(date, 'yyyy-MM-dd') : '',
+              date: dateStr,
               label,
               value: value ?? 0,
               category,
               isValid: errors.length === 0,
               errors,
+              isDuplicateInFile,
+              duplicateIndex: isDuplicateInFile ? duplicateIndex : undefined,
             });
           }
           
           const hasErrors = rows.some(r => !r.isValid);
+          const hasDuplicatesInFile = rows.some(r => r.isDuplicateInFile);
           
-          resolve({ rows, hasErrors, hasDuplicates: false });
+          resolve({ rows, hasErrors, hasDuplicates: false, hasDuplicatesInFile });
         } catch (err) {
           reject(err);
         }
@@ -217,58 +240,93 @@ export function useImport() {
     if (!existing) return rows;
     
     const existingSet = new Set(
-      existing.map(t => `${t.payment_date}|${t.original_label}|${t.amount}`)
+      existing.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
     );
     
     return rows.map(row => ({
       ...row,
-      isDuplicate: existingSet.has(`${row.date}|${row.label}|${row.value}`)
+      isDuplicate: existingSet.has(createRowKey(row.date, row.label, row.value))
     }));
   }, [user]);
 
   const importTransactions = useCallback(async (
     rows: ImportRow[],
     filename: string,
-    categoryMap: Record<string, string> // category name -> category id
+    categoryMap: Record<string, string>, // category name (lowercase) -> category id
+    sourceId?: string | null
   ) => {
     if (!user) return { error: 'Not authenticated' };
     
     setLoading(true);
     
     try {
+      // Calculate date range
+      const validRows = rows.filter(r => r.isValid);
+      const dates = validRows.map(r => r.date).filter(Boolean).sort();
+      const dateFrom = dates[0] || null;
+      const dateTo = dates[dates.length - 1] || null;
+      
       // Create import batch
       const { data: batch, error: batchError } = await supabase
         .from('import_batches')
         .insert({
           user_id: user.id,
           filename,
-          row_count: rows.length
+          row_count: validRows.length,
+          source_id: sourceId || null,
+          date_from: dateFrom,
+          date_to: dateTo,
         })
         .select()
         .single();
       
       if (batchError) throw batchError;
       
-      // Prepare transactions
-      const transactions = rows
-        .filter(r => r.isValid && !r.isDuplicate)
-        .map(row => ({
-          user_id: user.id,
-          import_batch_id: batch.id,
-          payment_date: row.date,
-          original_label: row.label,
-          amount: row.value,
-          original_category: row.category || null,
-          category_id: row.category && categoryMap[row.category] ? categoryMap[row.category] : null
-        }));
+      // Prepare transactions with case-insensitive category matching
+      const transactions = validRows
+        .filter(r => !r.isDuplicate)
+        .map(row => {
+          // Find category by case-insensitive match
+          let categoryId: string | null = null;
+          if (row.category) {
+            const categoryLower = row.category.toLowerCase().trim();
+            categoryId = categoryMap[categoryLower] || null;
+          }
+          
+          // Handle duplicate naming within file
+          let label = row.label;
+          if (row.isDuplicateInFile && row.duplicateIndex) {
+            label = `${row.label} (${row.duplicateIndex})`;
+          }
+          
+          return {
+            user_id: user.id,
+            import_batch_id: batch.id,
+            payment_date: row.date,
+            original_label: label,
+            amount: row.value,
+            original_category: row.category || null,
+            category_id: categoryId,
+          };
+        });
       
       if (transactions.length > 0) {
         const { error: insertError } = await supabase
           .from('transactions')
           .insert(transactions);
         
-        if (insertError) throw insertError;
+        if (insertError) {
+          // Rollback: delete the batch if insert fails
+          await supabase.from('import_batches').delete().eq('id', batch.id);
+          throw insertError;
+        }
       }
+      
+      // Update batch row_count with actual imported count
+      await supabase
+        .from('import_batches')
+        .update({ row_count: transactions.length })
+        .eq('id', batch.id);
       
       setLoading(false);
       return { data: batch, imported: transactions.length };
@@ -283,14 +341,20 @@ export function useImport() {
     
     const { data, error } = await supabase
       .from('import_batches')
-      .select('*')
+      .select(`
+        *,
+        import_sources (
+          id,
+          name
+        )
+      `)
       .eq('user_id', user.id)
       .order('imported_at', { ascending: false });
     
     if (error) {
       console.error('Error fetching import batches:', error);
     } else {
-      setImportBatches(data || []);
+      setImportBatches((data || []) as ImportBatch[]);
     }
   }, [user]);
 
@@ -308,16 +372,25 @@ export function useImport() {
     return {};
   }, []);
 
-  const generateTemplate = useCallback(() => {
-    const ws = XLSX.utils.aoa_to_sheet([
+  const generateTemplate = useCallback(async (categories: { name: string; type: string; color: string }[]) => {
+    // Transaction sheet
+    const wsTransactions = XLSX.utils.aoa_to_sheet([
       ['date', 'label', 'value', 'category'],
-      ['2024-01-15', 'Grocery shopping', '-85.50', 'Food'],
-      ['2024-01-16', 'Monthly salary', '3500.00', 'Income'],
-      ['2024-01-17', 'Electric bill', '-120.00', 'Utilities'],
+      ['2025-09-15', 'Grocery shopping', '-85.50', 'Food'],
+      ['2025-09-16', 'Monthly salary', '3500.00', 'Income'],
+      ['2025-09-17', 'Electric bill', '-120.00', 'Utilities'],
     ]);
     
+    // Categories sheet
+    const categoryRows = [
+      ['Category Name', 'Type', 'Color'],
+      ...categories.map(c => [c.name, c.type, c.color])
+    ];
+    const wsCategories = XLSX.utils.aoa_to_sheet(categoryRows);
+    
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transactions');
+    XLSX.utils.book_append_sheet(wb, wsCategories, 'Categories');
     
     XLSX.writeFile(wb, 'fintrack-import-template.xlsx');
   }, []);

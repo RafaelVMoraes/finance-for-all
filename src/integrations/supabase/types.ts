@@ -84,27 +84,65 @@ export type Database = {
       }
       import_batches: {
         Row: {
+          date_from: string | null
+          date_to: string | null
           filename: string
           id: string
           imported_at: string
           row_count: number
+          source_id: string | null
           status: string
           user_id: string
         }
         Insert: {
+          date_from?: string | null
+          date_to?: string | null
           filename: string
           id?: string
           imported_at?: string
           row_count?: number
+          source_id?: string | null
           status?: string
           user_id: string
         }
         Update: {
+          date_from?: string | null
+          date_to?: string | null
           filename?: string
           id?: string
           imported_at?: string
           row_count?: number
+          source_id?: string | null
           status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_sources: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           user_id?: string
         }
         Relationships: []

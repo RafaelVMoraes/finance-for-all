@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfMonth, endOfMonth, format, isBefore } from 'date-fns';
+import { APP_START_DATE } from '@/constants/app';
 
 export interface Transaction {
   id: string;
@@ -32,6 +33,13 @@ export interface TransactionFilters {
   maxAmount?: number;
 }
 
+export interface NewTransaction {
+  payment_date: string;
+  label: string;
+  amount: number;
+  category_id?: string | null;
+}
+
 export function useTransactions(filters?: TransactionFilters) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,9 +50,14 @@ export function useTransactions(filters?: TransactionFilters) {
     
     setLoading(true);
     
-    // Default to current month if no date filter
-    const dateFrom = filters?.dateFrom || startOfMonth(new Date());
+    // Default to current month if no date filter, but ensure it's not before APP_START_DATE
+    let dateFrom = filters?.dateFrom || startOfMonth(new Date());
     const dateTo = filters?.dateTo || endOfMonth(new Date());
+    
+    // Enforce minimum date
+    if (isBefore(dateFrom, APP_START_DATE)) {
+      dateFrom = APP_START_DATE;
+    }
     
     let query = supabase
       .from('transactions')
@@ -97,9 +110,48 @@ export function useTransactions(filters?: TransactionFilters) {
     fetchTransactions();
   }, [fetchTransactions]);
 
+  const createTransaction = useCallback(async (newTx: NewTransaction) => {
+    if (!user) return { error: 'Not authenticated' };
+    
+    // Validate date
+    const txDate = new Date(newTx.payment_date);
+    if (isBefore(txDate, APP_START_DATE)) {
+      return { error: 'Date cannot be before September 2025' };
+    }
+    
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: user.id,
+        payment_date: newTx.payment_date,
+        original_label: newTx.label,
+        amount: newTx.amount,
+        category_id: newTx.category_id || null,
+      })
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          color,
+          type
+        )
+      `)
+      .single();
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    setTransactions(prev => [data, ...prev].sort((a, b) => 
+      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+    ));
+    return { data };
+  }, [user]);
+
   const updateTransaction = useCallback(async (
     id: string,
-    updates: { edited_label?: string; category_id?: string | null }
+    updates: { edited_label?: string | null; category_id?: string | null }
   ) => {
     const { data, error } = await supabase
       .from('transactions')
@@ -146,6 +198,7 @@ export function useTransactions(filters?: TransactionFilters) {
     loading,
     completeCount,
     incompleteCount,
+    createTransaction,
     updateTransaction,
     deleteTransaction,
     refetch: fetchTransactions,
