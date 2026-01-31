@@ -23,27 +23,58 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Calendar as CalendarIcon, Check, AlertCircle, Pencil, X } from 'lucide-react';
+import { Search, Filter, Calendar as CalendarIcon, Check, AlertCircle, Pencil, X, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTransactions, TransactionFilters } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { APP_START_DATE, APP_START_DATE_STRING } from '@/constants/app';
 
 export default function Transactions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [completionFilter, setCompletionFilter] = useState<'all' | 'complete' | 'incomplete'>('all');
-  const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(new Date()));
+  const [dateFrom, setDateFrom] = useState<Date>(() => {
+    const start = startOfMonth(new Date());
+    return isBefore(start, APP_START_DATE) ? APP_START_DATE : start;
+  });
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [minAmount, setMinAmount] = useState<string>('');
   const [maxAmount, setMaxAmount] = useState<string>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
+  
+  // Add transaction modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newDate, setNewDate] = useState<Date | undefined>(new Date());
+  const [newLabel, setNewLabel] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
+  
+  // Delete confirmation
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -61,10 +92,12 @@ export default function Transactions() {
     loading, 
     completeCount, 
     incompleteCount,
-    updateTransaction 
+    createTransaction,
+    updateTransaction,
+    deleteTransaction,
   } = useTransactions(filters);
   
-  const { categories, activeCategories, loading: categoriesLoading } = useCategories();
+  const { activeCategories, loading: categoriesLoading } = useCategories();
 
   // Filter by search term
   const filteredTransactions = useMemo(() => {
@@ -93,7 +126,7 @@ export default function Transactions() {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
     
-    const updates: { edited_label?: string; category_id?: string | null } = {};
+    const updates: { edited_label?: string | null; category_id?: string | null } = {};
     
     // Only set edited_label if it changed from original
     if (editLabel !== tx.original_label) {
@@ -134,6 +167,70 @@ export default function Transactions() {
     }
   };
 
+  const handleAddTransaction = async () => {
+    if (!newDate || !newLabel.trim() || !newAmount) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing fields',
+        description: 'Please fill in date, label, and amount',
+      });
+      return;
+    }
+    
+    const amount = parseFloat(newAmount);
+    if (isNaN(amount)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid amount',
+        description: 'Please enter a valid number',
+      });
+      return;
+    }
+    
+    const result = await createTransaction({
+      payment_date: format(newDate, 'yyyy-MM-dd'),
+      label: newLabel.trim(),
+      amount,
+      category_id: newCategoryId,
+    });
+    
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to add transaction',
+        description: result.error,
+      });
+    } else {
+      toast({
+        title: 'Transaction added',
+      });
+      // Reset form
+      setNewDate(new Date());
+      setNewLabel('');
+      setNewAmount('');
+      setNewCategoryId(null);
+      setShowAddModal(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    
+    const result = await deleteTransaction(deleteId);
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to delete',
+        description: result.error,
+      });
+    } else {
+      toast({
+        title: 'Transaction deleted',
+      });
+    }
+    setDeleteId(null);
+  };
+
   const completionRate = transactions.length > 0 
     ? Math.round((completeCount / transactions.length) * 100) 
     : 0;
@@ -146,7 +243,11 @@ export default function Transactions() {
           <Badge variant={incompleteCount > 0 ? 'destructive' : 'default'}>
             {completionRate}% Complete
           </Badge>
-          <Button asChild>
+          <Button onClick={() => setShowAddModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Transaction
+          </Button>
+          <Button variant="outline" asChild>
             <Link to="/import">Import</Link>
           </Button>
         </div>
@@ -214,9 +315,13 @@ export default function Transactions() {
                   mode="range"
                   selected={{ from: dateFrom, to: dateTo }}
                   onSelect={(range) => {
-                    if (range?.from) setDateFrom(range.from);
+                    if (range?.from) {
+                      // Enforce minimum date
+                      setDateFrom(isBefore(range.from, APP_START_DATE) ? APP_START_DATE : range.from);
+                    }
                     if (range?.to) setDateTo(range.to);
                   }}
+                  disabled={(date) => isBefore(date, APP_START_DATE)}
                   numberOfMonths={2}
                 />
               </PopoverContent>
@@ -268,9 +373,15 @@ export default function Transactions() {
           ) : filteredTransactions.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">No transactions found.</p>
-              <Button className="mt-4" asChild>
-                <Link to="/import">Import your first transactions</Link>
-              </Button>
+              <div className="mt-4 flex justify-center gap-2">
+                <Button onClick={() => setShowAddModal(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Transaction
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/import">Import from Excel</Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -282,7 +393,7 @@ export default function Transactions() {
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-16">Status</TableHead>
-                    <TableHead className="w-16">Actions</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -408,14 +519,24 @@ export default function Transactions() {
                               </Button>
                             </div>
                           ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7"
-                              onClick={() => startEdit(tx)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7"
+                                onClick={() => startEdit(tx)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteId(tx.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -427,6 +548,117 @@ export default function Transactions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Transaction Modal */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newDate ? format(newDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newDate}
+                    onSelect={setNewDate}
+                    disabled={(date) => isBefore(date, APP_START_DATE) || date > new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Only dates from {APP_START_DATE_STRING} onwards
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-label">Label</Label>
+              <Input
+                id="new-label"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="e.g., Grocery shopping"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-amount">Amount (€)</Label>
+              <Input
+                id="new-amount"
+                type="number"
+                step="0.01"
+                value={newAmount}
+                onChange={(e) => setNewAmount(e.target.value)}
+                placeholder="e.g., -50.00 or 1500.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use negative for expenses, positive for income
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Category (optional)</Label>
+              <Select 
+                value={newCategoryId || '__none__'} 
+                onValueChange={(v) => setNewCategoryId(v === '__none__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {activeCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="h-3 w-3 rounded-full" 
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        {cat.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddTransaction}>
+              Add Transaction
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this transaction? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

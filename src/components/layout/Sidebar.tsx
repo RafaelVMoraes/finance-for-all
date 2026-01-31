@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -100,6 +101,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {user?.email}
           </div>
         )}
+        
+        {/* Delete account option */}
+        {!collapsed && (
+          <div className="mb-2">
+            <DeleteAccountDialog />
+          </div>
+        )}
+        
         {collapsed ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
