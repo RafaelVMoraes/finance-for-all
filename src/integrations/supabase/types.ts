@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           category_id: string
           created_at: string
+          distribution: string
           expected_amount: number
           id: string
           updated_at: string
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           category_id: string
           created_at?: string
+          distribution?: string
           expected_amount?: number
           id?: string
           updated_at?: string
@@ -34,6 +36,7 @@ export type Database = {
         Update: {
           category_id?: string
           created_at?: string
+          distribution?: string
           expected_amount?: number
           id?: string
           updated_at?: string
@@ -77,6 +80,39 @@ export type Database = {
           id?: string
           name?: string
           type?: Database["public"]["Enums"]["category_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exchange_rates: {
+        Row: {
+          created_at: string
+          from_currency: string
+          id: string
+          month: string
+          rate: number
+          to_currency: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_currency: string
+          id?: string
+          month: string
+          rate: number
+          to_currency: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_currency?: string
+          id?: string
+          month?: string
+          rate?: number
+          to_currency?: string
           updated_at?: string
           user_id?: string
         }
@@ -149,6 +185,7 @@ export type Database = {
       }
       investment_snapshots: {
         Row: {
+          confirmed: boolean
           created_at: string
           id: string
           investment_id: string
@@ -156,6 +193,7 @@ export type Database = {
           total_value: number
         }
         Insert: {
+          confirmed?: boolean
           created_at?: string
           id?: string
           investment_id: string
@@ -163,6 +201,7 @@ export type Database = {
           total_value: number
         }
         Update: {
+          confirmed?: boolean
           created_at?: string
           id?: string
           investment_id?: string
@@ -179,6 +218,33 @@ export type Database = {
           },
         ]
       }
+      investment_types: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       investments: {
         Row: {
           created_at: string
@@ -188,6 +254,7 @@ export type Database = {
           investment_type: string
           monthly_contribution: number
           name: string
+          start_month: string | null
           updated_at: string
           user_id: string
         }
@@ -199,6 +266,7 @@ export type Database = {
           investment_type: string
           monthly_contribution?: number
           name: string
+          start_month?: string | null
           updated_at?: string
           user_id: string
         }
@@ -210,6 +278,7 @@ export type Database = {
           investment_type?: string
           monthly_contribution?: number
           name?: string
+          start_month?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -319,6 +388,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          id: string
+          main_currency: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          main_currency?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          main_currency?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
