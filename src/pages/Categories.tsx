@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,21 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Archive, Check, X, ArchiveRestore } from 'lucide-react';
+import { Plus, Pencil, Archive, Check, X, ArchiveRestore, ArrowLeft } from 'lucide-react';
 import { useCategories, PRESET_COLORS, Category } from '@/hooks/useCategories';
+import { useBudgets } from '@/hooks/useBudgets';
 import { useToast } from '@/hooks/use-toast';
 import { CategoryType } from '@/types/finance';
+import { Link } from 'react-router-dom';
+
+type BudgetDistribution = 'even' | 'front' | 'back' | 'custom';
+
+const DISTRIBUTION_OPTIONS: { value: BudgetDistribution; label: string; description: string }[] = [
+  { value: 'even', label: 'Even', description: 'Spread equally across weeks' },
+  { value: 'front', label: 'Front-loaded', description: 'More spending early in month' },
+  { value: 'back', label: 'Back-loaded', description: 'More spending late in month' },
+  { value: 'custom', label: 'Custom', description: 'Define your own pattern' },
+];
 
 export default function Categories() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -31,20 +42,33 @@ export default function Categories() {
     name: '',
     type: 'variable' as CategoryType,
     color: PRESET_COLORS[0],
+    budget: 0,
+    distribution: 'even' as BudgetDistribution,
   });
 
   const { 
     categories, 
     activeCategories, 
-    loading, 
+    loading: categoriesLoading, 
     canAddMore,
     createCategory, 
     updateCategory,
-    deleteCategory 
   } = useCategories();
+  const { budgets, upsertBudget, loading: budgetsLoading } = useBudgets();
   const { toast } = useToast();
 
+  const loading = categoriesLoading || budgetsLoading;
   const archivedCategories = categories.filter(c => c.archived);
+
+  const getBudgetAmount = useCallback((categoryId: string) => {
+    const budget = budgets.find(b => b.category_id === categoryId);
+    return budget?.expected_amount || 0;
+  }, [budgets]);
+
+  const getBudgetDistribution = useCallback((categoryId: string): BudgetDistribution => {
+    const budget = budgets.find(b => b.category_id === categoryId);
+    return ((budget as any)?.distribution || 'even') as BudgetDistribution;
+  }, [budgets]);
 
   const handleCreateCategory = async () => {
     if (!formData.name.trim()) {
@@ -64,13 +88,17 @@ export default function Categories() {
         title: 'Failed to create category',
         description: result.error,
       });
-    } else {
+    } else if (result.data) {
+      // Set budget if provided
+      if (formData.budget > 0) {
+        await upsertBudget(result.data.id, formData.budget);
+      }
       toast({
         title: 'Category created',
         description: `${formData.name} has been added`,
       });
       setIsDialogOpen(false);
-      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0] });
+      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
     }
   };
 
@@ -80,12 +108,14 @@ export default function Categories() {
       name: cat.name,
       type: cat.type,
       color: cat.color,
+      budget: getBudgetAmount(cat.id),
+      distribution: getBudgetDistribution(cat.id),
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0] });
+    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
   };
 
   const saveEdit = async (id: string) => {
@@ -110,6 +140,8 @@ export default function Categories() {
         description: result.error,
       });
     } else {
+      // Update budget
+      await upsertBudget(id, formData.budget);
       toast({ title: 'Category updated' });
     }
     
@@ -138,7 +170,6 @@ export default function Categories() {
     income: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
   };
 
-  // Get next available color
   const getNextColor = () => {
     const usedColors = new Set(activeCategories.map(c => c.color));
     return PRESET_COLORS.find(c => !usedColors.has(c)) || PRESET_COLORS[0];
@@ -149,6 +180,8 @@ export default function Categories() {
       name: '',
       type: 'variable',
       color: getNextColor(),
+      budget: 0,
+      distribution: 'even',
     });
     setIsDialogOpen(true);
   };
@@ -164,11 +197,18 @@ export default function Categories() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Categories</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeCategories.length}/15 categories used
-          </p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/budget">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Categories & Budgets</h1>
+            <p className="text-sm text-muted-foreground">
+              {activeCategories.length}/15 categories used
+            </p>
+          </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -224,20 +264,37 @@ export default function Categories() {
                     />
                   ))}
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="h-10 w-14 cursor-pointer p-1"
-                  />
-                  <Input
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    placeholder="#6366f1"
-                    className="flex-1"
-                  />
-                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="budget">Monthly Budget (€)</Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Weekly Distribution</Label>
+                <Select 
+                  value={formData.distribution} 
+                  onValueChange={(value: BudgetDistribution) => setFormData({ ...formData, distribution: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISTRIBUTION_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div>
+                          <span className="font-medium">{opt.label}</span>
+                          <span className="text-xs text-muted-foreground ml-2">- {opt.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button className="w-full" onClick={handleCreateCategory}>
                 Create Category
@@ -262,6 +319,8 @@ export default function Categories() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {activeCategories.map((cat) => {
           const isEditing = editingId === cat.id;
+          const budgetAmount = getBudgetAmount(cat.id);
+          const distribution = getBudgetDistribution(cat.id);
           
           return (
             <Card key={cat.id} className="relative">
@@ -301,6 +360,28 @@ export default function Categories() {
                         />
                       ))}
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Budget (€)</Label>
+                      <Input
+                        type="number"
+                        value={formData.budget}
+                        onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
+                        className="h-8"
+                      />
+                    </div>
+                    <Select 
+                      value={formData.distribution} 
+                      onValueChange={(v: BudgetDistribution) => setFormData({ ...formData, distribution: v })}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DISTRIBUTION_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
@@ -313,53 +394,61 @@ export default function Categories() {
                 )}
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
-                  {!isEditing && (
-                    <Badge className={typeColors[cat.type]}>
-                      {cat.type}
-                    </Badge>
+                {!isEditing && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge className={typeColors[cat.type]}>
+                        {cat.type}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        €{budgetAmount.toLocaleString()}/mo
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Distribution: {DISTRIBUTION_OPTIONS.find(d => d.value === distribution)?.label || 'Even'}
+                    </p>
+                  </>
+                )}
+                <div className="flex gap-1 mt-2 justify-end">
+                  {isEditing ? (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => saveEdit(cat.id)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={cancelEdit}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => startEdit(cat)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => toggleArchive(cat)}
+                      >
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
-                  <div className="flex gap-1 ml-auto">
-                    {isEditing ? (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => saveEdit(cat.id)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={cancelEdit}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => startEdit(cat)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => toggleArchive(cat)}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
                 </div>
               </CardContent>
             </Card>

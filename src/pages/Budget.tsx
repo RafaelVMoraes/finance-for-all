@@ -1,144 +1,33 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Check, X, TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useBudgets } from '@/hooks/useBudgets';
-import { useCategories, Category } from '@/hooks/useCategories';
+import { useCategories } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-
-// Props for the category budget card
-interface CategoryBudgetCardProps {
-  category: Category;
-  expected: number;
-  spent: number;
-  isEditing: boolean;
-  tempBudgetAmount: number;
-  onTempBudgetChange: (value: number) => void;
-  onStartEdit: () => void;
-  onSave: () => void;
-  onCancel: () => void;
-}
-
-// Moved outside to prevent re-creation on each render
-function CategoryBudgetCard({
-  category,
-  expected,
-  spent,
-  isEditing,
-  tempBudgetAmount,
-  onTempBudgetChange,
-  onStartEdit,
-  onSave,
-  onCancel,
-}: CategoryBudgetCardProps) {
-  const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
-  const remaining = expected - spent;
-
-  const getProgressColor = (spentAmount: number, expectedAmount: number) => {
-    if (expectedAmount === 0) return 'bg-muted';
-    const pct = (spentAmount / expectedAmount) * 100;
-    if (pct >= 100) return 'bg-destructive';
-    if (pct >= 85) return 'bg-amber-500';
-    return 'bg-emerald-500';
-  };
-
-  return (
-    <div className="space-y-2 rounded-lg border p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div 
-            className="h-3 w-3 rounded-full flex-shrink-0" 
-            style={{ backgroundColor: category.color }}
-          />
-          <span className="font-medium">{category.name}</span>
-        </div>
-        {isEditing ? (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <Input
-              type="number"
-              value={tempBudgetAmount}
-              onChange={(e) => onTempBudgetChange(Number(e.target.value))}
-              className="h-8 w-24"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onSave();
-                if (e.key === 'Escape') onCancel();
-              }}
-            />
-            <Button size="sm" variant="ghost" onClick={onSave}>
-              <Check className="h-4 w-4 text-emerald-600" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onCancel}>
-              <X className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Budget:</span>
-            <span className="font-medium">€{expected.toFixed(0)}</span>
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-6 w-6 p-0"
-              onClick={onStartEdit}
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
-          </div>
-        )}
-      </div>
-      {expected > 0 && (
-        <>
-          <Progress 
-            value={percent} 
-            className={`h-2 ${getProgressColor(spent, expected)}`}
-          />
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">
-              €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
-            </span>
-            <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-              {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
-            </span>
-          </div>
-        </>
-      )}
-      {expected === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Click the pencil to set a budget
-        </p>
-      )}
-    </div>
-  );
-}
+import { APP_START_DATE } from '@/constants/app';
+import { Link } from 'react-router-dom';
 
 export default function Budget() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [editingIncome, setEditingIncome] = useState(false);
-  const [tempIncome, setTempIncome] = useState(0);
-  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
-  const [tempBudgetAmount, setTempBudgetAmount] = useState(0);
 
-  const { toast } = useToast();
-  const { budgets, monthlySettings, loading: budgetsLoading, upsertBudget, updateExpectedIncome } = useBudgets({ month: selectedMonth });
+  const { budgets, loading: budgetsLoading } = useBudgets({ month: selectedMonth });
   const { activeCategories, loading: categoriesLoading } = useCategories();
   const { transactions } = useTransactions({
     dateFrom: startOfMonth(selectedMonth),
     dateTo: endOfMonth(selectedMonth),
   });
 
-  // Month navigation
+  // Month navigation with minimum date check
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
-    setSelectedMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
-    // Reset editing state when changing months
-    setEditingBudgetId(null);
-    setEditingIncome(false);
-  }, []);
+    const newMonth = direction === 'prev' ? subMonths(selectedMonth, 1) : addMonths(selectedMonth, 1);
+    if (newMonth >= APP_START_DATE) {
+      setSelectedMonth(newMonth);
+    }
+  }, [selectedMonth]);
 
   // Calculate spent per category
   const spentByCategory = useMemo(() => {
@@ -151,11 +40,19 @@ export default function Budget() {
     return result;
   }, [transactions]);
 
-  // Calculate totals by type
-  const { fixedCategories, variableCategories } = useMemo(() => {
+  // Calculate actual income
+  const actualIncome = useMemo(() => {
+    return transactions
+      .filter(tx => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions]);
+
+  // Calculate categories by type
+  const { fixedCategories, variableCategories, incomeCategories } = useMemo(() => {
     const fixed = activeCategories.filter(c => c.type === 'fixed');
     const variable = activeCategories.filter(c => c.type === 'variable');
-    return { fixedCategories: fixed, variableCategories: variable };
+    const income = activeCategories.filter(c => c.type === 'income');
+    return { fixedCategories: fixed, variableCategories: variable, incomeCategories: income };
   }, [activeCategories]);
 
   const getBudgetAmount = useCallback((categoryId: string) => {
@@ -163,7 +60,11 @@ export default function Budget() {
     return budget?.expected_amount || 0;
   }, [budgets]);
 
-  const expectedIncome = monthlySettings?.expected_income || 0;
+  // Expected income is now sum of income category budgets
+  const expectedIncome = useMemo(() => 
+    incomeCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0),
+    [incomeCategories, getBudgetAmount]
+  );
   
   const totalFixedBudget = useMemo(() => 
     fixedCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0), 
@@ -183,48 +84,15 @@ export default function Budget() {
   );
   
   const estimatedSavings = expectedIncome - totalFixedBudget - totalVariableBudget;
-  const actualSavings = expectedIncome - totalFixedSpent - totalVariableSpent;
+  const actualSavings = actualIncome - totalFixedSpent - totalVariableSpent;
 
-  const handleSaveIncome = useCallback(async () => {
-    const result = await updateExpectedIncome(tempIncome);
-    if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to update income',
-        description: result.error,
-      });
-    } else {
-      toast({ title: 'Expected income updated' });
-    }
-    setEditingIncome(false);
-  }, [tempIncome, updateExpectedIncome, toast]);
-
-  const startEditBudget = useCallback((categoryId: string) => {
-    setEditingBudgetId(categoryId);
-    setTempBudgetAmount(getBudgetAmount(categoryId));
-  }, [getBudgetAmount]);
-
-  const cancelEditBudget = useCallback(() => {
-    setEditingBudgetId(null);
-    setTempBudgetAmount(0);
-  }, []);
-
-  const saveBudget = useCallback(async () => {
-    if (!editingBudgetId) return;
-    
-    const result = await upsertBudget(editingBudgetId, tempBudgetAmount);
-    if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to update budget',
-        description: result.error,
-      });
-    } else {
-      toast({ title: 'Budget updated' });
-    }
-    setEditingBudgetId(null);
-    setTempBudgetAmount(0);
-  }, [editingBudgetId, tempBudgetAmount, upsertBudget, toast]);
+  const getProgressColor = (spent: number, expected: number) => {
+    if (expected === 0) return 'bg-muted';
+    const pct = (spent / expected) * 100;
+    if (pct >= 100) return 'bg-destructive';
+    if (pct >= 85) return 'bg-amber-500';
+    return 'bg-emerald-500';
+  };
 
   if (budgetsLoading || categoriesLoading) {
     return (
@@ -238,9 +106,14 @@ export default function Budget() {
     <div className="space-y-6">
       {/* Header with Month Navigation */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Budget Planning</h1>
+        <h1 className="text-3xl font-bold text-foreground">Budget Overview</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigateMonth('prev')}>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => navigateMonth('prev')}
+            disabled={subMonths(selectedMonth, 1) < APP_START_DATE}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Badge variant="outline" className="min-w-[140px] justify-center text-sm">
@@ -252,9 +125,19 @@ export default function Budget() {
         </div>
       </div>
 
+      {/* Edit Categories Button */}
+      <div className="flex justify-end">
+        <Button asChild>
+          <Link to="/categories">
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit Categories & Budgets
+          </Link>
+        </Button>
+      </div>
+
       {/* Income & Savings Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Expected Income - Yellow/Mustard */}
+        {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -263,40 +146,16 @@ export default function Budget() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {editingIncome ? (
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  value={tempIncome}
-                  onChange={(e) => setTempIncome(Number(e.target.value))}
-                  className="h-9"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveIncome();
-                    if (e.key === 'Escape') setEditingIncome(false);
-                  }}
-                />
-                <Button size="sm" onClick={handleSaveIncome}>
-                  <Check className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-                  €{expectedIncome.toLocaleString()}
-                </span>
-                <Button variant="ghost" size="icon" onClick={() => {
-                  setTempIncome(expectedIncome);
-                  setEditingIncome(true);
-                }}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+              €{expectedIncome.toLocaleString()}
+            </div>
+            <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
+              Real: €{actualIncome.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
 
-        {/* Fixed Expenses - Dark Red */}
+        {/* Fixed Expenses */}
         <Card className="border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
@@ -314,7 +173,7 @@ export default function Budget() {
           </CardContent>
         </Card>
 
-        {/* Variable Expenses - Dark Red */}
+        {/* Variable Expenses */}
         <Card className="border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
@@ -332,7 +191,7 @@ export default function Budget() {
           </CardContent>
         </Card>
 
-        {/* Savings - Green */}
+        {/* Savings */}
         <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -361,20 +220,48 @@ export default function Budget() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            {fixedCategories.map(cat => (
-              <CategoryBudgetCard 
-                key={cat.id} 
-                category={cat}
-                expected={getBudgetAmount(cat.id)}
-                spent={spentByCategory[cat.id] || 0}
-                isEditing={editingBudgetId === cat.id}
-                tempBudgetAmount={tempBudgetAmount}
-                onTempBudgetChange={setTempBudgetAmount}
-                onStartEdit={() => startEditBudget(cat.id)}
-                onSave={saveBudget}
-                onCancel={cancelEditBudget}
-              />
-            ))}
+            {fixedCategories.map(cat => {
+              const expected = getBudgetAmount(cat.id);
+              const spent = spentByCategory[cat.id] || 0;
+              const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
+              const remaining = expected - spent;
+
+              return (
+                <div key={cat.id} className="space-y-2 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-3 w-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="font-medium">{cat.name}</span>
+                    </div>
+                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                  </div>
+                  {expected > 0 && (
+                    <>
+                      <Progress 
+                        value={percent} 
+                        className={`h-2 ${getProgressColor(spent, expected)}`}
+                      />
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                        </span>
+                        <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+                          {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {expected === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No budget set
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -389,20 +276,87 @@ export default function Budget() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            {variableCategories.map(cat => (
-              <CategoryBudgetCard 
-                key={cat.id} 
-                category={cat}
-                expected={getBudgetAmount(cat.id)}
-                spent={spentByCategory[cat.id] || 0}
-                isEditing={editingBudgetId === cat.id}
-                tempBudgetAmount={tempBudgetAmount}
-                onTempBudgetChange={setTempBudgetAmount}
-                onStartEdit={() => startEditBudget(cat.id)}
-                onSave={saveBudget}
-                onCancel={cancelEditBudget}
-              />
-            ))}
+            {variableCategories.map(cat => {
+              const expected = getBudgetAmount(cat.id);
+              const spent = spentByCategory[cat.id] || 0;
+              const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
+              const remaining = expected - spent;
+
+              return (
+                <div key={cat.id} className="space-y-2 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-3 w-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="font-medium">{cat.name}</span>
+                    </div>
+                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                  </div>
+                  {expected > 0 && (
+                    <>
+                      <Progress 
+                        value={percent} 
+                        className={`h-2 ${getProgressColor(spent, expected)}`}
+                      />
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                        </span>
+                        <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+                          {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {expected === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No budget set
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Income Categories */}
+      {incomeCategories.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              Expected Income Sources
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {incomeCategories.map(cat => {
+              const expected = getBudgetAmount(cat.id);
+              // For income, calculate actual received
+              const actual = transactions
+                .filter(tx => tx.category_id === cat.id && tx.amount > 0)
+                .reduce((sum, tx) => sum + tx.amount, 0);
+
+              return (
+                <div key={cat.id} className="space-y-2 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-3 w-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="font-medium">{cat.name}</span>
+                    </div>
+                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Received: €{actual.toFixed(2)}
+                  </p>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -416,7 +370,7 @@ export default function Budget() {
               Create categories first to set up your budget.
             </p>
             <Button className="mt-4" asChild>
-              <a href="/categories">Create Categories</a>
+              <Link to="/categories">Create Categories</Link>
             </Button>
           </CardContent>
         </Card>

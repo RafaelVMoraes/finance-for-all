@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
   Receipt, 
-  Tags, 
   Target, 
   TrendingUp,
   Upload,
@@ -19,7 +18,6 @@ import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/transactions', label: 'Transactions', icon: Receipt },
-  { path: '/categories', label: 'Categories', icon: Tags },
   { path: '/budget', label: 'Budget', icon: Target },
   { path: '/investments', label: 'Investments', icon: TrendingUp },
   { path: '/import', label: 'Import', icon: Upload },
