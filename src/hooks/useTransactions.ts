@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { startOfMonth, endOfMonth, format, isBefore } from 'date-fns';
@@ -40,15 +40,64 @@ export interface NewTransaction {
   category_id?: string | null;
 }
 
+// Keyset pagination cursor
+export interface TransactionCursor {
+  payment_date: string;
+  id: string;
+}
+
+const PAGE_SIZE = 50;
+
+// Explicit columns to select (avoids SELECT *)
+const TRANSACTION_COLUMNS = `
+  id,
+  user_id,
+  import_batch_id,
+  payment_date,
+  original_label,
+  edited_label,
+  amount,
+  original_category,
+  category_id,
+  created_at,
+  updated_at,
+  categories (
+    id,
+    name,
+    color,
+    type
+  )
+`;
+
 export function useTransactions(filters?: TransactionFilters) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
   const { user } = useAuthContext();
+  
+  // Use ref to track cursor for keyset pagination
+  const cursorRef = useRef<TransactionCursor | null>(null);
+  const isLoadingMoreRef = useRef(false);
 
-  const fetchTransactions = useCallback(async () => {
+  // Reset pagination when filters change
+  const resetPagination = useCallback(() => {
+    cursorRef.current = null;
+    setHasMore(true);
+    setTransactions([]);
+  }, []);
+
+  const fetchTransactions = useCallback(async (loadMore = false) => {
     if (!user) return;
     
-    setLoading(true);
+    // Prevent concurrent requests
+    if (loadMore && isLoadingMoreRef.current) return;
+    
+    if (!loadMore) {
+      resetPagination();
+      setLoading(true);
+    } else {
+      isLoadingMoreRef.current = true;
+    }
     
     // Default to current month if no date filter, but ensure it's not before APP_START_DATE
     let dateFrom = filters?.dateFrom || startOfMonth(new Date());
@@ -59,26 +108,34 @@ export function useTransactions(filters?: TransactionFilters) {
       dateFrom = APP_START_DATE;
     }
     
+    // Build optimized query with keyset pagination
+    // Uses composite index: (user_id, payment_date DESC, id DESC)
     let query = supabase
       .from('transactions')
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          color,
-          type
-        )
-      `)
+      .select(TRANSACTION_COLUMNS)
       .eq('user_id', user.id)
       .gte('payment_date', format(dateFrom, 'yyyy-MM-dd'))
       .lte('payment_date', format(dateTo, 'yyyy-MM-dd'))
-      .order('payment_date', { ascending: false });
+      .order('payment_date', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE);
 
+    // Apply keyset pagination cursor (replaces OFFSET)
+    if (loadMore && cursorRef.current) {
+      // Keyset pagination: get records after the cursor
+      // This is much faster than OFFSET as it uses index directly
+      query = query.or(
+        `payment_date.lt.${cursorRef.current.payment_date},` +
+        `and(payment_date.eq.${cursorRef.current.payment_date},id.lt.${cursorRef.current.id})`
+      );
+    }
+
+    // Apply category filter (uses idx_transactions_user_category)
     if (filters?.categoryId) {
       query = query.eq('category_id', filters.categoryId);
     }
 
+    // Apply amount filters
     if (filters?.minAmount !== undefined) {
       query = query.gte('amount', filters.minAmount);
     }
@@ -91,23 +148,52 @@ export function useTransactions(filters?: TransactionFilters) {
 
     if (error) {
       console.error('Error fetching transactions:', error);
+      setLoading(false);
+      isLoadingMoreRef.current = false;
+      return;
+    }
+
+    let filtered = data || [];
+    
+    // Filter by completion status (client-side for flexibility)
+    if (filters?.completionStatus === 'complete') {
+      filtered = filtered.filter(t => t.category_id !== null);
+    } else if (filters?.completionStatus === 'incomplete') {
+      filtered = filtered.filter(t => t.category_id === null);
+    }
+    
+    // Update cursor for next page
+    if (filtered.length > 0) {
+      const lastItem = filtered[filtered.length - 1];
+      cursorRef.current = {
+        payment_date: lastItem.payment_date,
+        id: lastItem.id,
+      };
+    }
+    
+    // Check if there are more records
+    setHasMore(filtered.length === PAGE_SIZE);
+    
+    // Append or replace transactions
+    if (loadMore) {
+      setTransactions(prev => [...prev, ...filtered]);
     } else {
-      let filtered = data || [];
-      
-      // Filter by completion status
-      if (filters?.completionStatus === 'complete') {
-        filtered = filtered.filter(t => t.category_id !== null);
-      } else if (filters?.completionStatus === 'incomplete') {
-        filtered = filtered.filter(t => t.category_id === null);
-      }
-      
       setTransactions(filtered);
     }
+    
     setLoading(false);
-  }, [user, filters]);
+    isLoadingMoreRef.current = false;
+  }, [user, filters, resetPagination]);
+
+  // Load more function for infinite scroll
+  const loadMore = useCallback(() => {
+    if (hasMore && !loading) {
+      fetchTransactions(true);
+    }
+  }, [hasMore, loading, fetchTransactions]);
 
   useEffect(() => {
-    fetchTransactions();
+    fetchTransactions(false);
   }, [fetchTransactions]);
 
   const createTransaction = useCallback(async (newTx: NewTransaction) => {
@@ -128,24 +214,22 @@ export function useTransactions(filters?: TransactionFilters) {
         amount: newTx.amount,
         category_id: newTx.category_id || null,
       })
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          color,
-          type
-        )
-      `)
+      .select(TRANSACTION_COLUMNS)
       .single();
 
     if (error) {
       return { error: error.message };
     }
 
-    setTransactions(prev => [data, ...prev].sort((a, b) => 
-      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-    ));
+    // Insert at correct position maintaining sort order
+    setTransactions(prev => {
+      const newList = [data, ...prev];
+      return newList.sort((a, b) => {
+        const dateCompare = new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return b.id.localeCompare(a.id);
+      });
+    });
     return { data };
   }, [user]);
 
@@ -157,15 +241,7 @@ export function useTransactions(filters?: TransactionFilters) {
       .from('transactions')
       .update(updates)
       .eq('id', id)
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          color,
-          type
-        )
-      `)
+      .select(TRANSACTION_COLUMNS)
       .single();
 
     if (error) {
@@ -196,11 +272,13 @@ export function useTransactions(filters?: TransactionFilters) {
   return {
     transactions,
     loading,
+    hasMore,
     completeCount,
     incompleteCount,
     createTransaction,
     updateTransaction,
     deleteTransaction,
-    refetch: fetchTransactions,
+    refetch: () => fetchTransactions(false),
+    loadMore,
   };
 }
