@@ -27,6 +27,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Upload, 
   FileSpreadsheet, 
@@ -36,12 +42,16 @@ import {
   Trash2,
   AlertTriangle,
   X,
-  Plus
+  Plus,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useImport, ImportRow } from '@/hooks/useImport';
 import { useImportSources } from '@/hooks/useImportSources';
 import { useCategories } from '@/hooks/useCategories';
+import { useImportRules } from '@/hooks/useImportRules';
+import { ImportRulesManager } from '@/components/import/ImportRulesManager';
 import { format } from 'date-fns';
 import { APP_START_DATE_STRING } from '@/constants/app';
 
@@ -56,13 +66,16 @@ export default function Import() {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [newSourceName, setNewSourceName] = useState('');
   const [showNewSource, setShowNewSource] = useState(false);
+  const [showRulesManager, setShowRulesManager] = useState(false);
+  const [rulesApplied, setRulesApplied] = useState(false);
   
   const { toast } = useToast();
   const { 
     loading, 
     importBatches, 
     parseFile, 
-    checkDuplicates, 
+    checkDuplicates,
+    applyRules,
     importTransactions, 
     fetchImportBatches,
     deleteImportBatch,
@@ -70,17 +83,40 @@ export default function Import() {
   } = useImport();
   const { sources, createSource, loading: sourcesLoading } = useImportSources();
   const { categories, activeCategories, loading: categoriesLoading } = useCategories();
+  const { rules, loading: rulesLoading } = useImportRules();
+
+  // Build category maps for rule application
+  const categoryIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(cat => {
+      map[cat.id] = cat.name;
+    });
+    return map;
+  }, [categories]);
+
+  const categoryNameToId = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(cat => {
+      map[cat.name.toLowerCase().trim()] = cat.id;
+    });
+    return map;
+  }, [categories]);
 
   useEffect(() => {
     fetchImportBatches();
   }, [fetchImportBatches]);
 
-  // Sort data: duplicates first, then errors, then valid
+  // Sort data: auto-rejected first, then duplicates, then errors, then valid
   const sortedEditableData = useMemo(() => {
     return [...editableData].sort((a, b) => {
-      // Database duplicates first
-      if (a.isDuplicate && !b.isDuplicate) return -1;
-      if (!a.isDuplicate && b.isDuplicate) return 1;
+      // Auto-rejected first (they'll be greyed out)
+      if (a.autoRejected && !b.autoRejected) return -1;
+      if (!a.autoRejected && b.autoRejected) return 1;
+      // Database duplicates next (unless auto-accepted)
+      const aDup = a.isDuplicate && !a.autoAccepted;
+      const bDup = b.isDuplicate && !b.autoAccepted;
+      if (aDup && !bDup) return -1;
+      if (!aDup && bDup) return 1;
       // File duplicates next
       if (a.isDuplicateInFile && !b.isDuplicateInFile) return -1;
       if (!a.isDuplicateInFile && b.isDuplicateInFile) return 1;
@@ -115,13 +151,39 @@ export default function Import() {
     try {
       const result = await parseFile(selectedFile);
       const withDuplicates = await checkDuplicates(result.rows);
-      setParsedData(withDuplicates);
-      setEditableData(withDuplicates);
       
-      // Select all valid, non-duplicate rows by default
+      // Apply import rules automatically
+      const enabledRules = rules.filter(r => r.enabled);
+      let processedRows = withDuplicates;
+      
+      if (enabledRules.length > 0) {
+        processedRows = applyRules(withDuplicates, enabledRules, categoryIdToName);
+        setRulesApplied(true);
+        
+        // Count rule applications
+        const ruleApplications = processedRows.filter(r => r.appliedRule).length;
+        if (ruleApplications > 0) {
+          toast({
+            title: 'Rules applied',
+            description: `${ruleApplications} transactions categorized automatically`,
+          });
+        }
+      }
+      
+      setParsedData(processedRows);
+      setEditableData(processedRows);
+      
+      // Select all valid, non-rejected rows by default
       const validIndices = new Set(
-        withDuplicates
-          .map((row, idx) => (row.isValid && !row.isDuplicate && !row.isDuplicateInFile ? idx : -1))
+        processedRows
+          .map((row, idx) => (
+            row.isValid && 
+            !row.autoRejected && 
+            (!row.isDuplicate || row.autoAccepted) && 
+            !row.isDuplicateInFile 
+              ? idx 
+              : -1
+          ))
           .filter(idx => idx >= 0)
       );
       setSelectedRows(validIndices);
@@ -134,7 +196,7 @@ export default function Import() {
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, [parseFile, checkDuplicates, toast]);
+  }, [parseFile, checkDuplicates, applyRules, rules, categoryIdToName, toast]);
 
   const updateRow = (originalIndex: number, field: 'label' | 'category', value: string | undefined) => {
     setEditableData(prev => {
@@ -210,13 +272,18 @@ export default function Import() {
       return;
     }
     
-    // Build category map (case-insensitive)
-    const categoryMap: Record<string, string> = {};
-    categories.forEach(cat => {
-      categoryMap[cat.name.toLowerCase().trim()] = cat.id;
-    });
+    // Collect applied rule IDs for stats update
+    const appliedRuleIds = rowsToImport
+      .filter(r => r.appliedRule)
+      .map(r => r.appliedRule!.id);
     
-    const result = await importTransactions(rowsToImport, currentFilename, categoryMap, selectedSourceId);
+    const result = await importTransactions(
+      rowsToImport, 
+      currentFilename, 
+      categoryNameToId, 
+      selectedSourceId,
+      appliedRuleIds
+    );
     
     if (result.error) {
       toast({
@@ -241,6 +308,7 @@ export default function Import() {
     setSelectedRows(new Set());
     setCurrentFilename('');
     setSelectedSourceId(null);
+    setRulesApplied(false);
     setStep('upload');
   };
 
@@ -269,10 +337,13 @@ export default function Import() {
     generateTemplate(categoryData);
   };
 
-  const validCount = editableData.filter(r => r.isValid && !r.isDuplicate && !r.isDuplicateInFile).length;
+  const validCount = editableData.filter(r => r.isValid && !r.isDuplicate && !r.isDuplicateInFile && !r.autoRejected).length;
   const errorCount = editableData.filter(r => !r.isValid).length;
-  const dbDuplicateCount = editableData.filter(r => r.isDuplicate).length;
+  const dbDuplicateCount = editableData.filter(r => r.isDuplicate && !r.autoAccepted).length;
   const fileDuplicateCount = editableData.filter(r => r.isDuplicateInFile).length;
+  const autoAcceptedCount = editableData.filter(r => r.autoAccepted).length;
+  const autoRejectedCount = editableData.filter(r => r.autoRejected).length;
+  const ruleCategorizedCount = editableData.filter(r => r.appliedRule && r.categoryId).length;
   const selectedCount = selectedRows.size;
 
   return (
@@ -280,6 +351,10 @@ export default function Import() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Import Transactions</h1>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowRulesManager(true)}>
+            <Zap className="mr-2 h-4 w-4" />
+            Import Rules {rules.length > 0 && `(${rules.length})`}
+          </Button>
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <Download className="mr-2 h-4 w-4" />
             Download Template
@@ -386,6 +461,22 @@ export default function Import() {
               <Badge variant="default" className="bg-emerald-600">
                 {validCount} Valid
               </Badge>
+              {ruleCategorizedCount > 0 && (
+                <Badge variant="secondary" className="bg-violet-100 text-violet-800">
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  {ruleCategorizedCount} Auto-categorized
+                </Badge>
+              )}
+              {autoAcceptedCount > 0 && (
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
+                  {autoAcceptedCount} Auto-accepted
+                </Badge>
+              )}
+              {autoRejectedCount > 0 && (
+                <Badge variant="secondary" className="bg-red-100 text-red-800">
+                  {autoRejectedCount} Auto-rejected
+                </Badge>
+              )}
               {errorCount > 0 && (
                 <Badge variant="destructive">
                   {errorCount} Errors
@@ -417,6 +508,7 @@ export default function Import() {
             </div>
 
             {/* Data table - only label and category are editable */}
+            <TooltipProvider>
             <ScrollArea className="h-[400px] rounded-md border">
               <Table>
                 <TableHeader>
@@ -433,23 +525,40 @@ export default function Import() {
                   {sortedEditableData.map((row, sortedIdx) => {
                     const originalIdx = getOriginalIndex(sortedIdx);
                     
+                    // Determine row styling based on status
+                    const getRowClassName = () => {
+                      if (row.autoRejected) return 'bg-red-50/50 dark:bg-red-950/10 opacity-60';
+                      if (row.isDuplicate && !row.autoAccepted) return 'bg-amber-50 dark:bg-amber-950/20';
+                      if (row.isDuplicateInFile) return 'bg-orange-50 dark:bg-orange-950/20';
+                      if (!row.isValid) return 'bg-red-50 dark:bg-red-950/20';
+                      if (row.appliedRule) return 'bg-violet-50/50 dark:bg-violet-950/10';
+                      return '';
+                    };
+                    
                     return (
                       <TableRow 
                         key={sortedIdx} 
-                        className={
-                          row.isDuplicate || row.isDuplicateInFile ? 'bg-amber-50 dark:bg-amber-950/20' : 
-                          !row.isValid ? 'bg-red-50 dark:bg-red-950/20' : ''
-                        }
+                        className={getRowClassName()}
                       >
                         <TableCell>
                           <Checkbox 
                             checked={selectedRows.has(originalIdx)}
                             onCheckedChange={() => toggleRow(originalIdx)}
-                            disabled={!row.isValid}
+                            disabled={!row.isValid || row.autoRejected}
                           />
                         </TableCell>
                         <TableCell>
-                          {row.isDuplicate ? (
+                          {row.autoRejected ? (
+                            <Badge variant="destructive" className="bg-red-100 text-red-800">
+                              <X className="mr-1 h-3 w-3" />
+                              Auto-rejected
+                            </Badge>
+                          ) : row.autoAccepted ? (
+                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
+                              <Check className="mr-1 h-3 w-3" />
+                              Auto-accepted
+                            </Badge>
+                          ) : row.isDuplicate ? (
                             <Badge variant="secondary" className="bg-amber-100 text-amber-800">
                               <AlertTriangle className="mr-1 h-3 w-3" />
                               DB Duplicate
@@ -464,6 +573,18 @@ export default function Import() {
                               <X className="mr-1 h-3 w-3" />
                               {row.errors[0]}
                             </Badge>
+                          ) : row.appliedRule ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="secondary" className="bg-violet-100 text-violet-800 cursor-help">
+                                  <Sparkles className="mr-1 h-3 w-3" />
+                                  Rule applied
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Rule: {row.appliedRule.name}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           ) : (
                             <Badge variant="default" className="bg-emerald-600">
                               <Check className="mr-1 h-3 w-3" />
@@ -515,8 +636,19 @@ export default function Import() {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </TooltipProvider>
 
             {/* Info boxes */}
+            {rulesApplied && ruleCategorizedCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm dark:border-violet-900 dark:bg-violet-950">
+                <Sparkles className="h-4 w-4 text-violet-600" />
+                <span>
+                  {ruleCategorizedCount} transaction(s) were automatically categorized by import rules.
+                  {autoAcceptedCount > 0 && ` ${autoAcceptedCount} duplicate(s) were auto-accepted.`}
+                  {autoRejectedCount > 0 && ` ${autoRejectedCount} duplicate(s) were auto-rejected.`}
+                </span>
+              </div>
+            )}
             {dbDuplicateCount > 0 && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -632,6 +764,13 @@ export default function Import() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Rules Manager */}
+      <ImportRulesManager
+        open={showRulesManager}
+        onClose={() => setShowRulesManager(false)}
+        importRows={editableData}
+      />
     </div>
   );
 }

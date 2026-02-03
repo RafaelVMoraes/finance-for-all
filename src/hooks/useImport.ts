@@ -4,17 +4,25 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { parse, isValid, format, isBefore } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
+import { ImportRule, RuleMatchResult, DuplicateAction } from '@/types/importRules';
+import { batchEvaluateRules } from '@/lib/ruleEngine';
 
 export interface ImportRow {
   date: string;
   label: string;
   value: number;
   category?: string;
+  categoryId?: string; // Category ID assigned by rule or manual selection
   isValid: boolean;
   errors: string[];
   isDuplicate?: boolean;
   isDuplicateInFile?: boolean;
   duplicateIndex?: number; // For naming duplicates
+  // Rule application tracking
+  appliedRule?: ImportRule;
+  duplicateAction?: DuplicateAction;
+  autoAccepted?: boolean;
+  autoRejected?: boolean;
 }
 
 export interface ImportBatch {
@@ -249,11 +257,71 @@ export function useImport() {
     }));
   }, [user]);
 
+  /**
+   * Apply import rules to rows
+   * This should be called after checkDuplicates
+   * Rules are evaluated deterministically: same input → same output
+   */
+  const applyRules = useCallback((
+    rows: ImportRow[],
+    rules: ImportRule[],
+    categoryMap: Record<string, string> // categoryId -> categoryName
+  ): ImportRow[] => {
+    if (rules.length === 0) return rows;
+    
+    // Batch evaluate rules for efficiency
+    const ruleInputs = rows.map(row => ({
+      label: row.label,
+      value: row.value,
+      isDuplicate: row.isDuplicate || row.isDuplicateInFile || false,
+    }));
+    
+    const results = batchEvaluateRules(rules, ruleInputs);
+    
+    return rows.map((row, index) => {
+      const result = results[index];
+      
+      if (!result.matched) return row;
+      
+      const updatedRow = { ...row };
+      
+      // Apply category from rule
+      if (result.appliedCategory) {
+        updatedRow.categoryId = result.appliedCategory;
+        // Find category name for display
+        const categoryEntry = Object.entries(categoryMap).find(
+          ([id]) => id === result.appliedCategory
+        );
+        if (categoryEntry) {
+          updatedRow.category = categoryEntry[1];
+        }
+      }
+      
+      // Apply duplicate action
+      if (result.duplicateAction) {
+        updatedRow.duplicateAction = result.duplicateAction;
+        if (result.duplicateAction === 'accept') {
+          updatedRow.autoAccepted = true;
+        } else if (result.duplicateAction === 'reject') {
+          updatedRow.autoRejected = true;
+        }
+      }
+      
+      // Track which rule was applied
+      if (result.rule) {
+        updatedRow.appliedRule = result.rule;
+      }
+      
+      return updatedRow;
+    });
+  }, []);
+
   const importTransactions = useCallback(async (
     rows: ImportRow[],
     filename: string,
     categoryMap: Record<string, string>, // category name (lowercase) -> category id
-    sourceId?: string | null
+    sourceId?: string | null,
+    appliedRuleIds?: string[] // Track which rules were used for stats
   ) => {
     if (!user) return { error: 'Not authenticated' };
     
@@ -282,13 +350,20 @@ export function useImport() {
       
       if (batchError) throw batchError;
       
-      // Prepare transactions with case-insensitive category matching
+      // Prepare transactions
+      // Filter out: duplicates (unless auto-accepted), auto-rejected
       const transactions = validRows
-        .filter(r => !r.isDuplicate)
+        .filter(r => {
+          // Skip auto-rejected rows
+          if (r.autoRejected) return false;
+          // Skip duplicates unless auto-accepted
+          if (r.isDuplicate && !r.autoAccepted) return false;
+          return true;
+        })
         .map(row => {
-          // Find category by case-insensitive match
-          let categoryId: string | null = null;
-          if (row.category) {
+          // Use categoryId from rule or look up from category name
+          let categoryId: string | null = row.categoryId || null;
+          if (!categoryId && row.category) {
             const categoryLower = row.category.toLowerCase().trim();
             categoryId = categoryMap[categoryLower] || null;
           }
@@ -327,6 +402,31 @@ export function useImport() {
         .from('import_batches')
         .update({ row_count: transactions.length })
         .eq('id', batch.id);
+      
+      // Update rule usage stats (fire and forget)
+      if (appliedRuleIds && appliedRuleIds.length > 0) {
+        const uniqueRuleIds = [...new Set(appliedRuleIds)];
+        for (const ruleId of uniqueRuleIds) {
+          const count = appliedRuleIds.filter(id => id === ruleId).length;
+          supabase
+            .from('import_rules')
+            .select('times_applied')
+            .eq('id', ruleId)
+            .single()
+            .then(({ data }) => {
+              if (data) {
+                supabase
+                  .from('import_rules')
+                  .update({ 
+                    times_applied: (data.times_applied || 0) + count,
+                    last_applied_at: new Date().toISOString(),
+                  })
+                  .eq('id', ruleId)
+                  .then(() => {});
+              }
+            });
+        }
+      }
       
       setLoading(false);
       return { data: batch, imported: transactions.length };
@@ -400,6 +500,7 @@ export function useImport() {
     importBatches,
     parseFile,
     checkDuplicates,
+    applyRules,
     importTransactions,
     fetchImportBatches,
     deleteImportBatch,

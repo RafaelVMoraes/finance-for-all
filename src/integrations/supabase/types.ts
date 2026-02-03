@@ -162,6 +162,81 @@ export type Database = {
           },
         ]
       }
+      import_rule_matches: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          label_normalized: string
+          last_seen_at: string
+          occurrence_count: number
+          user_id: string
+          value_range: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          label_normalized: string
+          last_seen_at?: string
+          occurrence_count?: number
+          user_id: string
+          value_range?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          label_normalized?: string
+          last_seen_at?: string
+          occurrence_count?: number
+          user_id?: string
+          value_range?: string | null
+        }
+        Relationships: []
+      }
+      import_rules: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          last_applied_at: string | null
+          name: string
+          priority: number
+          times_applied: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_applied_at?: string | null
+          name: string
+          priority?: number
+          times_applied?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_applied_at?: string | null
+          name?: string
+          priority?: number
+          times_applied?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       import_sources: {
         Row: {
           created_at: string
