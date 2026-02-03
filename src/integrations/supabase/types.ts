@@ -418,15 +418,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_investment_summary: { Args: { p_user_id: string }; Returns: Json }
-      get_monthly_summary: {
-        Args: { p_month_end: string; p_month_start: string; p_user_id: string }
-        Returns: Json
-      }
-      get_yearly_summary: {
-        Args: { p_user_id: string; p_year: number }
-        Returns: Json
-      }
+      get_investment_summary:
+        | { Args: never; Returns: Json }
+        | { Args: { p_user_id: string }; Returns: Json }
+      get_monthly_summary:
+        | {
+            Args: { p_month_end: string; p_month_start: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_month_end: string
+              p_month_start: string
+              p_user_id: string
+            }
+            Returns: Json
+          }
+      get_yearly_summary:
+        | { Args: { p_user_id: string; p_year: number }; Returns: Json }
+        | { Args: { p_year: number }; Returns: Json }
     }
     Enums: {
       category_type: "fixed" | "variable" | "income"

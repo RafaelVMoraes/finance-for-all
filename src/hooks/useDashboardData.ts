@@ -117,7 +117,6 @@ export function useMonthlySummary(date: Date = new Date()) {
 
     try {
       const { data: result, error: rpcError } = await supabase.rpc('get_monthly_summary', {
-        p_user_id: user.id,
         p_month_start: monthStart,
         p_month_end: monthEnd,
       });
@@ -177,7 +176,6 @@ export function useYearlySummary(year: number = new Date().getFullYear()) {
 
     try {
       const { data: result, error: rpcError } = await supabase.rpc('get_yearly_summary', {
-        p_user_id: user.id,
         p_year: year,
       });
 
@@ -235,9 +233,7 @@ export function useInvestmentSummary() {
     setError(null);
 
     try {
-      const { data: result, error: rpcError } = await supabase.rpc('get_investment_summary', {
-        p_user_id: user.id,
-      });
+      const { data: result, error: rpcError } = await supabase.rpc('get_investment_summary');
 
       if (rpcError) throw rpcError;
       
