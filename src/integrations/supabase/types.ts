@@ -327,6 +327,7 @@ export type Database = {
           id: string
           initial_amount: number
           investment_type: string
+          investment_type_id: string | null
           monthly_contribution: number
           name: string
           start_month: string | null
@@ -339,6 +340,7 @@ export type Database = {
           id?: string
           initial_amount?: number
           investment_type: string
+          investment_type_id?: string | null
           monthly_contribution?: number
           name: string
           start_month?: string | null
@@ -351,13 +353,54 @@ export type Database = {
           id?: string
           initial_amount?: number
           investment_type?: string
+          investment_type_id?: string | null
           monthly_contribution?: number
           name?: string
           start_month?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "investments_investment_type_id_fkey"
+            columns: ["investment_type_id"]
+            isOneToOne: false
+            referencedRelation: "investment_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_category_summary: {
+        Row: {
+          category_id: string
+          month: string
+          total_amount: number
+          transaction_count: number
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          month: string
+          total_amount?: number
+          transaction_count?: number
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          month?: string
+          total_amount?: number
+          transaction_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_category_summary_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monthly_settings: {
         Row: {
@@ -382,6 +425,33 @@ export type Database = {
           id?: string
           month?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      monthly_totals: {
+        Row: {
+          incomplete_count: number
+          month: string
+          total_expenses: number
+          total_income: number
+          transaction_count: number
+          user_id: string
+        }
+        Insert: {
+          incomplete_count?: number
+          month: string
+          total_expenses?: number
+          total_income?: number
+          transaction_count?: number
+          user_id: string
+        }
+        Update: {
+          incomplete_count?: number
+          month?: string
+          total_expenses?: number
+          total_income?: number
+          transaction_count?: number
           user_id?: string
         }
         Relationships: []
@@ -493,25 +563,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_investment_summary:
-        | { Args: never; Returns: Json }
-        | { Args: { p_user_id: string }; Returns: Json }
-      get_monthly_summary:
-        | {
-            Args: { p_month_end: string; p_month_start: string }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_month_end: string
-              p_month_start: string
-              p_user_id: string
-            }
-            Returns: Json
-          }
-      get_yearly_summary:
-        | { Args: { p_user_id: string; p_year: number }; Returns: Json }
-        | { Args: { p_year: number }; Returns: Json }
+      get_investment_summary: { Args: never; Returns: Json }
+      get_monthly_summary: {
+        Args: { p_month_end: string; p_month_start: string }
+        Returns: Json
+      }
+      get_yearly_summary: { Args: { p_year: number }; Returns: Json }
     }
     Enums: {
       category_type: "fixed" | "variable" | "income"
