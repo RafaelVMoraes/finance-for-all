@@ -237,20 +237,33 @@ export function useImport() {
   }, []);
 
   const checkDuplicates = useCallback(async (rows: ImportRow[]): Promise<ImportRow[]> => {
-    if (!user) return rows;
-    
-    // Fetch existing transactions
+    if (!user || rows.length === 0) return rows;
+
+    const validRows = rows.filter(row => row.isValid && row.date && row.label);
+    if (validRows.length === 0) return rows;
+
+    const uniqueDates = [...new Set(validRows.map(row => row.date))].sort();
+    const uniqueLabels = [...new Set(validRows.map(row => row.label))];
+
+    const minDate = uniqueDates[0];
+    const maxDate = uniqueDates[uniqueDates.length - 1];
+
+    // Narrow search window by date range and only labels present in file.
+    // This avoids loading the user's full transaction history into memory.
     const { data: existing } = await supabase
       .from('transactions')
       .select('payment_date, original_label, amount')
-      .eq('user_id', user.id);
-    
+      .eq('user_id', user.id)
+      .gte('payment_date', minDate)
+      .lte('payment_date', maxDate)
+      .in('original_label', uniqueLabels);
+
     if (!existing) return rows;
-    
+
     const existingSet = new Set(
       existing.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
     );
-    
+
     return rows.map(row => ({
       ...row,
       isDuplicate: existingSet.has(createRowKey(row.date, row.label, row.value))
@@ -403,28 +416,21 @@ export function useImport() {
         .update({ row_count: transactions.length })
         .eq('id', batch.id);
       
-      // Update rule usage stats (fire and forget)
+      // Update rule usage stats in batch (single RPC)
       if (appliedRuleIds && appliedRuleIds.length > 0) {
-        const uniqueRuleIds = [...new Set(appliedRuleIds)];
-        for (const ruleId of uniqueRuleIds) {
-          const count = appliedRuleIds.filter(id => id === ruleId).length;
-          supabase
-            .from('import_rules')
-            .select('times_applied')
-            .eq('id', ruleId)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                supabase
-                  .from('import_rules')
-                  .update({ 
-                    times_applied: (data.times_applied || 0) + count,
-                    last_applied_at: new Date().toISOString(),
-                  })
-                  .eq('id', ruleId)
-                  .then(() => {});
-              }
-            });
+        const increments = Object.entries(
+          appliedRuleIds.reduce<Record<string, number>>((acc, ruleId) => {
+            acc[ruleId] = (acc[ruleId] || 0) + 1;
+            return acc;
+          }, {})
+        ).map(([rule_id, increment]) => ({ rule_id, increment }));
+
+        const { error: statsError } = await supabase.rpc('increment_import_rule_usage', {
+          p_increments: increments,
+        });
+
+        if (statsError) {
+          console.error('Error updating import rule usage stats:', statsError);
         }
       }
       

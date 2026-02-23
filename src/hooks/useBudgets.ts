@@ -31,6 +31,30 @@ interface UseBudgetsOptions {
   month?: Date;
 }
 
+const BUDGET_COLUMNS = `
+  id,
+  user_id,
+  category_id,
+  expected_amount,
+  created_at,
+  updated_at,
+  categories (
+    id,
+    name,
+    color,
+    type
+  )
+`;
+
+const MONTHLY_SETTINGS_COLUMNS = `
+  id,
+  user_id,
+  month,
+  expected_income,
+  created_at,
+  updated_at
+`;
+
 export function useBudgets(options?: UseBudgetsOptions) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [monthlySettings, setMonthlySettings] = useState<MonthlySettings | null>(null);
@@ -48,15 +72,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
     // Fetch budgets with category info
     const { data: budgetsData, error: budgetsError } = await supabase
       .from('budgets')
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          color,
-          type
-        )
-      `)
+      .select(BUDGET_COLUMNS)
       .eq('user_id', user.id);
 
     if (budgetsError) {
@@ -68,7 +84,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
     // Fetch monthly settings for the target month
     const { data: settingsData } = await supabase
       .from('monthly_settings')
-      .select('*')
+      .select(MONTHLY_SETTINGS_COLUMNS)
       .eq('user_id', user.id)
       .eq('month', monthStr)
       .maybeSingle();
@@ -94,15 +110,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
         .from('budgets')
         .update({ expected_amount: expectedAmount })
         .eq('id', existingBudget.id)
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            color,
-            type
-          )
-        `)
+        .select(BUDGET_COLUMNS)
         .single();
     } else {
       // Insert new budget
@@ -113,15 +121,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
           category_id: categoryId,
           expected_amount: expectedAmount
         })
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            color,
-            type
-          )
-        `)
+        .select(BUDGET_COLUMNS)
         .single();
     }
 
@@ -148,7 +148,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
         .from('monthly_settings')
         .update({ expected_income: amount })
         .eq('id', monthlySettings.id)
-        .select()
+        .select(MONTHLY_SETTINGS_COLUMNS)
         .single();
 
       if (error) {
@@ -165,7 +165,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
           month: monthStr,
           expected_income: amount
         })
-        .select()
+        .select(MONTHLY_SETTINGS_COLUMNS)
         .single();
 
       if (error) {

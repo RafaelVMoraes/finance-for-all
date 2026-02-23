@@ -135,6 +135,13 @@ export function useTransactions(filters?: TransactionFilters) {
       query = query.eq('category_id', filters.categoryId);
     }
 
+    // Apply completion status filter server-side for consistent pagination
+    if (filters?.completionStatus === 'complete') {
+      query = query.not('category_id', 'is', null);
+    } else if (filters?.completionStatus === 'incomplete') {
+      query = query.is('category_id', null);
+    }
+
     // Apply amount filters
     if (filters?.minAmount !== undefined) {
       query = query.gte('amount', filters.minAmount);
@@ -153,14 +160,7 @@ export function useTransactions(filters?: TransactionFilters) {
       return;
     }
 
-    let filtered = data || [];
-    
-    // Filter by completion status (client-side for flexibility)
-    if (filters?.completionStatus === 'complete') {
-      filtered = filtered.filter(t => t.category_id !== null);
-    } else if (filters?.completionStatus === 'incomplete') {
-      filtered = filtered.filter(t => t.category_id === null);
-    }
+    const filtered = data || [];
     
     // Update cursor for next page
     if (filtered.length > 0) {
