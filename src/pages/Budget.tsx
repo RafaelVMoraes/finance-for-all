@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useCategories } from '@/hooks/useCategories';
-import { useTransactions } from '@/hooks/useTransactions';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { useBudgetMonthlySummary } from '@/hooks/useBudgetMonthlySummary';
+import { format, addMonths, subMonths } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
 import { Link } from 'react-router-dom';
 
@@ -16,10 +16,11 @@ export default function Budget() {
 
   const { budgets, loading: budgetsLoading } = useBudgets({ month: selectedMonth });
   const { activeCategories, loading: categoriesLoading } = useCategories();
-  const { transactions } = useTransactions({
-    dateFrom: startOfMonth(selectedMonth),
-    dateTo: endOfMonth(selectedMonth),
-  });
+  const {
+    categorySpent,
+    actualIncome,
+    loading: summaryLoading,
+  } = useBudgetMonthlySummary(selectedMonth);
 
   // Month navigation with minimum date check
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
@@ -28,24 +29,6 @@ export default function Budget() {
       setSelectedMonth(newMonth);
     }
   }, [selectedMonth]);
-
-  // Calculate spent per category
-  const spentByCategory = useMemo(() => {
-    const result: Record<string, number> = {};
-    transactions.forEach(tx => {
-      if (tx.category_id && tx.amount < 0) {
-        result[tx.category_id] = (result[tx.category_id] || 0) + Math.abs(tx.amount);
-      }
-    });
-    return result;
-  }, [transactions]);
-
-  // Calculate actual income
-  const actualIncome = useMemo(() => {
-    return transactions
-      .filter(tx => tx.amount > 0)
-      .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions]);
 
   // Calculate categories by type
   const { fixedCategories, variableCategories, incomeCategories } = useMemo(() => {
@@ -75,12 +58,12 @@ export default function Budget() {
     [variableCategories, getBudgetAmount]
   );
   const totalFixedSpent = useMemo(() => 
-    fixedCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0),
-    [fixedCategories, spentByCategory]
+    fixedCategories.reduce((sum, cat) => sum + (categorySpent[cat.id] || 0), 0),
+    [fixedCategories, categorySpent]
   );
   const totalVariableSpent = useMemo(() => 
-    variableCategories.reduce((sum, cat) => sum + (spentByCategory[cat.id] || 0), 0),
-    [variableCategories, spentByCategory]
+    variableCategories.reduce((sum, cat) => sum + (categorySpent[cat.id] || 0), 0),
+    [variableCategories, categorySpent]
   );
   
   const estimatedSavings = expectedIncome - totalFixedBudget - totalVariableBudget;
@@ -94,7 +77,7 @@ export default function Budget() {
     return 'bg-emerald-500';
   };
 
-  if (budgetsLoading || categoriesLoading) {
+  if (budgetsLoading || categoriesLoading || summaryLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <p className="text-muted-foreground">Loading budget...</p>
@@ -222,7 +205,7 @@ export default function Budget() {
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {fixedCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
-              const spent = spentByCategory[cat.id] || 0;
+              const spent = categorySpent[cat.id] || 0;
               const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
               const remaining = expected - spent;
 
@@ -278,7 +261,7 @@ export default function Budget() {
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {variableCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
-              const spent = spentByCategory[cat.id] || 0;
+              const spent = categorySpent[cat.id] || 0;
               const percent = expected > 0 ? Math.min((spent / expected) * 100, 100) : 0;
               const remaining = expected - spent;
 
@@ -334,11 +317,6 @@ export default function Budget() {
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {incomeCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
-              // For income, calculate actual received
-              const actual = transactions
-                .filter(tx => tx.category_id === cat.id && tx.amount > 0)
-                .reduce((sum, tx) => sum + tx.amount, 0);
-
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
                   <div className="flex items-center justify-between">
@@ -352,7 +330,7 @@ export default function Budget() {
                     <span className="font-medium">€{expected.toFixed(0)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Received: €{actual.toFixed(2)}
+                    Included in monthly actual income
                   </p>
                 </div>
               );
