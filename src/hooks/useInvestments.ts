@@ -7,6 +7,7 @@ export interface Investment {
   user_id: string;
   name: string;
   investment_type: string;
+  investment_type_id: string | null;
   currency: 'EUR' | 'USD' | 'BRL';
   initial_amount: number;
   monthly_contribution: number;
@@ -87,7 +88,8 @@ export function useInvestments() {
     investmentType: string,
     currency: 'EUR' | 'USD' | 'BRL',
     initialAmount: number,
-    monthlyContribution: number
+    monthlyContribution: number,
+    investmentTypeId?: string | null
   ) => {
     if (!user) return { error: 'Not authenticated' };
 
@@ -97,6 +99,7 @@ export function useInvestments() {
         user_id: user.id,
         name,
         investment_type: investmentType,
+        investment_type_id: investmentTypeId || null,
         currency,
         initial_amount: initialAmount,
         monthly_contribution: monthlyContribution

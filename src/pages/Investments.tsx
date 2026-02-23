@@ -214,12 +214,14 @@ export default function Investments() {
       return;
     }
 
+    const matchedType = types.find(t => t.name === newInvestment.investmentType);
     const result = await createInvestment(
       newInvestment.name,
       newInvestment.investmentType,
       newInvestment.currency,
       newInvestment.value,
-      0
+      0,
+      matchedType?.id || null
     );
 
     if (result.error) {

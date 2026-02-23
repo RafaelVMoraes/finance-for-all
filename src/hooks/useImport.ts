@@ -237,31 +237,38 @@ export function useImport() {
   }, []);
 
   const checkDuplicates = useCallback(async (rows: ImportRow[]): Promise<ImportRow[]> => {
-    if (!user || rows.length === 0) return rows;
-
-    const validRows = rows.filter(row => row.isValid && row.date && row.label);
-    if (validRows.length === 0) return rows;
-
-    const uniqueDates = [...new Set(validRows.map(row => row.date))].sort();
-    const uniqueLabels = [...new Set(validRows.map(row => row.label))];
-
-    const minDate = uniqueDates[0];
-    const maxDate = uniqueDates[uniqueDates.length - 1];
-
-    // Narrow search window by date range and only labels present in file.
-    // This avoids loading the user's full transaction history into memory.
-    const { data: existing } = await supabase
-      .from('transactions')
-      .select('payment_date, original_label, amount')
-      .eq('user_id', user.id)
-      .gte('payment_date', minDate)
-      .lte('payment_date', maxDate)
-      .in('original_label', uniqueLabels);
-
-    if (!existing) return rows;
-
+    if (!user) return rows;
+    
+    // Get unique dates from import to narrow the query
+    const uniqueDates = [...new Set(rows.map(r => r.date).filter(Boolean))];
+    if (uniqueDates.length === 0) return rows;
+    
+    const minDate = uniqueDates.sort()[0];
+    const maxDate = uniqueDates.sort().reverse()[0];
+    
+    // Fetch existing transactions only for the relevant date range
+    // Paginate to avoid 1000-row Supabase limit
+    const allExisting: { payment_date: string; original_label: string; amount: number }[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    
+    while (true) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('payment_date, original_label, amount')
+        .eq('user_id', user.id)
+        .gte('payment_date', minDate)
+        .lte('payment_date', maxDate)
+        .range(from, from + PAGE - 1);
+      
+      if (error || !data) break;
+      allExisting.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    
     const existingSet = new Set(
-      existing.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
+      allExisting.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
     );
 
     return rows.map(row => ({
@@ -416,22 +423,28 @@ export function useImport() {
         .update({ row_count: transactions.length })
         .eq('id', batch.id);
       
-      // Update rule usage stats in batch (single RPC)
+      // Update rule usage stats in parallel (fire and forget)
       if (appliedRuleIds && appliedRuleIds.length > 0) {
-        const increments = Object.entries(
-          appliedRuleIds.reduce<Record<string, number>>((acc, ruleId) => {
-            acc[ruleId] = (acc[ruleId] || 0) + 1;
-            return acc;
-          }, {})
-        ).map(([rule_id, increment]) => ({ rule_id, increment }));
-
-        const { error: statsError } = await supabase.rpc('increment_import_rule_usage', {
-          p_increments: increments,
+        const ruleCounts = new Map<string, number>();
+        appliedRuleIds.forEach(id => ruleCounts.set(id, (ruleCounts.get(id) || 0) + 1));
+        
+        const updates = Array.from(ruleCounts.entries()).map(async ([ruleId, count]) => {
+          const { data } = await supabase
+            .from('import_rules')
+            .select('times_applied')
+            .eq('id', ruleId)
+            .single();
+          if (data) {
+            await supabase
+              .from('import_rules')
+              .update({
+                times_applied: (data.times_applied || 0) + count,
+                last_applied_at: new Date().toISOString(),
+              })
+              .eq('id', ruleId);
+          }
         });
-
-        if (statsError) {
-          console.error('Error updating import rule usage stats:', statsError);
-        }
+        Promise.all(updates).catch(() => {}); // Don't block import
       }
       
       setLoading(false);
