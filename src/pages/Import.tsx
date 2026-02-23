@@ -234,7 +234,13 @@ export default function Import() {
 
   const selectAllValid = () => {
     const validIndices = editableData
-      .map((row, idx) => (row.isValid && !row.isDuplicate ? idx : -1))
+      .map((row, idx) => (
+        row.isValid && 
+        !row.autoRejected && 
+        (!row.isDuplicate || row.autoAccepted) && 
+        !row.isDuplicateInFile 
+          ? idx : -1
+      ))
       .filter(idx => idx >= 0);
     setSelectedRows(new Set(validIndices));
   };

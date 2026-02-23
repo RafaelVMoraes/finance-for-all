@@ -239,16 +239,36 @@ export function useImport() {
   const checkDuplicates = useCallback(async (rows: ImportRow[]): Promise<ImportRow[]> => {
     if (!user) return rows;
     
-    // Fetch existing transactions
-    const { data: existing } = await supabase
-      .from('transactions')
-      .select('payment_date, original_label, amount')
-      .eq('user_id', user.id);
+    // Get unique dates from import to narrow the query
+    const uniqueDates = [...new Set(rows.map(r => r.date).filter(Boolean))];
+    if (uniqueDates.length === 0) return rows;
     
-    if (!existing) return rows;
+    const minDate = uniqueDates.sort()[0];
+    const maxDate = uniqueDates.sort().reverse()[0];
+    
+    // Fetch existing transactions only for the relevant date range
+    // Paginate to avoid 1000-row Supabase limit
+    const allExisting: { payment_date: string; original_label: string; amount: number }[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    
+    while (true) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('payment_date, original_label, amount')
+        .eq('user_id', user.id)
+        .gte('payment_date', minDate)
+        .lte('payment_date', maxDate)
+        .range(from, from + PAGE - 1);
+      
+      if (error || !data) break;
+      allExisting.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
     
     const existingSet = new Set(
-      existing.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
+      allExisting.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
     );
     
     return rows.map(row => ({
@@ -403,29 +423,28 @@ export function useImport() {
         .update({ row_count: transactions.length })
         .eq('id', batch.id);
       
-      // Update rule usage stats (fire and forget)
+      // Update rule usage stats in parallel (fire and forget)
       if (appliedRuleIds && appliedRuleIds.length > 0) {
-        const uniqueRuleIds = [...new Set(appliedRuleIds)];
-        for (const ruleId of uniqueRuleIds) {
-          const count = appliedRuleIds.filter(id => id === ruleId).length;
-          supabase
+        const ruleCounts = new Map<string, number>();
+        appliedRuleIds.forEach(id => ruleCounts.set(id, (ruleCounts.get(id) || 0) + 1));
+        
+        const updates = Array.from(ruleCounts.entries()).map(async ([ruleId, count]) => {
+          const { data } = await supabase
             .from('import_rules')
             .select('times_applied')
             .eq('id', ruleId)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                supabase
-                  .from('import_rules')
-                  .update({ 
-                    times_applied: (data.times_applied || 0) + count,
-                    last_applied_at: new Date().toISOString(),
-                  })
-                  .eq('id', ruleId)
-                  .then(() => {});
-              }
-            });
-        }
+            .single();
+          if (data) {
+            await supabase
+              .from('import_rules')
+              .update({
+                times_applied: (data.times_applied || 0) + count,
+                last_applied_at: new Date().toISOString(),
+              })
+              .eq('id', ruleId);
+          }
+        });
+        Promise.all(updates).catch(() => {}); // Don't block import
       }
       
       setLoading(false);
