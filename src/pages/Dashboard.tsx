@@ -1,54 +1,95 @@
-import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  PiggyBank,
-  TrendingUp,
+import { useMemo, useState } from 'react';
+import { addMonths, format, parseISO, startOfMonth } from 'date-fns';
+import {
   AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   Calendar,
-  Target
+  PiggyBank,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useBudgets } from '@/hooks/useBudgets';
-import { useMonthlySummary, useYearlySummary, useInvestmentSummary } from '@/hooks/useDashboardData';
-import { format, subMonths } from 'date-fns';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, AreaChart, Area } from 'recharts';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useBudgets } from '@/hooks/useBudgets';
+import { useInvestmentSummary, useMonthlySummary, useYearlySummary } from '@/hooks/useDashboardData';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useUserSettings } from '@/hooks/useUserSettings';
+
+const MONTH_OPTIONS = [
+  { value: 0, label: 'January' },
+  { value: 1, label: 'February' },
+  { value: 2, label: 'March' },
+  { value: 3, label: 'April' },
+  { value: 4, label: 'May' },
+  { value: 5, label: 'June' },
+  { value: 6, label: 'July' },
+  { value: 7, label: 'August' },
+  { value: 8, label: 'September' },
+  { value: 9, label: 'October' },
+  { value: 10, label: 'November' },
+  { value: 11, label: 'December' },
+];
+
+type YearAggregation = 'month' | 'quarter';
 
 export default function Dashboard() {
+  const today = new Date();
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState(format(today, 'yyyy-MM'));
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [yearStartMonth, setYearStartMonth] = useState(0);
+  const [aggregation, setAggregation] = useState<YearAggregation>('month');
 
-  // Use optimized RPC-based hooks - single query per widget
-  const { data: monthlySummary, loading: monthlyLoading, error: monthlyError } = useMonthlySummary(currentDate);
-  const { data: yearlySummary, loading: yearlyLoading, error: yearlyError } = useYearlySummary(currentYear);
-  const { data: investmentSummary, loading: investmentLoading } = useInvestmentSummary();
-  const { monthlySettings, budgets, loading: budgetsLoading } = useBudgets();
+  const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
 
-  // Compute budget amounts from budgets (already loaded)
-  const getBudgetAmount = (categoryId: string) => {
-    const budget = budgets.find(b => b.category_id === categoryId);
-    return budget?.expected_amount || 0;
-  };
+  const { settings } = useUserSettings();
+  const { getRate } = useExchangeRates();
+  const { monthlySettings, budgets, loading: budgetsLoading } = useBudgets({ month: monthDate });
+  const { data: monthlySummary, loading: monthlyLoading, error: monthlyError } = useMonthlySummary(monthDate);
+  const { data: yearlySummary, loading: yearlyLoading, error: yearlyError } = useYearlySummary(selectedYear);
+  const { data: yearlySummaryNext, loading: yearlyLoadingNext, error: yearlyErrorNext } = useYearlySummary(selectedYear + 1);
+  const { data: investmentSummary } = useInvestmentSummary();
 
-  // Derive monthly view data from aggregated summary
+  const getBudgetAmount = (categoryId: string) => budgets.find((b) => b.category_id === categoryId)?.expected_amount || 0;
+
   const monthlyViewData = useMemo(() => {
     if (!monthlySummary) return null;
 
     const categorySpending = monthlySummary.category_spending || [];
-    const fixedCategories = categorySpending.filter(c => c.type === 'fixed');
-    const variableCategories = categorySpending.filter(c => c.type === 'variable');
-    
+    const fixedCategories = categorySpending.filter((c) => c.type === 'fixed');
+    const variableCategories = categorySpending.filter((c) => c.type === 'variable');
+
     const fixedExpenses = fixedCategories.reduce((sum, c) => sum + Number(c.spent), 0);
     const variableExpenses = variableCategories.reduce((sum, c) => sum + Number(c.spent), 0);
     const expectedIncome = monthlySettings?.expected_income || 0;
@@ -61,10 +102,9 @@ export default function Dashboard() {
     const expectedSavings = expectedIncome - totalBudgetedFixed - totalBudgetedVariable;
     const remainingBudget = expectedIncome - totalExpenses;
 
-    // Category progress
     const categoryProgress = categorySpending
-      .filter(c => c.type !== 'income')
-      .map(cat => {
+      .filter((c) => c.type !== 'income')
+      .map((cat) => {
         const budget = getBudgetAmount(cat.id);
         const spent = Number(cat.spent);
         return {
@@ -74,18 +114,22 @@ export default function Dashboard() {
           percent: budget > 0 ? (spent / budget) * 100 : 0,
         };
       })
-      .filter(c => c.budget > 0)
+      .filter((c) => c.budget > 0)
       .sort((a, b) => b.percent - a.percent);
 
-    // Weekly data
     const weeklySpending = monthlySummary.weekly_spending || [];
-    const weeklyData = weeklySpending.map((w, idx) => ({
-      week: `Week ${idx + 1}`,
-      spent: Number(w.spent),
-      budget: (totalBudgetedFixed + totalBudgetedVariable) / Math.max(weeklySpending.length, 1),
-    }));
-
-    const overspendingCategories = categoryProgress.filter(c => c.percent >= 85);
+    const weeklyBudget = (totalBudgetedFixed + totalBudgetedVariable) / Math.max(weeklySpending.length, 1);
+    const weeklyData = weeklySpending.map((w, idx) => {
+      const spent = Number(w.spent);
+      const delta = weeklyBudget - spent;
+      return {
+        week: `Week ${idx + 1}`,
+        spent,
+        budget: weeklyBudget,
+        delta,
+        deltaLabel: `${delta >= 0 ? '+' : ''}${delta.toFixed(0)}`,
+      };
+    });
 
     return {
       actualIncome,
@@ -100,104 +144,164 @@ export default function Dashboard() {
       incompleteCount: monthlySummary.incomplete_count,
       categoryProgress,
       weeklyData,
-      alerts: overspendingCategories.slice(0, 3),
+      alerts: categoryProgress.filter((c) => c.percent >= 85).slice(0, 3),
     };
   }, [monthlySummary, monthlySettings, budgets]);
 
-  // Derive yearly view data
-  const yearlyViewData = useMemo(() => {
-    if (!yearlySummary) return null;
+  const yearPeriodData = useMemo(() => {
+    const currentYearMonths = yearlySummary?.monthly_data || [];
+    const nextYearMonths = yearlySummaryNext?.monthly_data || [];
+    const merged = [...currentYearMonths, ...nextYearMonths];
+    const mergedMap = new Map(merged.map((m) => [format(parseISO(m.month_date), 'yyyy-MM'), m]));
 
-    const monthlyData = yearlySummary.monthly_data || [];
-    const yearlyStats = monthlyData.map(m => ({
-      month: m.month_name,
-      income: Number(m.income),
-      fixed: Number(m.fixed_expenses),
-      variable: Number(m.variable_expenses),
-      savings: Number(m.savings),
+    const startDate = new Date(selectedYear, yearStartMonth, 1);
+    return Array.from({ length: 12 }).map((_, idx) => {
+      const monthDatePoint = addMonths(startDate, idx);
+      const key = format(monthDatePoint, 'yyyy-MM');
+      const found = mergedMap.get(key);
+
+      return {
+        key,
+        monthDate: monthDatePoint,
+        monthLabel: format(monthDatePoint, 'MMM'),
+        quarterLabel: `Q${Math.floor(idx / 3) + 1}`,
+        income: Number(found?.income || 0),
+        fixed: Number(found?.fixed_expenses || 0),
+        variable: Number(found?.variable_expenses || 0),
+        savings: Number(found?.savings || 0),
+      };
+    });
+  }, [selectedYear, yearStartMonth, yearlySummary, yearlySummaryNext]);
+
+  const yearlyViewData = useMemo(() => {
+    const expectedIncome = Number(monthlySettings?.expected_income || 0);
+    const expectedExpenses = budgets
+      .filter((budget) => budget.category?.type !== 'income')
+      .reduce((sum, budget) => sum + Number(budget.expected_amount || 0), 0);
+    const expectedSavings = expectedIncome - expectedExpenses;
+
+    const monthlyStats = yearPeriodData.map((m) => ({
+      ...m,
+      expenses: m.fixed + m.variable,
+      incomeDelta: m.income - expectedIncome,
+      expenseDelta: m.fixed + m.variable - expectedExpenses,
+      savingsDelta: m.savings - expectedSavings,
     }));
 
-    // Category stability calculation
-    const categoryMonthly = yearlySummary.category_monthly_spending || [];
-    const categoryGroups: Record<string, { spent: number[] }> = {};
-    
-    categoryMonthly.forEach(cm => {
-      if (!categoryGroups[cm.id]) {
-        categoryGroups[cm.id] = { spent: [] };
-      }
-      categoryGroups[cm.id].spent.push(Number(cm.spent));
+    const chartData =
+      aggregation === 'quarter'
+        ? [0, 1, 2, 3].map((qIdx) => {
+            const chunk = monthlyStats.slice(qIdx * 3, qIdx * 3 + 3);
+            const sum = (key: keyof (typeof chunk)[number]) => chunk.reduce((acc, item) => acc + Number(item[key] || 0), 0);
+            return {
+              monthLabel: `Q${qIdx + 1}`,
+              income: sum('income'),
+              fixed: sum('fixed'),
+              variable: sum('variable'),
+              savings: sum('savings'),
+              expenses: sum('expenses'),
+            };
+          })
+        : monthlyStats;
+
+    const categoryMonthly = [
+      ...(yearlySummary?.category_monthly_spending || []),
+      ...(yearlySummaryNext?.category_monthly_spending || []),
+    ];
+
+    const byCategory: Record<string, { id: string; name: string; color: string; type: string; values: number[] }> = {};
+    categoryMonthly.forEach((cm) => {
+      const bucket = byCategory[cm.id] || {
+        id: cm.id,
+        name: cm.name,
+        color: cm.color,
+        type: cm.type,
+        values: Array(12).fill(0),
+      };
+      const idx = yearPeriodData.findIndex((period) => period.key === format(parseISO(cm.month_name.length > 3 ? cm.month_name : `${selectedYear}-${cm.month_name}-01`), 'yyyy-MM'));
+      if (idx >= 0) bucket.values[idx] += Number(cm.spent || 0);
+      byCategory[cm.id] = bucket;
     });
 
-    const categoryStability = Object.entries(categoryGroups).map(([id, data]) => {
-      const catInfo = categoryMonthly.find(cm => cm.id === id);
-      const amounts = data.spent.filter(v => v > 0);
-      const avg = amounts.length > 0 ? amounts.reduce((a, b) => a + b, 0) / amounts.length : 0;
-      const variance = amounts.length > 1
-        ? amounts.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / amounts.length
-        : 0;
-      const stdDev = Math.sqrt(variance);
-      const cv = avg > 0 ? (stdDev / avg) * 100 : 0;
+    const categoryStability = Object.values(byCategory)
+      .map((cat) => {
+        const values = cat.values.filter((v) => v > 0);
+        const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+        const variance = values.length > 1 ? values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / values.length : 0;
+        const stdDev = Math.sqrt(variance);
+        const cv = avg > 0 ? (stdDev / avg) * 100 : 0;
+        return { ...cat, avg, stdDev, cv, isVolatile: cv > 30 };
+      })
+      .filter((cat) => cat.avg > 0)
+      .sort((a, b) => b.cv - a.cv);
 
-      return {
-        id,
-        name: catInfo?.name || '',
-        color: catInfo?.color || '#6366f1',
-        type: catInfo?.type || 'variable',
-        avg,
-        stdDev,
-        cv,
-        isVolatile: cv > 30,
-      };
-    })
-    .filter(c => c.avg > 0)
-    .sort((a, b) => b.cv - a.cv);
+    const variableAlerts = categoryStability
+      .filter((cat) => cat.type === 'variable')
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 3);
+
+    const stdDevAlerts = [...categoryStability].sort((a, b) => b.stdDev - a.stdDev).slice(0, 3);
+
+    const heatmapCategories = [...categoryStability]
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 8)
+      .map((cat) => ({
+        ...cat,
+        cells: cat.values,
+      }));
+
+    const maxHeat = Math.max(1, ...heatmapCategories.flatMap((cat) => cat.cells));
 
     return {
-      yearlyStats,
+      expectedIncome,
+      expectedExpenses,
+      expectedSavings,
+      monthlyStats,
+      chartData,
       categoryStability,
-      totalIncome: Number(yearlySummary.total_income),
-      totalExpenses: Number(yearlySummary.total_expenses),
-      totalSavings: Number(yearlySummary.total_income) - Number(yearlySummary.total_expenses),
+      variableAlerts,
+      stdDevAlerts,
+      unstableAlerts: categoryStability.filter((cat) => cat.isVolatile).slice(0, 3),
+      budgetVsReality: monthlyStats.map((m) => ({
+        month: m.monthLabel,
+        incomeDelta: m.incomeDelta,
+        expenseDelta: m.expenseDelta,
+        savingsDelta: m.savingsDelta,
+      })),
+      heatmapCategories,
+      maxHeat,
+      totalIncome: monthlyStats.reduce((sum, m) => sum + m.income, 0),
+      totalExpenses: monthlyStats.reduce((sum, m) => sum + m.expenses, 0),
+      totalSavings: monthlyStats.reduce((sum, m) => sum + m.savings, 0),
     };
-  }, [yearlySummary]);
+  }, [aggregation, budgets, monthlySettings, selectedYear, yearPeriodData, yearlySummary, yearlySummaryNext]);
 
-  // Investment evolution data
   const investmentEvolution = useMemo(() => {
     if (!investmentSummary?.investments) return [];
+    const targetCurrency = settings?.main_currency || 'EUR';
 
-    const months: string[] = [];
-    for (let i = 11; i >= 0; i--) {
-      months.push(format(subMonths(currentDate, i), 'yyyy-MM-dd'));
-    }
+    return yearPeriodData.map((period) => {
+      const monthDatePoint = startOfMonth(period.monthDate);
+      const row = { month: period.monthLabel, Investments: 0, Emergency: 0, Current: 0 };
 
-    return months.map(month => {
-      let investmentsTotal = 0;
-      let emergencyTotal = 0;
-      let currentAccountTotal = 0;
-
-      investmentSummary.investments.forEach(inv => {
+      investmentSummary.investments.forEach((inv) => {
         const snapshot = inv.snapshots
-          ?.filter(s => s.month <= month)
+          ?.filter((snap) => snap.month <= format(monthDatePoint, 'yyyy-MM-dd'))
           .sort((a, b) => b.month.localeCompare(a.month))[0];
-        const value = snapshot?.total_value || 0;
-        
-        if (inv.investment_type === 'Investments') investmentsTotal += value;
-        else if (inv.investment_type === 'Emergency savings') emergencyTotal += value;
-        else if (inv.investment_type === 'Current account') currentAccountTotal += value;
+        const rawValue = Number(snapshot?.total_value || 0);
+        const rate = getRate(inv.currency as 'EUR' | 'USD' | 'BRL', targetCurrency, monthDatePoint).rate;
+        const converted = rawValue * rate;
+
+        if (inv.investment_type === 'Investments') row.Investments += converted;
+        else if (inv.investment_type === 'Emergency savings') row.Emergency += converted;
+        else row.Current += converted;
       });
 
-      return {
-        month: format(new Date(month), 'MMM'),
-        investments: investmentsTotal,
-        emergency: emergencyTotal,
-        current: currentAccountTotal,
-        total: investmentsTotal + emergencyTotal + currentAccountTotal,
-      };
+      return row;
     });
-  }, [investmentSummary]);
+  }, [getRate, investmentSummary, settings?.main_currency, yearPeriodData]);
 
-  const loading = (view === 'monthly' ? monthlyLoading : yearlyLoading) || budgetsLoading;
-  const currentMonth = format(currentDate, 'MMMM yyyy');
+  const loading = (view === 'monthly' ? monthlyLoading : yearlyLoading || yearlyLoadingNext) || budgetsLoading;
 
   const chartConfig = {
     spent: { label: 'Spent', color: 'hsl(var(--chart-1))' },
@@ -206,190 +310,82 @@ export default function Dashboard() {
     fixed: { label: 'Fixed', color: 'hsl(var(--chart-2))' },
     variable: { label: 'Variable', color: 'hsl(var(--chart-3))' },
     savings: { label: 'Savings', color: 'hsl(var(--chart-4))' },
-    investments: { label: 'Investments', color: 'hsl(var(--chart-1))' },
-    emergency: { label: 'Emergency', color: 'hsl(var(--chart-2))' },
-    current: { label: 'Current', color: 'hsl(var(--chart-3))' },
+    incomeDelta: { label: 'Income Δ', color: 'hsl(var(--chart-1))' },
+    expenseDelta: { label: 'Expense Δ', color: 'hsl(var(--chart-2))' },
+    savingsDelta: { label: 'Savings Δ', color: 'hsl(var(--chart-4))' },
+    Investments: { label: 'Investments', color: 'hsl(var(--chart-1))' },
+    Emergency: { label: 'Emergency', color: 'hsl(var(--chart-2))' },
+    Current: { label: 'Current', color: 'hsl(var(--chart-3))' },
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">Loading dashboard...</p>
-      </div>
-    );
-  }
-
-  // Handle errors gracefully
-  if (monthlyError || yearlyError) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-destructive">Failed to load dashboard data. Please try again.</p>
-      </div>
-    );
+  if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading dashboard...</div>;
+  if (monthlyError || yearlyError || yearlyErrorNext) {
+    return <div className="flex h-64 items-center justify-center text-destructive">Failed to load dashboard data.</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
         <Tabs value={view} onValueChange={(v) => setView(v as 'monthly' | 'yearly')}>
           <TabsList>
-            <TabsTrigger value="monthly" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              Monthly
-            </TabsTrigger>
-            <TabsTrigger value="yearly" className="gap-2">
-              <Target className="h-4 w-4" />
-              Yearly
-            </TabsTrigger>
+            <TabsTrigger value="monthly" className="gap-2"><Calendar className="h-4 w-4" />Monthly</TabsTrigger>
+            <TabsTrigger value="yearly" className="gap-2"><Target className="h-4 w-4" />Yearly</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {view === 'monthly' && monthlyViewData ? (
-        // ========== MONTHLY VIEW ==========
+      {view === 'monthly' && monthlyViewData && (
         <div className="space-y-6">
-          <div className="text-sm text-muted-foreground">{currentMonth}</div>
+          <div className="flex items-center gap-2">
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+            />
+            <Badge variant="outline">Analyze monthly performance</Badge>
+          </div>
 
-          {/* Top KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Income
-                </CardTitle>
-                <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">€{monthlyViewData.actualIncome.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  of €{monthlyViewData.expectedIncome.toLocaleString()} expected
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Expenses
-                </CardTitle>
-                <ArrowDownRight className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">€{monthlyViewData.totalExpenses.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  Fixed: €{monthlyViewData.fixedExpenses.toFixed(0)} | Variable: €{monthlyViewData.variableExpenses.toFixed(0)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Expected Savings
-                </CardTitle>
-                <PiggyBank className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${monthlyViewData.expectedSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  €{monthlyViewData.expectedSavings.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Actual: €{monthlyViewData.actualSavings.toFixed(0)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Remaining Budget
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-chart-4" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  €{monthlyViewData.remainingBudget.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  This month
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Transactions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{monthlyViewData.transactionCount}</div>
-                <p className="text-xs text-muted-foreground">
-                  {monthlyViewData.incompleteCount > 0 ? (
-                    <span className="text-amber-600">{monthlyViewData.incompleteCount} need category</span>
-                  ) : (
-                    'All categorized'
-                  )}
-                </p>
-              </CardContent>
-            </Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedIncome.toLocaleString()}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Fixed €{monthlyViewData.fixedExpenses.toFixed(0)} · Variable €{monthlyViewData.variableExpenses.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expected Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.expectedSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.expectedSavings.toLocaleString()}</div><p className="text-xs text-muted-foreground">Actual €{monthlyViewData.actualSavings.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Remaining Budget</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">This month</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Transactions</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{monthlyViewData.transactionCount}</div><p className="text-xs text-muted-foreground">{monthlyViewData.incompleteCount > 0 ? `${monthlyViewData.incompleteCount} need category` : 'All categorized'}</p></CardContent></Card>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Weekly Spending Chart */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Weekly Spending</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Weekly Spending vs Budget</CardTitle></CardHeader>
               <CardContent>
                 {monthlyViewData.weeklyData.length > 0 ? (
-                  <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                    <BarChart data={monthlyViewData.weeklyData}>
+                  <ChartContainer config={chartConfig} className="h-[260px] w-full">
+                    <ComposedChart data={monthlyViewData.weeklyData}>
+                      <CartesianGrid vertical={false} />
                       <XAxis dataKey="week" tickLine={false} axisLine={false} />
                       <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="spent" fill="hsl(var(--chart-1))" radius={4} />
-                      <Bar dataKey="budget" fill="hsl(var(--chart-2))" radius={4} opacity={0.3} />
-                    </BarChart>
+                      <Legend />
+                      <Bar dataKey="spent" fill="hsl(var(--chart-1))" radius={6}>
+                        <LabelList dataKey="deltaLabel" position="top" className="fill-muted-foreground text-xs" />
+                      </Bar>
+                      <Line type="monotone" dataKey="budget" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
+                    </ComposedChart>
                   </ChartContainer>
-                ) : (
-                  <p className="py-8 text-center text-muted-foreground">No spending data yet</p>
-                )}
+                ) : <p className="py-8 text-center text-muted-foreground">No spending data yet</p>}
               </CardContent>
             </Card>
 
-            {/* Alerts */}
             {monthlyViewData.alerts.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    Budget Alerts
-                  </CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><AlertTriangle className="h-5 w-5 text-amber-500" />Budget Alerts</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  {monthlyViewData.alerts.map((alert, i) => (
-                    <div 
-                      key={i}
-                      className={`flex items-center justify-between rounded-lg border p-3 ${
-                        alert.percent >= 100 
-                          ? 'border-destructive/50 bg-destructive/10' 
-                          : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
-                          style={{ backgroundColor: alert.color }}
-                        />
-                        <div>
-                          <p className="font-medium text-foreground">{alert.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            €{alert.spent.toFixed(0)} of €{alert.budget.toFixed(0)} ({alert.percent.toFixed(0)}%)
-                          </p>
-                        </div>
-                      </div>
+                  {monthlyViewData.alerts.map((alert) => (
+                    <div key={alert.id} className="space-y-1 rounded-md border p-3">
+                      <div className="flex items-center justify-between"><span className="font-medium">{alert.name}</span><Badge variant={alert.percent >= 100 ? 'destructive' : 'secondary'}>{alert.percent.toFixed(0)}%</Badge></div>
+                      <p className="text-xs text-muted-foreground">€{alert.spent.toFixed(0)} / €{alert.budget.toFixed(0)}</p>
+                      <Progress value={Math.min(alert.percent, 100)} />
                     </div>
                   ))}
                 </CardContent>
@@ -397,262 +393,154 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Category Progress */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Category Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {monthlyViewData.categoryProgress.length === 0 ? (
-                <p className="py-4 text-center text-muted-foreground">
-                  No budgets set yet
-                </p>
-              ) : (
-                monthlyViewData.categoryProgress.slice(0, 8).map((cat) => (
-                  <div key={cat.id} className="flex items-center gap-3">
-                    <div 
-                      className="h-3 w-3 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{cat.name}</span>
-                        <span className="text-muted-foreground">
-                          €{cat.spent.toFixed(0)} / €{cat.budget.toFixed(0)}
-                        </span>
-                      </div>
-                      <Progress 
-                        value={Math.min(cat.percent, 100)}
-                        className={`mt-1 h-2 ${
-                          cat.percent >= 100 ? 'bg-destructive/20' : 
-                          cat.percent >= 85 ? 'bg-amber-100' : ''
-                        }`}
-                      />
-                    </div>
-                    <Badge variant={cat.percent >= 100 ? 'destructive' : cat.percent >= 85 ? 'secondary' : 'outline'}>
-                      {cat.percent.toFixed(0)}%
-                    </Badge>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link to="/import">Import Transactions</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/categories">Manage Categories</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/budget">Adjust Budget</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/transactions">View Transactions</Link>
-              </Button>
+            <CardHeader><CardTitle>Category Budget Progress</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">No budgets set yet.</p> : monthlyViewData.categoryProgress.slice(0, 8).map((cat) => (
+                <div key={cat.id} className="space-y-1">
+                  <div className="flex justify-between text-sm"><span>{cat.name}</span><span>€{cat.spent.toFixed(0)} / €{cat.budget.toFixed(0)}</span></div>
+                  <Progress value={Math.min(cat.percent, 100)} />
+                </div>
+              ))}
+              <div className="pt-2"><Button asChild variant="outline"><Link to="/budget">Adjust Budget</Link></Button></div>
             </CardContent>
           </Card>
         </div>
-      ) : view === 'yearly' && yearlyViewData ? (
-        // ========== YEARLY VIEW ==========
-        <div className="space-y-6">
-          <div className="text-sm text-muted-foreground">{currentYear}</div>
+      )}
 
-          {/* Annual Financial Overview */}
+      {view === 'yearly' && yearlyViewData && (
+        <div className="space-y-6">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Year window start</p>
+              <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Start month</p>
+              <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Aggregation</p>
+              <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="month">Monthly</SelectItem>
+                  <SelectItem value="quarter">Quarterly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <Card>
-            <CardHeader>
-              <CardTitle>Annual Financial Overview</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Income vs Expenses ({aggregation === 'month' ? 'Monthly' : 'Quarterly'})</CardTitle></CardHeader>
             <CardContent>
-              {yearlyViewData.yearlyStats.length > 0 ? (
-                <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                  <BarChart data={yearlyViewData.yearlyStats}>
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={(v) => `€${v.toLocaleString()}`} tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="income" stackId="a" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="fixed" stackId="b" fill="hsl(var(--chart-2))" />
-                    <Bar dataKey="variable" stackId="b" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              ) : (
-                <p className="py-8 text-center text-muted-foreground">No data for this year yet</p>
-              )}
+              <ChartContainer config={chartConfig} className="h-[260px] w-full">
+                <BarChart data={yearlyViewData.chartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar dataKey="income" fill="hsl(var(--chart-1))" />
+                  <Bar dataKey="fixed" stackId="exp" fill="hsl(var(--chart-2))" />
+                  <Bar dataKey="variable" stackId="exp" fill="hsl(var(--chart-3))" />
+                </BarChart>
+              </ChartContainer>
             </CardContent>
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Savings Trend */}
             <Card>
-              <CardHeader>
-                <CardTitle>Monthly Savings</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Budget vs Reality Delta (per month)</CardTitle></CardHeader>
               <CardContent>
-                {yearlyViewData.yearlyStats.length > 0 ? (
-                  <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                    <AreaChart data={yearlyViewData.yearlyStats}>
-                      <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                      <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="savings" 
-                        stroke="hsl(var(--chart-4))" 
-                        fill="hsl(var(--chart-4))" 
-                        fillOpacity={0.3}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                ) : (
-                  <p className="py-8 text-center text-muted-foreground">No savings data yet</p>
-                )}
+                <ChartContainer config={chartConfig} className="h-[260px] w-full">
+                  <BarChart data={yearlyViewData.budgetVsReality}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Bar dataKey="incomeDelta" fill="hsl(var(--chart-1))" />
+                    <Bar dataKey="expenseDelta" fill="hsl(var(--chart-2))" />
+                    <Bar dataKey="savingsDelta" fill="hsl(var(--chart-4))" />
+                  </BarChart>
+                </ChartContainer>
               </CardContent>
             </Card>
 
-            {/* Category Stability */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Category Stability
-                  <Badge variant="outline" className="text-xs font-normal">Volatility</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {yearlyViewData.categoryStability.length === 0 ? (
-                  <p className="py-4 text-center text-muted-foreground">
-                    Not enough data yet
-                  </p>
-                ) : (
-                  yearlyViewData.categoryStability.slice(0, 5).map((cat) => (
-                    <div key={cat.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        <span className="font-medium">{cat.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          Avg: €{cat.avg.toFixed(0)}
-                        </span>
-                        <Badge variant={cat.isVolatile ? 'destructive' : 'secondary'}>
-                          {cat.isVolatile ? 'Volatile' : 'Stable'}
-                        </Badge>
-                      </div>
+              <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle></CardHeader>
+              <CardContent className="overflow-x-auto">
+                <div className="min-w-[560px] space-y-2">
+                  <div className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] gap-1 text-xs text-muted-foreground">
+                    <div />
+                    {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
+                  </div>
+                  {yearlyViewData.heatmapCategories.map((cat) => (
+                    <div key={cat.id} className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] items-center gap-1">
+                      <div className="truncate text-xs font-medium">{cat.name}</div>
+                      {cat.cells.map((value, idx) => {
+                        const intensity = Math.max(0.08, value / yearlyViewData.maxHeat);
+                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded" style={{ backgroundColor: `hsl(var(--chart-1) / ${intensity})` }} title={`€${value.toFixed(0)}`} />;
+                      })}
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Investment Evolution */}
-          {investmentEvolution.some(m => m.total > 0) && (
+          <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <CardHeader>
-                <CardTitle>Net Worth Evolution</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Investments (Stacked Net Worth in {settings?.main_currency || 'EUR'})</CardTitle></CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <ChartContainer config={chartConfig} className="h-[280px] w-full">
                   <AreaChart data={investmentEvolution}>
+                    <CartesianGrid vertical={false} />
                     <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={(v) => `€${v.toLocaleString()}`} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `${settings?.main_currency || 'EUR'} ${Number(v).toFixed(0)}`} tickLine={false} axisLine={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="investments" 
-                      stackId="1" 
-                      stroke="hsl(var(--chart-1))" 
-                      fill="hsl(var(--chart-1))" 
-                      fillOpacity={0.6}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="emergency" 
-                      stackId="1" 
-                      stroke="hsl(var(--chart-2))" 
-                      fill="hsl(var(--chart-2))" 
-                      fillOpacity={0.6}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="current" 
-                      stackId="1" 
-                      stroke="hsl(var(--chart-3))" 
-                      fill="hsl(var(--chart-3))" 
-                      fillOpacity={0.6}
-                    />
+                    <Legend />
+                    <Area type="monotone" dataKey="Current" stackId="nw" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.5} />
+                    <Area type="monotone" dataKey="Emergency" stackId="nw" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.5} />
+                    <Area type="monotone" dataKey="Investments" stackId="nw" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.5} />
                   </AreaChart>
                 </ChartContainer>
               </CardContent>
             </Card>
-          )}
 
-          {/* Yearly Summary Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Income ({currentYear})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  €{yearlyViewData.totalIncome.toLocaleString()}
+              <CardHeader><CardTitle>Budget Alerts</CardTitle></CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div>
+                  <p className="mb-2 font-medium">Highest variable expenses</p>
+                  {yearlyViewData.variableAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: €{cat.avg.toFixed(0)} avg</p>)}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Expenses ({currentYear})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  €{yearlyViewData.totalExpenses.toLocaleString()}
+                <div>
+                  <p className="mb-2 font-medium">Highest standard deviation</p>
+                  {yearlyViewData.stdDevAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: σ {cat.stdDev.toFixed(0)}</p>)}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Savings ({currentYear})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  €{yearlyViewData.totalSavings.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Net Worth
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  €{(investmentSummary?.total_value || 0).toLocaleString()}
+                <div>
+                  <p className="mb-2 font-medium">Unstable patterns</p>
+                  {yearlyViewData.unstableAlerts.length > 0 ? yearlyViewData.unstableAlerts.map((cat) => (
+                    <div key={cat.id} className="mb-1 flex items-center justify-between rounded border p-2">
+                      <span>{cat.name}</span><Badge variant="destructive">CV {cat.cv.toFixed(0)}%</Badge>
+                    </div>
+                  )) : <p className="text-muted-foreground">No unstable categories detected.</p>}
                 </div>
               </CardContent>
             </Card>
           </div>
-        </div>
-      ) : (
-        <div className="flex h-64 items-center justify-center">
-          <p className="text-muted-foreground">Loading...</p>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
+          </div>
         </div>
       )}
     </div>
