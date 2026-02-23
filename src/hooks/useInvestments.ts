@@ -23,6 +23,26 @@ export interface InvestmentSnapshot {
   created_at: string;
 }
 
+const INVESTMENT_COLUMNS = `
+  id,
+  user_id,
+  name,
+  investment_type,
+  currency,
+  initial_amount,
+  monthly_contribution,
+  created_at,
+  updated_at
+`;
+
+const SNAPSHOT_COLUMNS = `
+  id,
+  investment_id,
+  month,
+  total_value,
+  created_at
+`;
+
 export function useInvestments() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [snapshots, setSnapshots] = useState<InvestmentSnapshot[]>([]);
@@ -36,7 +56,7 @@ export function useInvestments() {
     
     const { data, error } = await supabase
       .from('investments')
-      .select('*')
+      .select(INVESTMENT_COLUMNS)
       .eq('user_id', user.id)
       .order('name');
 
@@ -49,7 +69,7 @@ export function useInvestments() {
       if (data && data.length > 0) {
         const { data: snapshotsData } = await supabase
           .from('investment_snapshots')
-          .select('*')
+          .select(SNAPSHOT_COLUMNS)
           .in('investment_id', data.map(i => i.id))
           .order('month', { ascending: false });
         
@@ -84,7 +104,7 @@ export function useInvestments() {
         initial_amount: initialAmount,
         monthly_contribution: monthlyContribution
       })
-      .select()
+      .select(INVESTMENT_COLUMNS)
       .single();
 
     if (error) {
@@ -103,7 +123,7 @@ export function useInvestments() {
       .from('investments')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(INVESTMENT_COLUMNS)
       .single();
 
     if (error) {
@@ -139,7 +159,7 @@ export function useInvestments() {
       }, {
         onConflict: 'investment_id,month'
       })
-      .select()
+      .select(SNAPSHOT_COLUMNS)
       .single();
 
     if (error) {

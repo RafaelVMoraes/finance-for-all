@@ -270,7 +270,7 @@ export function useImport() {
     const existingSet = new Set(
       allExisting.map(t => createRowKey(t.payment_date, t.original_label, t.amount))
     );
-    
+
     return rows.map(row => ({
       ...row,
       isDuplicate: existingSet.has(createRowKey(row.date, row.label, row.value))

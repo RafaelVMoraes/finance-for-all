@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
@@ -89,7 +89,7 @@ export function useMonthlySummary(date: Date = new Date()) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthContext();
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const monthStart = format(startOfMonth(date), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(date), 'yyyy-MM-dd');
@@ -97,11 +97,7 @@ export function useMonthlySummary(date: Date = new Date()) {
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    const requestId = ++requestIdRef.current;
 
     const cacheKey = getCacheKey(user.id, 'monthly', `${monthStart}-${monthEnd}`);
     const cached = getCachedData<MonthlySummary>(cacheKey);
@@ -124,24 +120,23 @@ export function useMonthlySummary(date: Date = new Date()) {
       if (rpcError) throw rpcError;
       
       const summary = result as unknown as MonthlySummary;
+      if (requestId !== requestIdRef.current) return;
       setCachedData(cacheKey, summary);
       setData(summary);
     } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
+      if (requestId !== requestIdRef.current) return;
+      if (err instanceof Error) {
         setError(err.message);
       }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [user, monthStart, monthEnd]);
 
   useEffect(() => {
     fetchData();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
   }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };
@@ -152,15 +147,12 @@ export function useYearlySummary(year: number = new Date().getFullYear()) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthContext();
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    const requestId = ++requestIdRef.current;
 
     const cacheKey = getCacheKey(user.id, 'yearly', String(year));
     const cached = getCachedData<YearlySummary>(cacheKey);
@@ -182,24 +174,23 @@ export function useYearlySummary(year: number = new Date().getFullYear()) {
       if (rpcError) throw rpcError;
       
       const summary = result as unknown as YearlySummary;
+      if (requestId !== requestIdRef.current) return;
       setCachedData(cacheKey, summary);
       setData(summary);
     } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
+      if (requestId !== requestIdRef.current) return;
+      if (err instanceof Error) {
         setError(err.message);
       }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [user, year]);
 
   useEffect(() => {
     fetchData();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
   }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };
@@ -210,15 +201,12 @@ export function useInvestmentSummary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthContext();
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    const requestId = ++requestIdRef.current;
 
     const cacheKey = getCacheKey(user.id, 'investments', 'all');
     const cached = getCachedData<InvestmentSummary>(cacheKey);
@@ -238,24 +226,23 @@ export function useInvestmentSummary() {
       if (rpcError) throw rpcError;
       
       const summary = result as unknown as InvestmentSummary;
+      if (requestId !== requestIdRef.current) return;
       setCachedData(cacheKey, summary);
       setData(summary);
     } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
+      if (requestId !== requestIdRef.current) return;
+      if (err instanceof Error) {
         setError(err.message);
       }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
     fetchData();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
   }, [fetchData]);
 
   // Invalidate cache when needed
