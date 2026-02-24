@@ -285,6 +285,7 @@ export default function Dashboard() {
       .map((cat) => ({
         ...cat,
         cells: cat.values,
+        maxCell: Math.max(1, ...cat.values),
       }));
 
     const maxHeat = Math.max(1, ...heatmapCategories.flatMap((cat) => cat.cells));
@@ -508,6 +509,13 @@ export default function Dashboard() {
             </div>
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
+          </div>
+
           <Card>
             <CardHeader><CardTitle>Income vs Expenses ({aggregation === 'month' ? 'Monthly' : 'Quarterly'})</CardTitle></CardHeader>
             <CardContent>
@@ -564,7 +572,7 @@ export default function Dashboard() {
                   <span>Higher spend</span>
                 </div>
                 <div className="min-w-[560px] space-y-2">
-                  <div className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] gap-1 text-xs text-muted-foreground">
+                  <div className="grid grid-cols-[96px_repeat(12,minmax(34px,1fr))] gap-1 text-xs text-muted-foreground">
                     <div />
                     {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
                   </div>
