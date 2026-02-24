@@ -218,7 +218,7 @@ export default function Dashboard() {
         type: cm.type,
         values: Array(12).fill(0),
       };
-      const idx = yearPeriodData.findIndex((period) => period.key === format(parseISO(cm.month_name.length > 3 ? cm.month_name : `${selectedYear}-${cm.month_name}-01`), 'yyyy-MM'));
+      const idx = cm.month_date ? yearPeriodData.findIndex((period) => period.key === format(parseISO(cm.month_date), 'yyyy-MM')) : -1;
       if (idx >= 0) bucket.values[idx] += Number(cm.spent || 0);
       byCategory[cm.id] = bucket;
     });
