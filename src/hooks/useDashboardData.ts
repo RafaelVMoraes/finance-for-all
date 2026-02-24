@@ -39,6 +39,7 @@ export interface CategoryMonthlySpending {
   name: string;
   color: string;
   type: string;
+  month_date: string;
   month_name: string;
   spent: number;
 }
