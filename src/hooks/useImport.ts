@@ -442,28 +442,21 @@ export function useImport() {
         .update({ row_count: transactions.length })
         .eq('id', batch.id);
       
-      // Update rule usage stats in parallel (fire and forget)
+      // Update rule usage stats atomically (fire and forget)
       if (appliedRuleIds && appliedRuleIds.length > 0) {
         const ruleCounts = new Map<string, number>();
         appliedRuleIds.forEach(id => ruleCounts.set(id, (ruleCounts.get(id) || 0) + 1));
         
-        const updates = Array.from(ruleCounts.entries()).map(async ([ruleId, count]) => {
-          const { data } = await supabase
-            .from('import_rules')
-            .select('times_applied')
-            .eq('id', ruleId)
-            .single();
-          if (data) {
-            await supabase
-              .from('import_rules')
-              .update({
-                times_applied: (data.times_applied || 0) + count,
-                last_applied_at: new Date().toISOString(),
-              })
-              .eq('id', ruleId);
-          }
-        });
-        Promise.all(updates).catch(() => {}); // Don't block import
+        const increments = Array.from(ruleCounts.entries()).map(([rule_id, increment]) => ({
+          rule_id,
+          increment,
+        }));
+        
+        // Atomic increment via RPC to avoid race conditions
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.rpc as any)('increment_import_rule_usage', {
+          p_increments: JSON.stringify(increments),
+        }).catch(() => {}); // Don't block import
       }
       
       setLoading(false);
