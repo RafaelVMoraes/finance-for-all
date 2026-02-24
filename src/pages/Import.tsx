@@ -703,7 +703,7 @@ export default function Import() {
 
       {/* Import History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Import History</DialogTitle>
           </DialogHeader>
