@@ -68,6 +68,20 @@ const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
 const calculateRatio = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 
+const getDistributionWeights = (distribution: string, weeksCount: number): number[] => {
+  if (weeksCount <= 0) return [];
+
+  if (distribution === 'front') {
+    return Array.from({ length: weeksCount }, (_, idx) => weeksCount - idx);
+  }
+
+  if (distribution === 'back') {
+    return Array.from({ length: weeksCount }, (_, idx) => idx + 1);
+  }
+
+  return Array.from({ length: weeksCount }, () => 1);
+};
+
 export default function Dashboard() {
   const today = new Date();
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
@@ -123,14 +137,30 @@ export default function Dashboard() {
       .sort((a, b) => b.percent - a.percent);
 
     const weeklySpending = monthlySummary.weekly_spending || [];
-    const weeklyBudget = (totalBudgetedFixed + totalBudgetedVariable) / Math.max(weeklySpending.length, 1);
+    const weeksCount = Math.max(weeklySpending.length, 1);
+    const weeklyBudget = Array.from({ length: weeksCount }, () => 0);
+
+    budgets
+      .filter((budget) => budget.categories?.type !== 'income' && Number(budget.expected_amount) > 0)
+      .forEach((budget) => {
+        const weights = getDistributionWeights(budget.distribution, weeksCount);
+        const totalWeights = weights.reduce((sum, weight) => sum + weight, 0);
+
+        if (totalWeights === 0) return;
+
+        weights.forEach((weight, idx) => {
+          weeklyBudget[idx] += (Number(budget.expected_amount) * weight) / totalWeights;
+        });
+      });
+
     const weeklyData = weeklySpending.map((w, idx) => {
       const spent = Number(w.spent);
-      const delta = weeklyBudget - spent;
+      const budget = weeklyBudget[idx] || 0;
+      const delta = budget - spent;
       return {
         week: `Week ${idx + 1}`,
         spent,
-        budget: weeklyBudget,
+        budget,
         delta,
         deltaLabel: `${delta >= 0 ? '+' : ''}${delta.toFixed(0)}`,
       };
