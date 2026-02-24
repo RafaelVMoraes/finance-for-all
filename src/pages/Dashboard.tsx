@@ -281,7 +281,7 @@ export default function Dashboard() {
 
     const heatmapCategories = [...categoryStability]
       .sort((a, b) => b.avg - a.avg)
-      .slice(0, 8)
+      .slice(0, 12)
       .map((cat) => ({
         ...cat,
         cells: cat.values,
@@ -462,7 +462,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader><CardTitle>Category Budget Progress</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">No budgets set yet.</p> : monthlyViewData.categoryProgress.slice(0, 8).map((cat) => (
+              {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">No budgets set yet.</p> : monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (
                 <div key={cat.id} className="space-y-1">
                   <div className="flex justify-between text-sm"><span>{cat.name}</span><span>€{cat.spent.toFixed(0)} / €{cat.budget.toFixed(0)}</span></div>
                   <Progress value={Math.min(cat.percent, 100)} />
@@ -561,10 +561,10 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </CardContent>
-            </Card>
+          </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle></CardHeader>
+          <Card>
+              <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle><p className="text-xs text-muted-foreground">Colors are relative to each category's own monthly peak to make patterns easier to compare.</p></CardHeader>
               <CardContent className="overflow-x-auto">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <span>Lower spend</span>
@@ -588,7 +588,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
