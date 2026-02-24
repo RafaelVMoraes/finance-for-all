@@ -68,6 +68,20 @@ const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
 const calculateRatio = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 
+const getDistributionWeights = (distribution: string, weeksCount: number): number[] => {
+  if (weeksCount <= 0) return [];
+
+  if (distribution === 'front') {
+    return Array.from({ length: weeksCount }, (_, idx) => weeksCount - idx);
+  }
+
+  if (distribution === 'back') {
+    return Array.from({ length: weeksCount }, (_, idx) => idx + 1);
+  }
+
+  return Array.from({ length: weeksCount }, () => 1);
+};
+
 export default function Dashboard() {
   const today = new Date();
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
@@ -123,14 +137,30 @@ export default function Dashboard() {
       .sort((a, b) => b.percent - a.percent);
 
     const weeklySpending = monthlySummary.weekly_spending || [];
-    const weeklyBudget = (totalBudgetedFixed + totalBudgetedVariable) / Math.max(weeklySpending.length, 1);
+    const weeksCount = Math.max(weeklySpending.length, 1);
+    const weeklyBudget = Array.from({ length: weeksCount }, () => 0);
+
+    budgets
+      .filter((budget) => budget.categories?.type !== 'income' && Number(budget.expected_amount) > 0)
+      .forEach((budget) => {
+        const weights = getDistributionWeights(budget.distribution, weeksCount);
+        const totalWeights = weights.reduce((sum, weight) => sum + weight, 0);
+
+        if (totalWeights === 0) return;
+
+        weights.forEach((weight, idx) => {
+          weeklyBudget[idx] += (Number(budget.expected_amount) * weight) / totalWeights;
+        });
+      });
+
     const weeklyData = weeklySpending.map((w, idx) => {
       const spent = Number(w.spent);
-      const delta = weeklyBudget - spent;
+      const budget = weeklyBudget[idx] || 0;
+      const delta = budget - spent;
       return {
         week: `Week ${idx + 1}`,
         spent,
-        budget: weeklyBudget,
+        budget,
         delta,
         deltaLabel: `${delta >= 0 ? '+' : ''}${delta.toFixed(0)}`,
       };
@@ -359,29 +389,6 @@ export default function Dashboard() {
     );
   };
 
-  const getBudgetCellStyle = (value: number, inverse = false) => {
-    const clamped = Math.max(0, Math.min(200, value));
-    const deviation = Math.min(Math.abs(value - 100) / 100, 1);
-    const intensity = 20 + Math.round(deviation * 65);
-    const positive = inverse ? value <= 100 : value >= 100;
-    const hue = positive ? 142 : 0;
-
-    return {
-      background: `linear-gradient(90deg, hsl(${hue} 75% ${intensity}% / 0.85) ${clamped / 2}%, hsl(var(--muted)) ${clamped / 2}%)`,
-      color: positive ? 'hsl(142 65% 16%)' : 'hsl(0 65% 20%)',
-      fontWeight: 600,
-    };
-  };
-
-  const getHeatmapCell = (value: number, maxCell: number) => {
-    const ratio = maxCell > 0 ? value / maxCell : 0;
-    if (ratio === 0) return { bg: 'hsl(var(--muted))', label: 'None' };
-    if (ratio <= 0.25) return { bg: 'hsl(204 60% 90%)', label: 'Low' };
-    if (ratio <= 0.5) return { bg: 'hsl(204 72% 76%)', label: 'Medium' };
-    if (ratio <= 0.75) return { bg: 'hsl(204 82% 58%)', label: 'High' };
-    return { bg: 'hsl(204 90% 42%)', label: 'Peak' };
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -469,31 +476,40 @@ export default function Dashboard() {
 
       {view === 'yearly' && yearlyViewData && (
         <div className="space-y-6">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Year window start</p>
-              <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+          <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Year window start</p>
+                <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Start month</p>
+                <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Aggregation</p>
+                <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Monthly</SelectItem>
+                    <SelectItem value="quarter">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Start month</p>
-              <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Aggregation</p>
-              <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Monthly</SelectItem>
-                  <SelectItem value="quarter">Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:w-[520px]">
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-3 overflow-x-auto">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
@@ -520,8 +536,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-              <CardHeader><CardTitle>Budget vs Reality (Real / Expected)</CardTitle><p className="text-xs text-muted-foreground">Stronger green/red shades indicate bigger deviation from target.</p></CardHeader>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Budget vs Reality (Real / Expected)</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
                 <table className="min-w-[520px] w-full text-sm">
                   <thead>
@@ -535,10 +552,10 @@ export default function Dashboard() {
                   <tbody>
                     {yearlyViewData.budgetVsReality.map((month) => (
                       <tr key={month.month} className="border-b last:border-b-0">
-                        <td className="py-2 pr-2 font-medium">{month.month}</td>
-                        <td className="py-2 px-2 text-right" style={getBudgetCellStyle(month.incomePct)}>{formatPercent(month.incomePct)}</td>
-                        <td className="py-2 px-2 text-right" style={getBudgetCellStyle(month.expensesPct, true)}>{formatPercent(month.expensesPct)}</td>
-                        <td className="py-2 px-2 text-right" style={getBudgetCellStyle(month.savingsPct)}>{formatPercent(month.savingsPct)}</td>
+                        <td className="py-2">{month.month}</td>
+                        <td className="py-2 text-right">{formatPercent(month.incomePct)}</td>
+                        <td className="py-2 text-right">{formatPercent(month.expensesPct)}</td>
+                        <td className="py-2 text-right">{formatPercent(month.savingsPct)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -550,43 +567,22 @@ export default function Dashboard() {
               <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle><p className="text-xs text-muted-foreground">Colors are relative to each category's own monthly peak to make patterns easier to compare.</p></CardHeader>
               <CardContent className="overflow-x-auto">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span>Color meaning</span>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-muted px-2 py-1">None</span>
-                    <span className="rounded bg-[#d5e9f8] px-2 py-1 text-foreground">Low</span>
-                    <span className="rounded bg-[#8ac0eb] px-2 py-1 text-foreground">Medium</span>
-                    <span className="rounded bg-[#3c97de] px-2 py-1 text-white">High</span>
-                    <span className="rounded bg-[#0b6bb7] px-2 py-1 text-white">Peak</span>
-                  </div>
+                  <span>Lower spend</span>
+                  <div className="h-2 w-36 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
+                  <span>Higher spend</span>
                 </div>
-                <div className="min-w-[700px] space-y-3">
-                  <div className="grid grid-cols-[88px_repeat(12,minmax(42px,1fr))] gap-1 text-xs text-muted-foreground">
+                <div className="min-w-[560px] space-y-2">
+                  <div className="grid grid-cols-[96px_repeat(12,minmax(34px,1fr))] gap-1 text-xs text-muted-foreground">
                     <div />
                     {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
                   </div>
                   {yearlyViewData.heatmapCategories.map((cat) => (
-                    <div key={cat.id} className="grid grid-cols-[88px_1fr] gap-1">
-                      <div className="line-clamp-2 self-center text-xs font-medium">{cat.name}</div>
-                      <div className="space-y-1">
-                        <div className="grid grid-cols-12 gap-1">
-                          {cat.cells.map((value, idx) => {
-                            const cell = getHeatmapCell(value, cat.maxCell);
-                            return (
-                              <div
-                                key={`${cat.id}-${idx}`}
-                                className="h-10 rounded"
-                                style={{ backgroundColor: cell.bg }}
-                                title={`${cell.label}: €${value.toFixed(0)} (${Math.round((cat.maxCell > 0 ? (value / cat.maxCell) * 100 : 0))}% of category peak)`}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="grid grid-cols-12 gap-1 text-[10px] text-muted-foreground">
-                          {cat.cells.map((value, idx) => (
-                            <div key={`${cat.id}-${idx}-label`} className="text-center">€{value.toFixed(0)}</div>
-                          ))}
-                        </div>
-                      </div>
+                    <div key={cat.id} className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] items-center gap-1">
+                      <div className="truncate text-xs font-medium">{cat.name}</div>
+                      {cat.cells.map((value, idx) => {
+                        const intensity = Math.max(0.08, value / yearlyViewData.maxHeat);
+                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded" style={{ backgroundColor: `hsl(var(--chart-1) / ${intensity})` }} title={`€${value.toFixed(0)} (${Math.round(intensity * 100)}% intensity)`} />;
+                      })}
                     </div>
                   ))}
                 </div>

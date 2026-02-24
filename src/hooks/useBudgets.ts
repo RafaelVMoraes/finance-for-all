@@ -8,6 +8,7 @@ export interface Budget {
   user_id: string;
   category_id: string;
   expected_amount: number;
+  distribution: 'even' | 'front' | 'back' | 'custom';
   created_at: string;
   updated_at: string;
   categories?: {
@@ -36,6 +37,7 @@ const BUDGET_COLUMNS = `
   user_id,
   category_id,
   expected_amount,
+  distribution,
   created_at,
   updated_at,
   categories (
@@ -97,7 +99,11 @@ export function useBudgets(options?: UseBudgetsOptions) {
     fetchBudgets();
   }, [fetchBudgets]);
 
-  const upsertBudget = useCallback(async (categoryId: string, expectedAmount: number) => {
+  const upsertBudget = useCallback(async (
+    categoryId: string,
+    expectedAmount: number,
+    distribution: Budget['distribution'] = 'even'
+  ) => {
     if (!user) return { error: 'Not authenticated' };
 
     // Check if budget exists for this category
@@ -108,7 +114,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
       // Update existing budget
       result = await supabase
         .from('budgets')
-        .update({ expected_amount: expectedAmount })
+        .update({ expected_amount: expectedAmount, distribution })
         .eq('id', existingBudget.id)
         .select(BUDGET_COLUMNS)
         .single();
@@ -119,7 +125,8 @@ export function useBudgets(options?: UseBudgetsOptions) {
         .insert({
           user_id: user.id,
           category_id: categoryId,
-          expected_amount: expectedAmount
+          expected_amount: expectedAmount,
+          distribution,
         })
         .select(BUDGET_COLUMNS)
         .single();
