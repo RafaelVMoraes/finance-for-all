@@ -176,7 +176,7 @@ export default function Dashboard() {
   const yearlyViewData = useMemo(() => {
     const expectedIncome = Number(monthlySettings?.expected_income || 0);
     const expectedExpenses = budgets
-      .filter((budget) => budget.category?.type !== 'income')
+      .filter((budget) => budget.categories?.type !== 'income')
       .reduce((sum, budget) => sum + Number(budget.expected_amount || 0), 0);
     const expectedSavings = expectedIncome - expectedExpenses;
 

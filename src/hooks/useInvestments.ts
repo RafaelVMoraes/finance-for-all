@@ -28,6 +28,7 @@ const INVESTMENT_COLUMNS = `
   user_id,
   name,
   investment_type,
+  investment_type_id,
   currency,
   initial_amount,
   monthly_contribution,

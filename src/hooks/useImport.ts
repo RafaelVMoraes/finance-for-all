@@ -125,12 +125,24 @@ function createRowKey(date: string, label: string, value: number): string {
   return `${date}|${label.toLowerCase().trim()}|${value}`;
 }
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_ROW_COUNT = 10000;
+
+function sanitizeLabel(label: string): string {
+  // Remove leading characters that could trigger formula injection in spreadsheets
+  return label.replace(/^[=+\-@\t\r]/g, "'");
+}
+
 export function useImport() {
   const [loading, setLoading] = useState(false);
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
   const { user } = useAuthContext();
 
   const parseFile = useCallback(async (file: File): Promise<ParsedImportData> => {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
+    }
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -144,6 +156,11 @@ export function useImport() {
           
           if (jsonData.length < 2) {
             reject(new Error('File is empty or has no data rows'));
+            return;
+          }
+
+          if (jsonData.length > MAX_ROW_COUNT + 1) {
+            reject(new Error(`File has too many rows. Maximum is ${MAX_ROW_COUNT} data rows.`));
             return;
           }
           
@@ -178,8 +195,9 @@ export function useImport() {
               errors.push('Date before September 2025 is not allowed');
             }
             
-            // Parse label
-            const label = row[labelIdx] ? String(row[labelIdx]).trim() : '';
+            // Parse label (sanitize for formula injection)
+            const rawLabel = row[labelIdx] ? String(row[labelIdx]).trim() : '';
+            const label = rawLabel ? sanitizeLabel(rawLabel) : '';
             if (!label) {
               errors.push('Label is required');
             }
