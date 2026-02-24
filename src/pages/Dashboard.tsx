@@ -20,6 +20,7 @@ import {
   LabelList,
   Legend,
   Line,
+  ReferenceLine,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -62,6 +63,10 @@ const MONTH_OPTIONS = [
 ];
 
 type YearAggregation = 'month' | 'quarter';
+
+const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+
+const calculateRatio = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 
 export default function Dashboard() {
   const today = new Date();
@@ -183,6 +188,7 @@ export default function Dashboard() {
     const monthlyStats = yearPeriodData.map((m) => ({
       ...m,
       expenses: m.fixed + m.variable,
+      savedOrOverspent: m.income - (m.fixed + m.variable),
       incomeDelta: m.income - expectedIncome,
       expenseDelta: m.fixed + m.variable - expectedExpenses,
       savingsDelta: m.savings - expectedSavings,
@@ -200,6 +206,7 @@ export default function Dashboard() {
               variable: sum('variable'),
               savings: sum('savings'),
               expenses: sum('expenses'),
+              savedOrOverspent: sum('savedOrOverspent'),
             };
           })
         : monthlyStats;
@@ -264,9 +271,12 @@ export default function Dashboard() {
       unstableAlerts: categoryStability.filter((cat) => cat.isVolatile).slice(0, 3),
       budgetVsReality: monthlyStats.map((m) => ({
         month: m.monthLabel,
-        incomeDelta: m.incomeDelta,
-        expenseDelta: m.expenseDelta,
-        savingsDelta: m.savingsDelta,
+        actualIncome: m.income,
+        actualExpenses: m.expenses,
+        actualSavings: m.savedOrOverspent,
+        incomePct: calculateRatio(m.income, expectedIncome),
+        expensesPct: calculateRatio(m.expenses, expectedExpenses),
+        savingsPct: expectedSavings !== 0 ? (m.savedOrOverspent / expectedSavings) * 100 : 0,
       })),
       heatmapCategories,
       maxHeat,
@@ -310,6 +320,7 @@ export default function Dashboard() {
     fixed: { label: 'Fixed', color: 'hsl(var(--chart-2))' },
     variable: { label: 'Variable', color: 'hsl(var(--chart-3))' },
     savings: { label: 'Savings', color: 'hsl(var(--chart-4))' },
+    savedOrOverspent: { label: 'Saved / Overspent', color: 'hsl(var(--chart-5))' },
     incomeDelta: { label: 'Income Δ', color: 'hsl(var(--chart-1))' },
     expenseDelta: { label: 'Expense Δ', color: 'hsl(var(--chart-2))' },
     savingsDelta: { label: 'Savings Δ', color: 'hsl(var(--chart-4))' },
@@ -322,6 +333,30 @@ export default function Dashboard() {
   if (monthlyError || yearlyError || yearlyErrorNext) {
     return <div className="flex h-64 items-center justify-center text-destructive">Failed to load dashboard data.</div>;
   }
+
+  const yearlyIncomeExpenseTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: Record<string, number> }>; label?: string }) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    const data = payload[0]?.payload || {};
+    const income = Number(data.income || 0);
+    const fixed = Number(data.fixed || 0);
+    const variable = Number(data.variable || 0);
+    const savedOrOverspent = Number(data.savedOrOverspent || 0);
+
+    return (
+      <div className="rounded-lg border bg-background p-3 text-xs shadow-md">
+        <p className="mb-2 font-medium">{label}</p>
+        <div className="space-y-1 text-muted-foreground">
+          <p>Income: €{income.toFixed(0)}</p>
+          <p>Fixed: €{fixed.toFixed(0)} ({formatPercent(calculateRatio(fixed, income))})</p>
+          <p>Variable: €{variable.toFixed(0)} ({formatPercent(calculateRatio(variable, income))})</p>
+          <p className={savedOrOverspent >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+            {savedOrOverspent >= 0 ? 'Saved' : 'Overspent'}: €{Math.abs(savedOrOverspent).toFixed(0)} ({formatPercent(calculateRatio(Math.abs(savedOrOverspent), income))})
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -410,27 +445,36 @@ export default function Dashboard() {
 
       {view === 'yearly' && yearlyViewData && (
         <div className="space-y-6">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Year window start</p>
-              <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+          <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Year window start</p>
+                <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Start month</p>
+                <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Aggregation</p>
+                <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Monthly</SelectItem>
+                    <SelectItem value="quarter">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Start month</p>
-              <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Aggregation</p>
-              <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Monthly</SelectItem>
-                  <SelectItem value="quarter">Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:w-[520px]">
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
             </div>
           </div>
 
@@ -442,11 +486,13 @@ export default function Dashboard() {
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} />
                   <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartTooltip content={yearlyIncomeExpenseTooltip} />
                   <Legend />
                   <Bar dataKey="income" fill="hsl(var(--chart-1))" />
                   <Bar dataKey="fixed" stackId="exp" fill="hsl(var(--chart-2))" />
                   <Bar dataKey="variable" stackId="exp" fill="hsl(var(--chart-3))" />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                  <Line type="monotone" dataKey="savedOrOverspent" stroke="hsl(var(--chart-5))" strokeWidth={2} dot={{ r: 3 }} />
                 </BarChart>
               </ChartContainer>
             </CardContent>
@@ -454,26 +500,39 @@ export default function Dashboard() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle>Budget vs Reality Delta (per month)</CardTitle></CardHeader>
-              <CardContent>
-                <ChartContainer config={chartConfig} className="h-[260px] w-full">
-                  <BarChart data={yearlyViewData.budgetVsReality}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar dataKey="incomeDelta" fill="hsl(var(--chart-1))" />
-                    <Bar dataKey="expenseDelta" fill="hsl(var(--chart-2))" />
-                    <Bar dataKey="savingsDelta" fill="hsl(var(--chart-4))" />
-                  </BarChart>
-                </ChartContainer>
+              <CardHeader><CardTitle>Budget vs Reality (Real / Expected)</CardTitle></CardHeader>
+              <CardContent className="overflow-x-auto">
+                <table className="min-w-[520px] w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="py-2 text-left font-medium">Month</th>
+                      <th className="py-2 text-right font-medium">Income</th>
+                      <th className="py-2 text-right font-medium">Expenses</th>
+                      <th className="py-2 text-right font-medium">Savings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {yearlyViewData.budgetVsReality.map((month) => (
+                      <tr key={month.month} className="border-b last:border-b-0">
+                        <td className="py-2">{month.month}</td>
+                        <td className="py-2 text-right">{formatPercent(month.incomePct)}</td>
+                        <td className="py-2 text-right">{formatPercent(month.expensesPct)}</td>
+                        <td className="py-2 text-right">{formatPercent(month.savingsPct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
+                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>Lower spend</span>
+                  <div className="h-2 w-36 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
+                  <span>Higher spend</span>
+                </div>
                 <div className="min-w-[560px] space-y-2">
                   <div className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] gap-1 text-xs text-muted-foreground">
                     <div />
@@ -484,7 +543,7 @@ export default function Dashboard() {
                       <div className="truncate text-xs font-medium">{cat.name}</div>
                       {cat.cells.map((value, idx) => {
                         const intensity = Math.max(0.08, value / yearlyViewData.maxHeat);
-                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded" style={{ backgroundColor: `hsl(var(--chart-1) / ${intensity})` }} title={`€${value.toFixed(0)}`} />;
+                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded" style={{ backgroundColor: `hsl(var(--chart-1) / ${intensity})` }} title={`€${value.toFixed(0)} (${Math.round(intensity * 100)}% intensity)`} />;
                       })}
                     </div>
                   ))}
@@ -533,13 +592,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalIncome.toLocaleString()}</div></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{yearlyViewData.totalExpenses.toLocaleString()}</div></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{yearlyViewData.totalSavings.toLocaleString()}</div></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
           </div>
         </div>
       )}
