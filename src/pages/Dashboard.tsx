@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { addMonths, format, parseISO, startOfMonth } from 'date-fns';
+import { addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -82,6 +82,32 @@ const getDistributionWeights = (distribution: string, weeksCount: number): numbe
   return Array.from({ length: weeksCount }, () => 1);
 };
 
+const createFourWeekBuckets = (weekValues: number[], monthDate: Date) => {
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const firstWeekStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const firstWeekEnd = endOfWeek(monthStart, { weekStartsOn: 1 });
+  const lastWeekStart = startOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const firstWeekDays = Math.max(1, differenceInCalendarDays(firstWeekEnd, monthStart) + 1);
+  const lastWeekDays = Math.max(1, differenceInCalendarDays(monthEnd, lastWeekStart) + 1);
+
+  if (weekValues.length <= 4) {
+    return [...weekValues, ...Array(Math.max(0, 4 - weekValues.length)).fill(0)].slice(0, 4);
+  }
+
+  const extraWeeks = weekValues.length - 4;
+  const collapseIntoFirst = firstWeekDays <= lastWeekDays;
+
+  if (collapseIntoFirst) {
+    const collapsedStart = weekValues.slice(0, extraWeeks + 1).reduce((sum, value) => sum + value, 0);
+    return [collapsedStart, ...weekValues.slice(extraWeeks + 1)];
+  }
+
+  const collapsedEnd = weekValues.slice(weekValues.length - (extraWeeks + 1)).reduce((sum, value) => sum + value, 0);
+  return [...weekValues.slice(0, weekValues.length - (extraWeeks + 1)), collapsedEnd];
+};
+
 export default function Dashboard() {
   const today = new Date();
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
@@ -118,6 +144,7 @@ export default function Dashboard() {
 
     const totalBudgetedFixed = fixedCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0);
     const totalBudgetedVariable = variableCategories.reduce((sum, cat) => sum + getBudgetAmount(cat.id), 0);
+    const expectedExpenses = totalBudgetedFixed + totalBudgetedVariable;
     const expectedSavings = expectedIncome - totalBudgetedFixed - totalBudgetedVariable;
     const remainingBudget = expectedIncome - totalExpenses;
 
@@ -153,9 +180,12 @@ export default function Dashboard() {
         });
       });
 
-    const weeklyData = weeklySpending.map((w, idx) => {
-      const spent = Number(w.spent);
-      const budget = weeklyBudget[idx] || 0;
+    const rawWeeklySpent = weeklySpending.map((w) => Number(w.spent));
+    const condensedSpent = createFourWeekBuckets(rawWeeklySpent, monthDate);
+    const condensedBudget = createFourWeekBuckets(weeklyBudget, monthDate);
+
+    const weeklyData = condensedSpent.map((spent, idx) => {
+      const budget = condensedBudget[idx] || 0;
       const delta = budget - spent;
       return {
         week: `Week ${idx + 1}`,
@@ -169,6 +199,7 @@ export default function Dashboard() {
     return {
       actualIncome,
       expectedIncome,
+      expectedExpenses,
       totalExpenses,
       fixedExpenses,
       variableExpenses,
@@ -181,7 +212,34 @@ export default function Dashboard() {
       weeklyData,
       alerts: categoryProgress.filter((c) => c.percent >= 85).slice(0, 3),
     };
-  }, [monthlySummary, monthlySettings, budgets]);
+  }, [monthlySummary, monthlySettings, budgets, monthDate]);
+
+  const monthlyInvestmentEvolution = useMemo(() => {
+    if (!investmentSummary?.investments) return { current: 0, lastMonth: 0, pctChange: 0 };
+
+    const targetCurrency = settings?.main_currency || 'EUR';
+    const currentMonthStart = startOfMonth(monthDate);
+    const lastMonthStart = startOfMonth(addMonths(monthDate, -1));
+
+    const getNetWorthAtMonth = (pointInTime: Date) => {
+      const point = format(pointInTime, 'yyyy-MM-dd');
+
+      return investmentSummary.investments.reduce((sum, inv) => {
+        const snapshot = inv.snapshots
+          ?.filter((snap) => snap.month <= point)
+          .sort((a, b) => b.month.localeCompare(a.month))[0];
+        const rawValue = Number(snapshot?.total_value || 0);
+        const rate = getRate(inv.currency as 'EUR' | 'USD' | 'BRL', targetCurrency, pointInTime).rate;
+        return sum + rawValue * rate;
+      }, 0);
+    };
+
+    const current = getNetWorthAtMonth(currentMonthStart);
+    const lastMonth = getNetWorthAtMonth(lastMonthStart);
+    const pctChange = lastMonth > 0 ? ((current - lastMonth) / lastMonth) * 100 : 0;
+
+    return { current, lastMonth, pctChange };
+  }, [getRate, investmentSummary, monthDate, settings?.main_currency]);
 
   const yearPeriodData = useMemo(() => {
     const currentYearMonths = yearlySummary?.monthly_data || [];
@@ -414,11 +472,11 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedIncome.toLocaleString()}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Fixed €{monthlyViewData.fixedExpenses.toFixed(0)} · Variable €{monthlyViewData.variableExpenses.toFixed(0)}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expected Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.expectedSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.expectedSavings.toLocaleString()}</div><p className="text-xs text-muted-foreground">Actual €{monthlyViewData.actualSavings.toFixed(0)}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Remaining Budget</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">This month</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Transactions</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{monthlyViewData.transactionCount}</div><p className="text-xs text-muted-foreground">{monthlyViewData.incompleteCount > 0 ? `${monthlyViewData.incompleteCount} need category` : 'All categorized'}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income (Actual / Expected)</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses (Actual / Expected)</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Savings (Actual / Expected)</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Budget Balance (Actual / Expected)</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedSavings.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Investments vs Last Month</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{(settings?.main_currency || 'EUR')} {monthlyInvestmentEvolution.current.toFixed(0)} vs {(settings?.main_currency || 'EUR')} {monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -588,6 +646,7 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
