@@ -37,6 +37,8 @@ interface RuleEditorProps {
 
 const CONDITION_TYPES: { value: ConditionType; label: string }[] = [
   { value: 'label_contains', label: 'Label contains' },
+  { value: 'label_starts_with', label: 'Label starts with' },
+  { value: 'label_exact', label: 'Label is exactly' },
   { value: 'value_min', label: 'Value ≥ (min)' },
   { value: 'value_max', label: 'Value ≤ (max)' },
   { value: 'value_sign', label: 'Value type' },
@@ -71,7 +73,8 @@ export function RuleEditor({ rule, categories, onSave, onClose, open }: RuleEdit
       updated[index] = {
         type: newType,
         value: newType === 'value_sign' ? 'expense' : 
-               newType === 'is_duplicate' ? true : '',
+               newType === 'is_duplicate' ? true : 
+               '',
       };
     } else {
       updated[index] = { ...updated[index], value };
@@ -96,8 +99,9 @@ export function RuleEditor({ rule, categories, onSave, onClose, open }: RuleEdit
     
     // Validate conditions have values
     for (const cond of conditions) {
-      if (cond.type === 'label_contains' && !String(cond.value).trim()) {
-        setError('Label contains condition requires a value');
+      if ((cond.type === 'label_contains' || cond.type === 'label_starts_with' || cond.type === 'label_exact') 
+          && !String(cond.value).trim()) {
+        setError('Label condition requires a value');
         return;
       }
       if ((cond.type === 'value_min' || cond.type === 'value_max') && 
@@ -203,11 +207,11 @@ export function RuleEditor({ rule, categories, onSave, onClose, open }: RuleEdit
                   </SelectContent>
                 </Select>
                 
-                {condition.type === 'label_contains' && (
+                {(condition.type === 'label_contains' || condition.type === 'label_starts_with' || condition.type === 'label_exact') && (
                   <Input
                     value={String(condition.value)}
                     onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                    placeholder="keyword"
+                    placeholder={condition.type === 'label_exact' ? 'exact label text' : 'keyword'}
                     className="flex-1"
                   />
                 )}
