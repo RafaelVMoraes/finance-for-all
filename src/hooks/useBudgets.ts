@@ -80,7 +80,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
     if (budgetsError) {
       console.error('Error fetching budgets:', budgetsError);
     } else {
-      setBudgets(budgetsData || []);
+      setBudgets((budgetsData || []) as Budget[]);
     }
 
     // Fetch monthly settings for the target month

@@ -37,7 +37,11 @@ export function DeleteAccountDialog() {
     try {
       // Delete all user data in order (respecting foreign keys)
       
-      // 1. Delete investment snapshots (via investments)
+      // 1. Delete aggregation tables (trigger-managed, need SECURITY DEFINER RPC or direct delete)
+      await supabase.from('monthly_category_summary').delete().eq('user_id', user.id);
+      await supabase.from('monthly_totals').delete().eq('user_id', user.id);
+      
+      // 2. Delete investment snapshots (via investments)
       const { data: investments } = await supabase
         .from('investments')
         .select('id')
@@ -51,28 +55,39 @@ export function DeleteAccountDialog() {
           .in('investment_id', investmentIds);
       }
       
-      // 2. Delete investments
+      // 3. Delete investments
       await supabase.from('investments').delete().eq('user_id', user.id);
       
-      // 3. Delete transactions
+      // 4. Delete investment types
+      await supabase.from('investment_types').delete().eq('user_id', user.id);
+      
+      // 5. Delete transactions
       await supabase.from('transactions').delete().eq('user_id', user.id);
       
-      // 4. Delete import batches
-      await supabase.from('import_batches').delete().eq('user_id', user.id);
+      // 6. Delete import rule matches and rules
+      await supabase.from('import_rule_matches').delete().eq('user_id', user.id);
+      await supabase.from('import_rules').delete().eq('user_id', user.id);
       
-      // 5. Delete import sources
+      // 7. Delete import batches and sources
+      await supabase.from('import_batches').delete().eq('user_id', user.id);
       await supabase.from('import_sources').delete().eq('user_id', user.id);
       
-      // 6. Delete budgets
+      // 8. Delete budgets
       await supabase.from('budgets').delete().eq('user_id', user.id);
       
-      // 7. Delete monthly settings
+      // 9. Delete monthly settings
       await supabase.from('monthly_settings').delete().eq('user_id', user.id);
       
-      // 8. Delete categories
+      // 10. Delete exchange rates
+      await supabase.from('exchange_rates').delete().eq('user_id', user.id);
+      
+      // 11. Delete categories
       await supabase.from('categories').delete().eq('user_id', user.id);
       
-      // 9. Delete profile
+      // 12. Delete user settings
+      await supabase.from('user_settings').delete().eq('user_id', user.id);
+      
+      // 13. Delete profile
       await supabase.from('profiles').delete().eq('id', user.id);
       
       toast({
