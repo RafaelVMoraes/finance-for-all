@@ -91,7 +91,7 @@ export default function Categories() {
     } else if (result.data) {
       // Set budget if provided
       if (formData.budget > 0) {
-        await upsertBudget(result.data.id, formData.budget);
+        await upsertBudget(result.data.id, formData.budget, formData.distribution);
       }
       toast({
         title: 'Category created',
@@ -141,7 +141,7 @@ export default function Categories() {
       });
     } else {
       // Update budget
-      await upsertBudget(id, formData.budget);
+      await upsertBudget(id, formData.budget, formData.distribution);
       toast({ title: 'Category updated' });
     }
     
