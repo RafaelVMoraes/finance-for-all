@@ -29,7 +29,17 @@ function evaluateCondition(
   switch (condition.type) {
     case 'label_contains': {
       const searchTerm = normalizeText(String(condition.value));
-      return normalizedLabel.includes(searchTerm);
+      return searchTerm.length > 0 && normalizedLabel.includes(searchTerm);
+    }
+
+    case 'label_starts_with': {
+      const prefix = normalizeText(String(condition.value));
+      return prefix.length > 0 && normalizedLabel.startsWith(prefix);
+    }
+
+    case 'label_exact': {
+      const exact = normalizeText(String(condition.value));
+      return exact.length > 0 && normalizedLabel === exact;
     }
     
     case 'value_min': {
@@ -195,6 +205,12 @@ export function describeRule(rule: ImportRule, categoryName?: string): string {
     switch (condition.type) {
       case 'label_contains':
         conditionParts.push(`label contains "${condition.value}"`);
+        break;
+      case 'label_starts_with':
+        conditionParts.push(`label starts with "${condition.value}"`);
+        break;
+      case 'label_exact':
+        conditionParts.push(`label is exactly "${condition.value}"`);
         break;
       case 'value_min':
         conditionParts.push(`value ≥ ${condition.value}`);

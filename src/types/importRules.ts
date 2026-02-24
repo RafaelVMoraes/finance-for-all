@@ -2,6 +2,8 @@
 
 export type ConditionType = 
   | 'label_contains'
+  | 'label_starts_with'
+  | 'label_exact'
   | 'value_min'
   | 'value_max'
   | 'value_sign' // 'income' or 'expense'

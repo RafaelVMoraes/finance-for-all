@@ -308,8 +308,9 @@ export function useImport() {
     if (rules.length === 0) return rows;
     
     // Batch evaluate rules for efficiency
+    // Use the sanitized label (same as what gets stored) for consistent matching
     const ruleInputs = rows.map(row => ({
-      label: row.label,
+      label: row.label, // Already sanitized during parseFile
       value: row.value,
       isDuplicate: row.isDuplicate || row.isDuplicateInFile || false,
     }));
@@ -399,7 +400,7 @@ export function useImport() {
           return true;
         })
         .map(row => {
-          // Use categoryId from rule or look up from category name
+          // Rule category takes precedence over file category
           let categoryId: string | null = row.categoryId || null;
           if (!categoryId && row.category) {
             const categoryLower = row.category.toLowerCase().trim();
