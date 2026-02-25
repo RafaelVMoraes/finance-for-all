@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import { addMonths, addWeeks, differenceInCalendarDays, endOfMonth, endOfWeek, format, max as dateMax, min as dateMin, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -68,44 +68,73 @@ const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
 const calculateRatio = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 
-const getDistributionWeights = (distribution: string, weeksCount: number): number[] => {
-  if (weeksCount <= 0) return [];
 
-  if (distribution === 'front') {
-    return Array.from({ length: weeksCount }, (_, idx) => weeksCount - idx);
+/** Build exactly 4 week buckets for a given month, returning both the
+ *  collapsed spending values AND the number of days in each bucket
+ *  (needed to distribute budgets proportionally). */
+const buildFourWeekBuckets = (monthDate: Date) => {
+  const mStart = startOfMonth(monthDate);
+  const mEnd = endOfMonth(monthDate);
+
+  // Enumerate ISO weeks that touch this month
+  let cursor = startOfWeek(mStart, { weekStartsOn: 1 });
+  const rawWeeks: { start: Date; end: Date; days: number }[] = [];
+  while (cursor <= mEnd) {
+    const wEnd = endOfWeek(cursor, { weekStartsOn: 1 });
+    const clampedStart = dateMax([cursor, mStart]);
+    const clampedEnd = dateMin([wEnd, mEnd]);
+    const days = differenceInCalendarDays(clampedEnd, clampedStart) + 1;
+    if (days > 0) rawWeeks.push({ start: clampedStart, end: clampedEnd, days });
+    cursor = addWeeks(cursor, 1);
   }
 
-  if (distribution === 'back') {
-    return Array.from({ length: weeksCount }, (_, idx) => idx + 1);
+  // Collapse into exactly 4 buckets
+  if (rawWeeks.length <= 4) {
+    const padded = [...rawWeeks, ...Array(Math.max(0, 4 - rawWeeks.length)).fill({ days: 0 })];
+    return padded.slice(0, 4).map((w) => ({ days: w.days as number }));
   }
 
-  return Array.from({ length: weeksCount }, () => 1);
+  const extra = rawWeeks.length - 4;
+  // Collapse extra weeks into whichever end has fewer days
+  const firstDays = rawWeeks[0].days;
+  const lastDays = rawWeeks[rawWeeks.length - 1].days;
+  const collapseFirst = firstDays <= lastDays;
+
+  if (collapseFirst) {
+    const collapsedDays = rawWeeks.slice(0, extra + 1).reduce((s, w) => s + w.days, 0);
+    return [{ days: collapsedDays }, ...rawWeeks.slice(extra + 1).map((w) => ({ days: w.days }))];
+  }
+  const collapsedDays = rawWeeks.slice(rawWeeks.length - (extra + 1)).reduce((s, w) => s + w.days, 0);
+  return [...rawWeeks.slice(0, rawWeeks.length - (extra + 1)).map((w) => ({ days: w.days })), { days: collapsedDays }];
 };
 
-const createFourWeekBuckets = (weekValues: number[], monthDate: Date) => {
-  const monthStart = startOfMonth(monthDate);
-  const monthEnd = endOfMonth(monthDate);
-  const firstWeekStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const firstWeekEnd = endOfWeek(monthStart, { weekStartsOn: 1 });
-  const lastWeekStart = startOfWeek(monthEnd, { weekStartsOn: 1 });
-
-  const firstWeekDays = Math.max(1, differenceInCalendarDays(firstWeekEnd, monthStart) + 1);
-  const lastWeekDays = Math.max(1, differenceInCalendarDays(monthEnd, lastWeekStart) + 1);
-
-  if (weekValues.length <= 4) {
-    return [...weekValues, ...Array(Math.max(0, 4 - weekValues.length)).fill(0)].slice(0, 4);
+const collapseValues = (values: number[], bucketCount: number, monthDate: Date): number[] => {
+  if (values.length <= bucketCount) {
+    return [...values, ...Array(Math.max(0, bucketCount - values.length)).fill(0)].slice(0, bucketCount);
   }
-
-  const extraWeeks = weekValues.length - 4;
-  const collapseIntoFirst = firstWeekDays <= lastWeekDays;
-
-  if (collapseIntoFirst) {
-    const collapsedStart = weekValues.slice(0, extraWeeks + 1).reduce((sum, value) => sum + value, 0);
-    return [collapsedStart, ...weekValues.slice(extraWeeks + 1)];
+  const mStart = startOfMonth(monthDate);
+  const mEnd = endOfMonth(monthDate);
+  const firstWeekEnd = endOfWeek(mStart, { weekStartsOn: 1 });
+  const lastWeekStart = startOfWeek(mEnd, { weekStartsOn: 1 });
+  const firstDays = differenceInCalendarDays(dateMin([firstWeekEnd, mEnd]), mStart) + 1;
+  const lastDays = differenceInCalendarDays(mEnd, dateMax([lastWeekStart, mStart])) + 1;
+  const extra = values.length - bucketCount;
+  if (firstDays <= lastDays) {
+    const collapsed = values.slice(0, extra + 1).reduce((a, b) => a + b, 0);
+    return [collapsed, ...values.slice(extra + 1)];
   }
+  const collapsed = values.slice(values.length - (extra + 1)).reduce((a, b) => a + b, 0);
+  return [...values.slice(0, values.length - (extra + 1)), collapsed];
+};
 
-  const collapsedEnd = weekValues.slice(weekValues.length - (extraWeeks + 1)).reduce((sum, value) => sum + value, 0);
-  return [...weekValues.slice(0, weekValues.length - (extraWeeks + 1)), collapsedEnd];
+const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
+
+/** Get percentage background style – white (0%) to dark green (100%+) */
+const getPctBgStyle = (pct: number) => {
+  const clamped = Math.min(Math.max(pct, 0), 150);
+  const intensity = clamped / 150; // 0..1
+  // From white to dark green via opacity
+  return { backgroundColor: `rgba(22, 163, 74, ${intensity * 0.55})` };
 };
 
 export default function Dashboard() {
@@ -113,8 +142,16 @@ export default function Dashboard() {
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedMonth, setSelectedMonth] = useState(format(today, 'yyyy-MM'));
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
-  const [yearStartMonth, setYearStartMonth] = useState(0);
+  const [yearStartMonth, setYearStartMonth] = useState(() => {
+    const saved = localStorage.getItem(YEAR_START_MONTH_KEY);
+    return saved !== null ? Number(saved) : 0;
+  });
   const [aggregation, setAggregation] = useState<YearAggregation>('month');
+
+  // Persist yearStartMonth
+  useEffect(() => {
+    localStorage.setItem(YEAR_START_MONTH_KEY, String(yearStartMonth));
+  }, [yearStartMonth]);
 
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
 
@@ -164,28 +201,36 @@ export default function Dashboard() {
       .sort((a, b) => b.percent - a.percent);
 
     const weeklySpending = monthlySummary.weekly_spending || [];
-    const weeksCount = Math.max(weeklySpending.length, 1);
-    const weeklyBudget = Array.from({ length: weeksCount }, () => 0);
+    const fourWeekBuckets = buildFourWeekBuckets(monthDate);
+    const totalDays = fourWeekBuckets.reduce((s, b) => s + b.days, 0) || 1;
 
+    // Distribute each category's budget across 4 weeks based on days + distribution rule
+    const weeklyBudget = [0, 0, 0, 0];
     budgets
       .filter((budget) => budget.categories?.type !== 'income' && Number(budget.expected_amount) > 0)
       .forEach((budget) => {
-        const weights = getDistributionWeights(budget.distribution, weeksCount);
-        const totalWeights = weights.reduce((sum, weight) => sum + weight, 0);
-
-        if (totalWeights === 0) return;
-
-        weights.forEach((weight, idx) => {
-          weeklyBudget[idx] += (Number(budget.expected_amount) * weight) / totalWeights;
-        });
+        const amount = Number(budget.expected_amount);
+        if (budget.distribution === 'front') {
+          // Front-loaded: weight decreases per week
+          const weights = fourWeekBuckets.map((b, i) => b.days * (4 - i));
+          const total = weights.reduce((s, w) => s + w, 0) || 1;
+          weights.forEach((w, i) => { weeklyBudget[i] += (amount * w) / total; });
+        } else if (budget.distribution === 'back') {
+          // Back-loaded: weight increases per week
+          const weights = fourWeekBuckets.map((b, i) => b.days * (i + 1));
+          const total = weights.reduce((s, w) => s + w, 0) || 1;
+          weights.forEach((w, i) => { weeklyBudget[i] += (amount * w) / total; });
+        } else {
+          // Even: proportional to days
+          fourWeekBuckets.forEach((b, i) => { weeklyBudget[i] += (amount * b.days) / totalDays; });
+        }
       });
 
     const rawWeeklySpent = weeklySpending.map((w) => Number(w.spent));
-    const condensedSpent = createFourWeekBuckets(rawWeeklySpent, monthDate);
-    const condensedBudget = createFourWeekBuckets(weeklyBudget, monthDate);
+    const condensedSpent = collapseValues(rawWeeklySpent, 4, monthDate);
 
     const weeklyData = condensedSpent.map((spent, idx) => {
-      const budget = condensedBudget[idx] || 0;
+      const budget = weeklyBudget[idx] || 0;
       const delta = budget - spent;
       return {
         week: `Week ${idx + 1}`,
@@ -313,7 +358,8 @@ export default function Dashboard() {
         type: cm.type,
         values: Array(12).fill(0),
       };
-      const idx = cm.month_date ? yearPeriodData.findIndex((period) => period.key === format(parseISO(cm.month_date), 'yyyy-MM')) : -1;
+      // Use substring to avoid timezone issues with parseISO on date-only strings
+      const idx = cm.month_date ? yearPeriodData.findIndex((period) => period.key === cm.month_date.substring(0, 7)) : -1;
       if (idx >= 0) bucket.values[idx] += Number(cm.spent || 0);
       byCategory[cm.id] = bucket;
     });
@@ -590,24 +636,24 @@ export default function Dashboard() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle>Budget vs Reality (Real / Expected)</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Budget vs Reality</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="min-w-[520px] w-full text-sm">
+                <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b text-muted-foreground">
-                      <th className="py-2 text-left font-medium">Month</th>
-                      <th className="py-2 text-right font-medium">Income</th>
-                      <th className="py-2 text-right font-medium">Expenses</th>
-                      <th className="py-2 text-right font-medium">Savings</th>
+                      <th className="py-1 text-left font-medium">Mo</th>
+                      <th className="py-1 text-right font-medium">Inc%</th>
+                      <th className="py-1 text-right font-medium">Exp%</th>
+                      <th className="py-1 text-right font-medium">Sav%</th>
                     </tr>
                   </thead>
                   <tbody>
                     {yearlyViewData.budgetVsReality.map((month) => (
                       <tr key={month.month} className="border-b last:border-b-0">
-                        <td className="py-2">{month.month}</td>
-                        <td className="py-2 text-right">{formatPercent(month.incomePct)}</td>
-                        <td className="py-2 text-right">{formatPercent(month.expensesPct)}</td>
-                        <td className="py-2 text-right">{formatPercent(month.savingsPct)}</td>
+                        <td className="py-1 font-medium">{month.month}</td>
+                        <td className="py-1 text-right"><span className="inline-block rounded px-1.5" style={getPctBgStyle(month.incomePct)}>{formatPercent(month.incomePct)}</span></td>
+                        <td className="py-1 text-right"><span className="inline-block rounded px-1.5" style={getPctBgStyle(month.expensesPct)}>{formatPercent(month.expensesPct)}</span></td>
+                        <td className="py-1 text-right"><span className="inline-block rounded px-1.5" style={getPctBgStyle(Math.abs(month.savingsPct))}>{formatPercent(month.savingsPct)}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -616,24 +662,24 @@ export default function Dashboard() {
           </Card>
 
           <Card>
-              <CardHeader><CardTitle>Condensed Heatmap (Category × Month)</CardTitle><p className="text-xs text-muted-foreground">Colors are relative to each category's own monthly peak to make patterns easier to compare.</p></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Heatmap (Category × Month)</CardTitle><p className="text-xs text-muted-foreground">Intensity relative to each category's peak month.</p></CardHeader>
               <CardContent className="overflow-x-auto">
-                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span>Lower spend</span>
-                  <div className="h-2 w-36 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
-                  <span>Higher spend</span>
+                <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>Low</span>
+                  <div className="h-2 w-24 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
+                  <span>High</span>
                 </div>
-                <div className="min-w-[560px] space-y-2">
-                  <div className="grid grid-cols-[96px_repeat(12,minmax(34px,1fr))] gap-1 text-xs text-muted-foreground">
+                <div className="min-w-[480px] space-y-1">
+                  <div className="grid grid-cols-[100px_repeat(12,minmax(28px,1fr))] gap-0.5 text-[10px] text-muted-foreground">
                     <div />
                     {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
                   </div>
                   {yearlyViewData.heatmapCategories.map((cat) => (
-                    <div key={cat.id} className="grid grid-cols-[140px_repeat(12,minmax(24px,1fr))] items-center gap-1">
-                      <div className="truncate text-xs font-medium">{cat.name}</div>
+                    <div key={cat.id} className="grid grid-cols-[100px_repeat(12,minmax(28px,1fr))] items-center gap-0.5">
+                      <div className="truncate text-[10px] font-medium">{cat.name}</div>
                       {cat.cells.map((value, idx) => {
-                        const intensity = Math.max(0.08, value / yearlyViewData.maxHeat);
-                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded" style={{ backgroundColor: `hsl(var(--chart-1) / ${intensity})` }} title={`€${value.toFixed(0)} (${Math.round(intensity * 100)}% intensity)`} />;
+                        const intensity = value > 0 ? Math.max(0.1, value / cat.maxCell) : 0;
+                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded-sm" style={{ backgroundColor: intensity > 0 ? `hsl(var(--chart-1) / ${intensity})` : undefined }} title={`€${value.toFixed(0)}`} />;
                       })}
                     </div>
                   ))}
