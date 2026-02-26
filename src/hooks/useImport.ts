@@ -133,50 +133,84 @@ function sanitizeLabel(label: string): string {
   return label.replace(/^[=+\-@\t\r]/g, "'");
 }
 
+export interface ColumnIndices {
+  dateIdx: number;
+  labelIdx: number;
+  valueIdx: number;
+  categoryIdx: number;
+}
+
+export interface RawFileData {
+  headers: string[];
+  rawHeaders: string[];
+  jsonData: unknown[][];
+}
+
 export function useImport() {
   const [loading, setLoading] = useState(false);
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
   const { user } = useAuthContext();
 
-  const parseFile = useCallback(async (file: File): Promise<ParsedImportData> => {
+  /** Read file and return raw headers + data without parsing rows */
+  const readFileRaw = useCallback(async (file: File): Promise<RawFileData> => {
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
     }
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
-          
+
           if (jsonData.length < 2) {
             reject(new Error('File is empty or has no data rows'));
             return;
           }
-
           if (jsonData.length > MAX_ROW_COUNT + 1) {
             reject(new Error(`File has too many rows. Maximum is ${MAX_ROW_COUNT} data rows.`));
             return;
           }
-          
-          // Find header row (first row)
-          const headers = (jsonData[0] as string[]).map(h => String(h).toLowerCase().trim());
-          const dateIdx = headers.findIndex(h => h === 'date' || h === 'data');
-          const labelIdx = headers.findIndex(h => h === 'label' || h === 'description' || h === 'descricao');
-          const valueIdx = headers.findIndex(h => h === 'value' || h === 'amount' || h === 'valor');
-          const categoryIdx = headers.findIndex(h => h === 'category' || h === 'categoria');
-          
-          if (dateIdx === -1 || labelIdx === -1 || valueIdx === -1) {
-            reject(new Error('Required columns not found. Please include: date, label, value'));
-            return;
-          }
-          
-          const rows: ImportRow[] = [];
+
+          const rawHeaders = (jsonData[0] as string[]).map(h => String(h).trim());
+          const headers = rawHeaders.map(h => h.toLowerCase());
+
+          resolve({ headers, rawHeaders, jsonData });
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(file);
+    });
+  }, []);
+
+  const parseFile = useCallback(async (file: File, columnIndices?: ColumnIndices): Promise<ParsedImportData> => {
+    const { headers, jsonData } = await readFileRaw(file);
+
+    let dateIdx: number, labelIdx: number, valueIdx: number, categoryIdx: number;
+
+    if (columnIndices) {
+      dateIdx = columnIndices.dateIdx;
+      labelIdx = columnIndices.labelIdx;
+      valueIdx = columnIndices.valueIdx;
+      categoryIdx = columnIndices.categoryIdx;
+    } else {
+      dateIdx = headers.findIndex(h => h === 'date' || h === 'data');
+      labelIdx = headers.findIndex(h => h === 'label' || h === 'description' || h === 'descricao');
+      valueIdx = headers.findIndex(h => h === 'value' || h === 'amount' || h === 'valor');
+      categoryIdx = headers.findIndex(h => h === 'category' || h === 'categoria');
+
+      if (dateIdx === -1 || labelIdx === -1 || valueIdx === -1) {
+        throw new Error('Required columns not found. Please include: date, label, value');
+      }
+    }
+
+    const rows: ImportRow[] = [];
           
           // Track duplicates within file
           const seenInFile = new Map<string, number>(); // key -> first occurrence index
@@ -240,19 +274,11 @@ export function useImport() {
             });
           }
           
-          const hasErrors = rows.some(r => !r.isValid);
-          const hasDuplicatesInFile = rows.some(r => r.isDuplicateInFile);
-          
-          resolve({ rows, hasErrors, hasDuplicates: false, hasDuplicatesInFile });
-        } catch (err) {
-          reject(err);
-        }
-      };
-      
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsArrayBuffer(file);
-    });
-  }, []);
+    const hasErrors = rows.some(r => !r.isValid);
+    const hasDuplicatesInFile = rows.some(r => r.isDuplicateInFile);
+    
+    return { rows, hasErrors, hasDuplicates: false, hasDuplicatesInFile };
+  }, [readFileRaw]);
 
   const checkDuplicates = useCallback(async (rows: ImportRow[]): Promise<ImportRow[]> => {
     if (!user) return rows;
@@ -529,6 +555,7 @@ export function useImport() {
   return {
     loading,
     importBatches,
+    readFileRaw,
     parseFile,
     checkDuplicates,
     applyRules,

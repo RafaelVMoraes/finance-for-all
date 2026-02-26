@@ -83,13 +83,26 @@ export function useBudgets(options?: UseBudgetsOptions) {
       setBudgets((budgetsData || []) as Budget[]);
     }
 
-    // Fetch monthly settings for the target month
-    const { data: settingsData } = await supabase
+    // Fetch monthly settings for the target month, fall back to most recent
+    let { data: settingsData } = await supabase
       .from('monthly_settings')
       .select(MONTHLY_SETTINGS_COLUMNS)
       .eq('user_id', user.id)
       .eq('month', monthStr)
       .maybeSingle();
+
+    // If no settings for this specific month, use the most recent one
+    if (!settingsData) {
+      const { data: fallbackData } = await supabase
+        .from('monthly_settings')
+        .select(MONTHLY_SETTINGS_COLUMNS)
+        .eq('user_id', user.id)
+        .lte('month', monthStr)
+        .order('month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      settingsData = fallbackData;
+    }
 
     setMonthlySettings(settingsData);
     setLoading(false);
