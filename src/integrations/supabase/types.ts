@@ -237,6 +237,50 @@ export type Database = {
         }
         Relationships: []
       }
+      import_source_column_mappings: {
+        Row: {
+          category_column: string | null
+          created_at: string
+          date_column: string
+          id: string
+          label_column: string
+          source_id: string
+          updated_at: string
+          user_id: string
+          value_column: string
+        }
+        Insert: {
+          category_column?: string | null
+          created_at?: string
+          date_column: string
+          id?: string
+          label_column: string
+          source_id: string
+          updated_at?: string
+          user_id: string
+          value_column: string
+        }
+        Update: {
+          category_column?: string | null
+          created_at?: string
+          date_column?: string
+          id?: string
+          label_column?: string
+          source_id?: string
+          updated_at?: string
+          user_id?: string
+          value_column?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_source_column_mappings_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: true
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_sources: {
         Row: {
           created_at: string

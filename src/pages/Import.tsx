@@ -47,16 +47,19 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useImport, ImportRow } from '@/hooks/useImport';
+import { useImport, ImportRow, ColumnIndices, RawFileData } from '@/hooks/useImport';
 import { useImportSources } from '@/hooks/useImportSources';
 import { useCategories } from '@/hooks/useCategories';
 import { useImportRules } from '@/hooks/useImportRules';
+import { useSourceColumnMappings } from '@/hooks/useSourceColumnMappings';
 import { ImportRulesManager } from '@/components/import/ImportRulesManager';
+import { ColumnMappingDialog } from '@/components/import/ColumnMappingDialog';
+import { detectColumnMapping, isTemplateFormat, ColumnMapping } from '@/lib/columnDetection';
 import { format } from 'date-fns';
 import { APP_START_DATE_STRING } from '@/constants/app';
 
 export default function Import() {
-  const [step, setStep] = useState<'upload' | 'validation' | 'complete'>('upload');
+  const [step, setStep] = useState<'upload' | 'column-mapping' | 'validation' | 'complete'>('upload');
   const [parsedData, setParsedData] = useState<ImportRow[]>([]);
   const [editableData, setEditableData] = useState<ImportRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -69,10 +72,16 @@ export default function Import() {
   const [showRulesManager, setShowRulesManager] = useState(false);
   const [rulesApplied, setRulesApplied] = useState(false);
   
+  // Column mapping state
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [rawFileData, setRawFileData] = useState<RawFileData | null>(null);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({ date: null, label: null, value: null, category: null });
+  
   const { toast } = useToast();
   const { 
     loading, 
     importBatches, 
+    readFileRaw,
     parseFile, 
     checkDuplicates,
     applyRules,
@@ -84,6 +93,7 @@ export default function Import() {
   const { sources, createSource, loading: sourcesLoading } = useImportSources();
   const { categories, activeCategories, loading: categoriesLoading } = useCategories();
   const { rules, loading: rulesLoading } = useImportRules();
+  const { getMapping, saveMapping } = useSourceColumnMappings();
 
   // Build category maps for rule application
   const categoryIdToName = useMemo(() => {
@@ -106,32 +116,90 @@ export default function Import() {
     fetchImportBatches();
   }, [fetchImportBatches]);
 
-  // Sort data: auto-rejected first, then duplicates, then errors, then valid
+  // Sort data
   const sortedEditableData = useMemo(() => {
     return [...editableData].sort((a, b) => {
-      // Auto-rejected first (they'll be greyed out)
       if (a.autoRejected && !b.autoRejected) return -1;
       if (!a.autoRejected && b.autoRejected) return 1;
-      // Database duplicates next (unless auto-accepted)
       const aDup = a.isDuplicate && !a.autoAccepted;
       const bDup = b.isDuplicate && !b.autoAccepted;
       if (aDup && !bDup) return -1;
       if (!aDup && bDup) return 1;
-      // File duplicates next
       if (a.isDuplicateInFile && !b.isDuplicateInFile) return -1;
       if (!a.isDuplicateInFile && b.isDuplicateInFile) return 1;
-      // Errors next
       if (!a.isValid && b.isValid) return -1;
       if (a.isValid && !b.isValid) return 1;
       return 0;
     });
   }, [editableData]);
 
-  // Get original index for selection
   const getOriginalIndex = useCallback((sortedIndex: number) => {
     const sortedRow = sortedEditableData[sortedIndex];
     return editableData.findIndex(r => r === sortedRow);
   }, [sortedEditableData, editableData]);
+
+  /** Process file after column mapping is confirmed */
+  const processFileWithMapping = useCallback(async (file: File, mapping: ColumnMapping) => {
+    try {
+      const raw = rawFileData || await readFileRaw(file);
+      const rawHeaders = raw.rawHeaders;
+      
+      const columnIndices: ColumnIndices = {
+        dateIdx: mapping.date ? rawHeaders.findIndex(h => h === mapping.date) : -1,
+        labelIdx: mapping.label ? rawHeaders.findIndex(h => h === mapping.label) : -1,
+        valueIdx: mapping.value ? rawHeaders.findIndex(h => h === mapping.value) : -1,
+        categoryIdx: mapping.category ? rawHeaders.findIndex(h => h === mapping.category) : -1,
+      };
+
+      if (columnIndices.dateIdx === -1 || columnIndices.labelIdx === -1 || columnIndices.valueIdx === -1) {
+        throw new Error('Required columns could not be mapped.');
+      }
+
+      const result = await parseFile(file, columnIndices);
+      const withDuplicates = await checkDuplicates(result.rows);
+      
+      const enabledRules = rules.filter(r => r.enabled);
+      let processedRows = withDuplicates;
+      
+      if (enabledRules.length > 0) {
+        processedRows = applyRules(withDuplicates, enabledRules, categoryIdToName);
+        setRulesApplied(true);
+        
+        const ruleApplications = processedRows.filter(r => r.appliedRule).length;
+        if (ruleApplications > 0) {
+          toast({
+            title: 'Rules applied',
+            description: `${ruleApplications} transactions categorized automatically`,
+          });
+        }
+      }
+      
+      setParsedData(processedRows);
+      setEditableData(processedRows);
+      
+      const validIndices = new Set(
+        processedRows
+          .map((row, idx) => (
+            row.isValid && 
+            !row.autoRejected && 
+            (!row.isDuplicate || row.autoAccepted) && 
+            !row.isDuplicateInFile 
+              ? idx 
+              : -1
+          ))
+          .filter(idx => idx >= 0)
+      );
+      setSelectedRows(validIndices);
+      setStep('validation');
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to parse file',
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+      setStep('upload');
+    }
+  }, [rawFileData, readFileRaw, parseFile, checkDuplicates, applyRules, rules, categoryIdToName, toast]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -147,56 +215,77 @@ export default function Import() {
     }
     
     setCurrentFilename(selectedFile.name);
+    setPendingFile(selectedFile);
     
     try {
-      const result = await parseFile(selectedFile);
-      const withDuplicates = await checkDuplicates(result.rows);
-      
-      // Apply import rules automatically
-      const enabledRules = rules.filter(r => r.enabled);
-      let processedRows = withDuplicates;
-      
-      if (enabledRules.length > 0) {
-        processedRows = applyRules(withDuplicates, enabledRules, categoryIdToName);
-        setRulesApplied(true);
-        
-        // Count rule applications
-        const ruleApplications = processedRows.filter(r => r.appliedRule).length;
-        if (ruleApplications > 0) {
-          toast({
-            title: 'Rules applied',
-            description: `${ruleApplications} transactions categorized automatically`,
-          });
+      const raw = await readFileRaw(selectedFile);
+      setRawFileData(raw);
+
+      // Check if we have a saved mapping for this source
+      if (selectedSourceId) {
+        const savedMapping = await getMapping(selectedSourceId);
+        if (savedMapping) {
+          // Verify saved mapping columns exist in this file
+          const headersSet = new Set(raw.rawHeaders);
+          const allExist = 
+            (savedMapping.date && headersSet.has(savedMapping.date)) &&
+            (savedMapping.label && headersSet.has(savedMapping.label)) &&
+            (savedMapping.value && headersSet.has(savedMapping.value));
+          
+          if (allExist) {
+            // Use saved mapping directly
+            toast({ title: 'Using saved column mapping', description: `Mapping from source loaded automatically` });
+            await processFileWithMapping(selectedFile, savedMapping);
+            return;
+          }
         }
       }
-      
-      setParsedData(processedRows);
-      setEditableData(processedRows);
-      
-      // Select all valid, non-rejected rows by default
-      const validIndices = new Set(
-        processedRows
-          .map((row, idx) => (
-            row.isValid && 
-            !row.autoRejected && 
-            (!row.isDuplicate || row.autoAccepted) && 
-            !row.isDuplicateInFile 
-              ? idx 
-              : -1
-          ))
-          .filter(idx => idx >= 0)
-      );
-      setSelectedRows(validIndices);
-      
-      setStep('validation');
+
+      // Check if template format
+      if (isTemplateFormat(raw.headers)) {
+        // Standard template — process directly
+        await processFileWithMapping(selectedFile, {
+          date: raw.rawHeaders[raw.headers.findIndex(h => h === 'date' || h === 'data')],
+          label: raw.rawHeaders[raw.headers.findIndex(h => h === 'label' || h === 'description' || h === 'descricao')],
+          value: raw.rawHeaders[raw.headers.findIndex(h => h === 'value' || h === 'amount' || h === 'valor')],
+          category: raw.headers.findIndex(h => h === 'category' || h === 'categoria') >= 0
+            ? raw.rawHeaders[raw.headers.findIndex(h => h === 'category' || h === 'categoria')]
+            : null,
+        });
+        return;
+      }
+
+      // Non-template: auto-detect and show mapping dialog
+      const sampleRows = raw.jsonData.slice(1, 11);
+      const detected = detectColumnMapping(raw.rawHeaders, sampleRows);
+      setColumnMapping(detected);
+      setStep('column-mapping');
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Failed to parse file',
+        title: 'Failed to read file',
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, [parseFile, checkDuplicates, applyRules, rules, categoryIdToName, toast]);
+  }, [readFileRaw, getMapping, selectedSourceId, processFileWithMapping, toast]);
+
+  const handleColumnMappingConfirm = useCallback(async (mapping: ColumnMapping, saveForSource: boolean) => {
+    if (!pendingFile) return;
+    
+    if (saveForSource && selectedSourceId) {
+      await saveMapping(selectedSourceId, mapping);
+      toast({ title: 'Column mapping saved', description: 'Will be used automatically for future imports from this source.' });
+    }
+    
+    await processFileWithMapping(pendingFile, mapping);
+  }, [pendingFile, selectedSourceId, saveMapping, processFileWithMapping, toast]);
+
+  const handleColumnMappingCancel = useCallback(() => {
+    setPendingFile(null);
+    setRawFileData(null);
+    setColumnMapping({ date: null, label: null, value: null, category: null });
+    setStep('upload');
+  }, []);
 
   const updateRow = (originalIndex: number, field: 'label' | 'category', value: string | undefined) => {
     setEditableData(prev => {
@@ -206,16 +295,12 @@ export default function Import() {
       } else if (field === 'category') {
         updated[originalIndex] = { ...updated[originalIndex], category: value };
       }
-      
-      // Revalidate
       const row = updated[originalIndex];
       const errors: string[] = [];
       if (!row.date) errors.push('Invalid date');
       if (!row.label) errors.push('Label is required');
-      
       updated[originalIndex].errors = errors;
       updated[originalIndex].isValid = errors.length === 0;
-      
       return updated;
     });
   };
@@ -223,11 +308,8 @@ export default function Import() {
   const toggleRow = (originalIndex: number) => {
     setSelectedRows(prev => {
       const next = new Set(prev);
-      if (next.has(originalIndex)) {
-        next.delete(originalIndex);
-      } else {
-        next.add(originalIndex);
-      }
+      if (next.has(originalIndex)) next.delete(originalIndex);
+      else next.add(originalIndex);
       return next;
     });
   };
@@ -235,30 +317,20 @@ export default function Import() {
   const selectAllValid = () => {
     const validIndices = editableData
       .map((row, idx) => (
-        row.isValid && 
-        !row.autoRejected && 
-        (!row.isDuplicate || row.autoAccepted) && 
-        !row.isDuplicateInFile 
+        row.isValid && !row.autoRejected && (!row.isDuplicate || row.autoAccepted) && !row.isDuplicateInFile 
           ? idx : -1
       ))
       .filter(idx => idx >= 0);
     setSelectedRows(new Set(validIndices));
   };
 
-  const deselectAll = () => {
-    setSelectedRows(new Set());
-  };
+  const deselectAll = () => setSelectedRows(new Set());
 
   const handleCreateSource = async () => {
     if (!newSourceName.trim()) return;
-    
     const result = await createSource(newSourceName);
     if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to create source',
-        description: result.error,
-      });
+      toast({ variant: 'destructive', title: 'Failed to create source', description: result.error });
     } else if (result.data) {
       setSelectedSourceId(result.data.id);
       setNewSourceName('');
@@ -268,43 +340,19 @@ export default function Import() {
 
   const handleImport = async () => {
     const rowsToImport = editableData.filter((_, idx) => selectedRows.has(idx) && editableData[idx].isValid);
-    
     if (rowsToImport.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No rows to import',
-        description: 'Please select valid rows to import',
-      });
+      toast({ variant: 'destructive', title: 'No rows to import', description: 'Please select valid rows to import' });
       return;
     }
-    
-    // Collect applied rule IDs for stats update
-    const appliedRuleIds = rowsToImport
-      .filter(r => r.appliedRule)
-      .map(r => r.appliedRule!.id);
-    
-    const result = await importTransactions(
-      rowsToImport, 
-      currentFilename, 
-      categoryNameToId, 
-      selectedSourceId,
-      appliedRuleIds
-    );
-    
+    const appliedRuleIds = rowsToImport.filter(r => r.appliedRule).map(r => r.appliedRule!.id);
+    const result = await importTransactions(rowsToImport, currentFilename, categoryNameToId, selectedSourceId, appliedRuleIds);
     if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Import failed',
-        description: result.error,
-      });
+      toast({ variant: 'destructive', title: 'Import failed', description: result.error });
     } else {
       setImportResult({ imported: result.imported || 0 });
       setStep('complete');
       fetchImportBatches();
-      toast({
-        title: 'Import complete!',
-        description: `${result.imported} transactions imported successfully`,
-      });
+      toast({ title: 'Import complete!', description: `${result.imported} transactions imported successfully` });
     }
   };
 
@@ -315,31 +363,23 @@ export default function Import() {
     setCurrentFilename('');
     setSelectedSourceId(null);
     setRulesApplied(false);
+    setPendingFile(null);
+    setRawFileData(null);
+    setColumnMapping({ date: null, label: null, value: null, category: null });
     setStep('upload');
   };
 
   const handleDeleteBatch = async (batchId: string) => {
     const result = await deleteImportBatch(batchId);
     if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to delete batch',
-        description: result.error,
-      });
+      toast({ variant: 'destructive', title: 'Failed to delete batch', description: result.error });
     } else {
-      toast({
-        title: 'Batch deleted',
-        description: 'All related transactions have been removed',
-      });
+      toast({ title: 'Batch deleted', description: 'All related transactions have been removed' });
     }
   };
 
   const handleDownloadTemplate = () => {
-    const categoryData = categories.map(c => ({
-      name: c.name,
-      type: c.type,
-      color: c.color,
-    }));
+    const categoryData = categories.map(c => ({ name: c.name, type: c.type, color: c.color }));
     generateTemplate(categoryData);
   };
 
@@ -377,8 +417,7 @@ export default function Import() {
           <CardHeader>
             <CardTitle>Upload Excel File</CardTitle>
             <CardDescription>
-              Upload an .xlsx file containing your financial transactions. 
-              Required columns: date, label, value. Optional: category.
+              Upload an .xlsx file with your transactions. You can use our template or any Excel file — we'll help you map the columns.
               <br />
               <span className="text-muted-foreground">Note: Only transactions from {APP_START_DATE_STRING} onwards are allowed.</span>
             </CardDescription>
@@ -398,32 +437,19 @@ export default function Import() {
                   <SelectContent>
                     <SelectItem value="__none__">No source</SelectItem>
                     {sources.map(source => (
-                      <SelectItem key={source.id} value={source.id}>
-                        {source.name}
-                      </SelectItem>
+                      <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => setShowNewSource(!showNewSource)}
-                >
+                <Button variant="outline" size="icon" onClick={() => setShowNewSource(!showNewSource)}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
               
               {showNewSource && (
                 <div className="flex gap-2">
-                  <Input
-                    value={newSourceName}
-                    onChange={(e) => setNewSourceName(e.target.value)}
-                    placeholder="e.g., Boursorama, Revolut, BNP..."
-                    className="w-64"
-                  />
-                  <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>
-                    Add Source
-                  </Button>
+                  <Input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder="e.g., Boursorama, Revolut, BNP..." className="w-64" />
+                  <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>Add Source</Button>
                 </div>
               )}
             </div>
@@ -434,17 +460,26 @@ export default function Import() {
             >
               <Upload className="mb-4 h-12 w-12 text-muted-foreground" />
               <span className="mb-2 text-lg font-medium">Drop your file here or click to browse</span>
-              <span className="text-sm text-muted-foreground">Supports .xlsx and .xls files</span>
-              <input
-                id="file-upload"
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileChange}
-                className="hidden"
-              />
+              <span className="text-sm text-muted-foreground">Supports .xlsx and .xls files — any format</span>
+              <input id="file-upload" type="file" accept=".xlsx,.xls" onChange={handleFileChange} className="hidden" />
             </label>
           </CardContent>
         </Card>
+      )}
+
+      {/* Column Mapping Dialog */}
+      {step === 'column-mapping' && rawFileData && (
+        <ColumnMappingDialog
+          open={true}
+          onConfirm={handleColumnMappingConfirm}
+          onCancel={handleColumnMappingCancel}
+          headers={rawFileData.rawHeaders}
+          sampleRows={rawFileData.jsonData.slice(1, 11)}
+          mapping={columnMapping}
+          onMappingChange={setColumnMapping}
+          sourceName={sources.find(s => s.id === selectedSourceId)?.name}
+          sourceId={selectedSourceId}
+        />
       )}
 
       {step === 'validation' && (
@@ -505,15 +540,11 @@ export default function Import() {
 
             {/* Action buttons */}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={selectAllValid}>
-                Select All Valid
-              </Button>
-              <Button variant="outline" size="sm" onClick={deselectAll}>
-                Deselect All
-              </Button>
+              <Button variant="outline" size="sm" onClick={selectAllValid}>Select All Valid</Button>
+              <Button variant="outline" size="sm" onClick={deselectAll}>Deselect All</Button>
             </div>
 
-            {/* Data table - only label and category are editable */}
+            {/* Data table */}
             <TooltipProvider>
             <ScrollArea className="h-[400px] rounded-md border">
               <Table>
@@ -531,7 +562,6 @@ export default function Import() {
                   {sortedEditableData.map((row, sortedIdx) => {
                     const originalIdx = getOriginalIndex(sortedIdx);
                     
-                    // Determine row styling based on status
                     const getRowClassName = () => {
                       if (row.autoRejected) return 'bg-red-50/50 dark:bg-red-950/10 opacity-60';
                       if (row.isDuplicate && !row.autoAccepted) return 'bg-amber-50 dark:bg-amber-950/20';
@@ -542,10 +572,7 @@ export default function Import() {
                     };
                     
                     return (
-                      <TableRow 
-                        key={sortedIdx} 
-                        className={getRowClassName()}
-                      >
+                      <TableRow key={sortedIdx} className={getRowClassName()}>
                         <TableCell>
                           <Checkbox 
                             checked={selectedRows.has(originalIdx)}
@@ -556,51 +583,40 @@ export default function Import() {
                         <TableCell>
                           {row.autoRejected ? (
                             <Badge variant="destructive" className="bg-red-100 text-red-800">
-                              <X className="mr-1 h-3 w-3" />
-                              Auto-rejected
+                              <X className="mr-1 h-3 w-3" />Auto-rejected
                             </Badge>
                           ) : row.autoAccepted ? (
                             <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
-                              <Check className="mr-1 h-3 w-3" />
-                              Auto-accepted
+                              <Check className="mr-1 h-3 w-3" />Auto-accepted
                             </Badge>
                           ) : row.isDuplicate ? (
                             <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                              <AlertTriangle className="mr-1 h-3 w-3" />
-                              DB Duplicate
+                              <AlertTriangle className="mr-1 h-3 w-3" />DB Duplicate
                             </Badge>
                           ) : row.isDuplicateInFile ? (
                             <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                              <AlertTriangle className="mr-1 h-3 w-3" />
-                              File Dup #{row.duplicateIndex}
+                              <AlertTriangle className="mr-1 h-3 w-3" />File Dup #{row.duplicateIndex}
                             </Badge>
                           ) : !row.isValid ? (
                             <Badge variant="destructive">
-                              <X className="mr-1 h-3 w-3" />
-                              {row.errors[0]}
+                              <X className="mr-1 h-3 w-3" />{row.errors[0]}
                             </Badge>
                           ) : row.appliedRule ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Badge variant="secondary" className="bg-violet-100 text-violet-800 cursor-help">
-                                  <Sparkles className="mr-1 h-3 w-3" />
-                                  Rule applied
+                                  <Sparkles className="mr-1 h-3 w-3" />Rule applied
                                 </Badge>
                               </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Rule: {row.appliedRule.name}</p>
-                              </TooltipContent>
+                              <TooltipContent><p>Rule: {row.appliedRule.name}</p></TooltipContent>
                             </Tooltip>
                           ) : (
                             <Badge variant="default" className="bg-emerald-600">
-                              <Check className="mr-1 h-3 w-3" />
-                              Valid
+                              <Check className="mr-1 h-3 w-3" />Valid
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {row.date}
-                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.date}</TableCell>
                         <TableCell>
                           <Input
                             value={row.label}
@@ -609,9 +625,7 @@ export default function Import() {
                             placeholder="Transaction label"
                           />
                         </TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">
-                          {row.value.toFixed(2)}
-                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{row.value.toFixed(2)}</TableCell>
                         <TableCell>
                           <Select 
                             value={row.category || '__none__'} 
@@ -625,10 +639,7 @@ export default function Import() {
                               {activeCategories.map(cat => (
                                 <SelectItem key={cat.id} value={cat.name}>
                                   <div className="flex items-center gap-2">
-                                    <div 
-                                      className="h-3 w-3 rounded-full" 
-                                      style={{ backgroundColor: cat.color }}
-                                    />
+                                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
                                     {cat.name}
                                   </div>
                                 </SelectItem>
@@ -656,23 +667,20 @@ export default function Import() {
               </div>
             )}
             {dbDuplicateCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <span>{dbDuplicateCount} duplicate(s) already exist in your database. They are shown first and deselected by default.</span>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3 text-sm">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <span>{dbDuplicateCount} duplicate(s) already exist in your database.</span>
               </div>
             )}
-            
             {fileDuplicateCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm dark:border-orange-900 dark:bg-orange-950">
-                <AlertCircle className="h-4 w-4 text-orange-600" />
-                <span>{fileDuplicateCount} duplicate(s) found within this file. If you import them, they'll be renamed with a number suffix.</span>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3 text-sm">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <span>{fileDuplicateCount} duplicate(s) found within this file.</span>
               </div>
             )}
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={resetImport}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={resetImport}>Cancel</Button>
               <Button onClick={handleImport} disabled={selectedCount === 0 || loading}>
                 {loading ? 'Importing...' : `Import ${selectedCount} Transactions`}
               </Button>
@@ -690,12 +698,8 @@ export default function Import() {
             <h2 className="mb-2 text-xl font-bold">Import Complete!</h2>
             <p className="mb-6 text-muted-foreground">{importResult.imported} transactions have been imported successfully</p>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={resetImport}>
-                Import More
-              </Button>
-              <Button asChild>
-                <a href="/transactions">View Transactions</a>
-              </Button>
+              <Button variant="outline" onClick={resetImport}>Import More</Button>
+              <Button asChild><a href="/transactions">View Transactions</a></Button>
             </div>
           </CardContent>
         </Card>
@@ -704,9 +708,7 @@ export default function Import() {
       {/* Import History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Import History</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Import History</DialogTitle></DialogHeader>
           <ScrollArea className="max-h-[400px]">
             {importBatches.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">No imports yet</p>
@@ -725,35 +727,19 @@ export default function Import() {
                 <TableBody>
                   {importBatches.map(batch => (
                     <TableRow key={batch.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(batch.imported_at), 'MMM dd, yyyy HH:mm')}
-                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(batch.imported_at), 'MMM dd, yyyy HH:mm')}</TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {batch.date_from && batch.date_to ? (
-                          <>
-                            {format(new Date(batch.date_from), 'MMM dd')} - {format(new Date(batch.date_to), 'MMM dd, yyyy')}
-                          </>
-                        ) : (
-                          '-'
-                        )}
+                          <>{format(new Date(batch.date_from), 'MMM dd')} - {format(new Date(batch.date_to), 'MMM dd, yyyy')}</>
+                        ) : '-'}
                       </TableCell>
                       <TableCell>
-                        {batch.import_sources?.name ? (
-                          <Badge variant="outline">{batch.import_sources.name}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                        {batch.import_sources?.name ? <Badge variant="outline">{batch.import_sources.name}</Badge> : <span className="text-muted-foreground">-</span>}
                       </TableCell>
-                      <TableCell className="max-w-[150px] truncate font-mono text-sm">
-                        {batch.filename}
-                      </TableCell>
+                      <TableCell className="max-w-[150px] truncate font-mono text-sm">{batch.filename}</TableCell>
                       <TableCell className="text-right">{batch.row_count}</TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleDeleteBatch(batch.id)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteBatch(batch.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
@@ -764,19 +750,13 @@ export default function Import() {
             )}
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowHistoryModal(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setShowHistoryModal(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Import Rules Manager */}
-      <ImportRulesManager
-        open={showRulesManager}
-        onClose={() => setShowRulesManager(false)}
-        importRows={editableData}
-      />
+      <ImportRulesManager open={showRulesManager} onClose={() => setShowRulesManager(false)} importRows={editableData} />
     </div>
   );
 }
