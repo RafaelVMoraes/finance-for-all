@@ -123,7 +123,7 @@ export default function Investments() {
 
   // Check if investment is visible for selected month
   const isInvestmentVisibleForMonth = useCallback((investment: typeof investments[0]) => {
-    const startMonth = (investment as any).start_month || format(new Date(investment.created_at), 'yyyy-MM-dd');
+    const startMonth = investment.start_month || format(new Date(investment.created_at), 'yyyy-MM-dd');
     return currentMonthStr >= startMonth;
   }, [currentMonthStr]);
 
@@ -190,7 +190,7 @@ export default function Investments() {
           let typeTotal = 0;
           investments.forEach(inv => {
             if (inv.investment_type === type.name) {
-              const startMonth = (inv as any).start_month || format(new Date(inv.created_at), 'yyyy-MM-dd');
+              const startMonth = inv.start_month || format(new Date(inv.created_at), 'yyyy-MM-dd');
             if (month >= startMonth) {
               const snapshot = snapshots.find(s => s.investment_id === inv.id && s.month === month);
               const value = snapshot?.total_value || 0;
@@ -221,15 +221,14 @@ export default function Investments() {
       newInvestment.currency,
       newInvestment.value,
       0,
-      matchedType?.id || null
+      matchedType?.id || null,
+      newInvestment.startMonth
     );
 
     if (result.error) {
       toast({ variant: 'destructive', title: 'Failed to create', description: result.error });
     } else if (result.data) {
-      // Update start_month
-      await updateInvestment(result.data.id, { start_month: newInvestment.startMonth } as any);
-      // Add initial snapshot as confirmed
+      // Add initial snapshot as confirmed for the start month
       if (newInvestment.value > 0) {
         await addSnapshot(result.data.id, newInvestment.startMonth, newInvestment.value);
       }

@@ -516,6 +516,8 @@ export function useImport() {
   }, [user]);
 
   const deleteImportBatch = useCallback(async (batchId: string) => {
+    // CASCADE on transactions.import_batch_id deletes related transactions.
+    // The refresh_monthly_summary trigger recalculates aggregations automatically.
     const { error } = await supabase
       .from('import_batches')
       .delete()

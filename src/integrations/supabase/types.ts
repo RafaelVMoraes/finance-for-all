@@ -448,6 +448,7 @@ export type Database = {
       }
       monthly_settings: {
         Row: {
+          comment: string
           created_at: string
           expected_income: number
           id: string
@@ -456,6 +457,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          comment?: string
           created_at?: string
           expected_income?: number
           id?: string
@@ -464,6 +466,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          comment?: string
           created_at?: string
           expected_income?: number
           id?: string
