@@ -36,12 +36,10 @@ export function DeleteAccountDialog() {
     
     try {
       // Delete all user data in order (respecting foreign keys)
+      // Note: monthly_category_summary and monthly_totals are trigger-managed
+      // and will be cleaned up when transactions are deleted
       
-      // 1. Delete aggregation tables (trigger-managed, need SECURITY DEFINER RPC or direct delete)
-      await supabase.from('monthly_category_summary').delete().eq('user_id', user.id);
-      await supabase.from('monthly_totals').delete().eq('user_id', user.id);
-      
-      // 2. Delete investment snapshots (via investments)
+      // 1. Delete investment snapshots (via investments)
       const { data: investments } = await supabase
         .from('investments')
         .select('id')
@@ -99,7 +97,7 @@ export function DeleteAccountDialog() {
       await logout();
       
     } catch (error) {
-      console.error('Error deleting account:', error);
+      console.error('[ACCOUNT_DELETE_ERR]', error instanceof Error ? error.message : 'Unknown error');
       toast({
         variant: 'destructive',
         title: 'Error',

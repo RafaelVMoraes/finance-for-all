@@ -509,7 +509,7 @@ export function useImport() {
       .order('imported_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching import batches:', error);
+      console.error('[IMPORT_BATCH_ERR]', error?.code || 'Unknown');
     } else {
       setImportBatches((data || []) as ImportBatch[]);
     }
