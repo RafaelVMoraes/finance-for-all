@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addMonths, addWeeks, differenceInCalendarDays, endOfMonth, endOfWeek, format, max as dateMax, min as dateMin, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import {
   AlertTriangle,
@@ -128,6 +128,7 @@ const collapseValues = (values: number[], bucketCount: number, monthDate: Date):
 };
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
+const SELECTED_YEAR_KEY = 'fintrack_selected_year';
 
 /** Get percentage background style – white (0%) to dark green (100%+) */
 const getPctBgStyle = (pct: number) => {
@@ -141,27 +142,49 @@ export default function Dashboard() {
   const today = new Date();
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedMonth, setSelectedMonth] = useState(format(today, 'yyyy-MM'));
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const saved = localStorage.getItem(SELECTED_YEAR_KEY);
+    return saved !== null ? Number(saved) : today.getFullYear();
+  });
   const [yearStartMonth, setYearStartMonth] = useState(() => {
     const saved = localStorage.getItem(YEAR_START_MONTH_KEY);
     return saved !== null ? Number(saved) : 0;
   });
   const [aggregation, setAggregation] = useState<YearAggregation>('month');
+  const [commentDraft, setCommentDraft] = useState('');
+  const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist yearStartMonth
   useEffect(() => {
     localStorage.setItem(YEAR_START_MONTH_KEY, String(yearStartMonth));
   }, [yearStartMonth]);
 
+  useEffect(() => {
+    localStorage.setItem(SELECTED_YEAR_KEY, String(selectedYear));
+  }, [selectedYear]);
+
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
 
   const { settings } = useUserSettings();
   const { getRate } = useExchangeRates();
-  const { monthlySettings, budgets, loading: budgetsLoading } = useBudgets({ month: monthDate });
+  const { monthlySettings, budgets, loading: budgetsLoading, updateMonthlyComment } = useBudgets({ month: monthDate });
   const { data: monthlySummary, loading: monthlyLoading, error: monthlyError } = useMonthlySummary(monthDate);
   const { data: yearlySummary, loading: yearlyLoading, error: yearlyError } = useYearlySummary(selectedYear);
   const { data: yearlySummaryNext, loading: yearlyLoadingNext, error: yearlyErrorNext } = useYearlySummary(selectedYear + 1);
   const { data: investmentSummary } = useInvestmentSummary();
+
+  // Sync comment draft with loaded data
+  useEffect(() => {
+    setCommentDraft(monthlySettings?.comment || '');
+  }, [monthlySettings?.comment, selectedMonth]);
+
+  const handleCommentChange = useCallback((value: string) => {
+    setCommentDraft(value);
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current);
+    commentTimerRef.current = setTimeout(() => {
+      updateMonthlyComment(value);
+    }, 1000);
+  }, [updateMonthlyComment]);
 
   const getBudgetAmount = (categoryId: string) => budgets.find((b) => b.category_id === categoryId)?.expected_amount || 0;
 
@@ -573,6 +596,21 @@ export default function Dashboard() {
                 </div>
               ))}
               <div className="pt-2"><Button asChild variant="outline"><Link to="/budget">Adjust Budget</Link></Button></div>
+            </CardContent>
+          </Card>
+
+          {/* Monthly Comment */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Monthly Notes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Write your thoughts, concerns, or goals for this month..."
+                value={commentDraft}
+                onChange={(e) => handleCommentChange(e.target.value)}
+              />
             </CardContent>
           </Card>
         </div>

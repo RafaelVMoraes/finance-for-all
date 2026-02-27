@@ -11,6 +11,7 @@ export interface Investment {
   currency: 'EUR' | 'USD' | 'BRL';
   initial_amount: number;
   monthly_contribution: number;
+  start_month: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +33,7 @@ const INVESTMENT_COLUMNS = `
   currency,
   initial_amount,
   monthly_contribution,
+  start_month,
   created_at,
   updated_at
 `;
@@ -90,7 +92,8 @@ export function useInvestments() {
     currency: 'EUR' | 'USD' | 'BRL',
     initialAmount: number,
     monthlyContribution: number,
-    investmentTypeId?: string | null
+    investmentTypeId?: string | null,
+    startMonth?: string | null
   ) => {
     if (!user) return { error: 'Not authenticated' };
 
@@ -103,7 +106,8 @@ export function useInvestments() {
         investment_type_id: investmentTypeId || null,
         currency,
         initial_amount: initialAmount,
-        monthly_contribution: monthlyContribution
+        monthly_contribution: monthlyContribution,
+        start_month: startMonth || null,
       })
       .select(INVESTMENT_COLUMNS)
       .single();

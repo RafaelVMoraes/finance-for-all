@@ -24,6 +24,7 @@ export interface MonthlySettings {
   user_id: string;
   month: string;
   expected_income: number;
+  comment: string;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +54,7 @@ const MONTHLY_SETTINGS_COLUMNS = `
   user_id,
   month,
   expected_income,
+  comment,
   created_at,
   updated_at
 `;
@@ -162,7 +164,6 @@ export function useBudgets(options?: UseBudgetsOptions) {
   const updateExpectedIncome = useCallback(async (amount: number) => {
     if (!user) return { error: 'Not authenticated' };
 
-    // Check if settings exist for this month
     if (monthlySettings) {
       const { data, error } = await supabase
         .from('monthly_settings')
@@ -171,27 +172,44 @@ export function useBudgets(options?: UseBudgetsOptions) {
         .select(MONTHLY_SETTINGS_COLUMNS)
         .single();
 
-      if (error) {
-        return { error: error.message };
-      }
-
+      if (error) return { error: error.message };
       setMonthlySettings(data);
       return { data };
     } else {
       const { data, error } = await supabase
         .from('monthly_settings')
-        .insert({
-          user_id: user.id,
-          month: monthStr,
-          expected_income: amount
-        })
+        .insert({ user_id: user.id, month: monthStr, expected_income: amount })
         .select(MONTHLY_SETTINGS_COLUMNS)
         .single();
 
-      if (error) {
-        return { error: error.message };
-      }
+      if (error) return { error: error.message };
+      setMonthlySettings(data);
+      return { data };
+    }
+  }, [user, monthStr, monthlySettings]);
 
+  const updateMonthlyComment = useCallback(async (comment: string) => {
+    if (!user) return { error: 'Not authenticated' };
+
+    if (monthlySettings) {
+      const { data, error } = await supabase
+        .from('monthly_settings')
+        .update({ comment })
+        .eq('id', monthlySettings.id)
+        .select(MONTHLY_SETTINGS_COLUMNS)
+        .single();
+
+      if (error) return { error: error.message };
+      setMonthlySettings(data);
+      return { data };
+    } else {
+      const { data, error } = await supabase
+        .from('monthly_settings')
+        .insert({ user_id: user.id, month: monthStr, comment })
+        .select(MONTHLY_SETTINGS_COLUMNS)
+        .single();
+
+      if (error) return { error: error.message };
       setMonthlySettings(data);
       return { data };
     }
@@ -203,6 +221,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
     loading,
     upsertBudget,
     updateExpectedIncome,
+    updateMonthlyComment,
     refetch: fetchBudgets,
   };
 }

@@ -344,8 +344,25 @@ export default function Import() {
       toast({ variant: 'destructive', title: 'No rows to import', description: 'Please select valid rows to import' });
       return;
     }
+    
+    // Auto-generate import name: SOURCE (dd/mm - dd/mm)
+    let importName = currentFilename;
+    const dates = rowsToImport.map(r => r.date).filter(Boolean).sort();
+    if (dates.length > 0) {
+      const dateFrom = dates[0];
+      const dateTo = dates[dates.length - 1];
+      const fromFormatted = format(new Date(dateFrom), 'dd/MM');
+      const toFormatted = format(new Date(dateTo), 'dd/MM');
+      
+      const sourceName = selectedSourceId 
+        ? sources.find(s => s.id === selectedSourceId)?.name || ''
+        : '';
+      const prefix = sourceName ? sourceName.substring(0, 4).toUpperCase() : currentFilename.substring(0, 4).toUpperCase();
+      importName = `${prefix} (${fromFormatted} - ${toFormatted})`;
+    }
+    
     const appliedRuleIds = rowsToImport.filter(r => r.appliedRule).map(r => r.appliedRule!.id);
-    const result = await importTransactions(rowsToImport, currentFilename, categoryNameToId, selectedSourceId, appliedRuleIds);
+    const result = await importTransactions(rowsToImport, importName, categoryNameToId, selectedSourceId, appliedRuleIds);
     if (result.error) {
       toast({ variant: 'destructive', title: 'Import failed', description: result.error });
     } else {
