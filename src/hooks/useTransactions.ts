@@ -154,7 +154,7 @@ export function useTransactions(filters?: TransactionFilters) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('[TX_FETCH_ERR]', error?.code || 'Unknown');
       setLoading(false);
       isLoadingMoreRef.current = false;
       return;
