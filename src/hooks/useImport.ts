@@ -478,11 +478,15 @@ export function useImport() {
           increment,
         }));
         
-        // Atomic increment via RPC to avoid race conditions
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.rpc as any)('increment_import_rule_usage', {
-          p_increments: JSON.stringify(increments),
-        }).catch(() => {}); // Don't block import
+        // Fire-and-forget rule usage update (non-blocking)
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.rpc as any)('increment_import_rule_usage', {
+            p_increments: JSON.stringify(increments),
+          });
+        } catch {
+          // RPC may not exist yet — silently ignore
+        }
       }
       
       setLoading(false);
