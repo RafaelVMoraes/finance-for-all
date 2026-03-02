@@ -34,7 +34,14 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
   
   const { toast } = useToast();
   const { rules, loading, createRule, updateRule, deleteRule, toggleRule } = useImportRules();
-  const { suggestions, loading: suggestionsLoading, generateSuggestions, clearSuggestions } = useRuleSuggestions();
+  const {
+    suggestions,
+    loading: suggestionsLoading,
+    progress: suggestionsProgress,
+    progressMessage: suggestionsProgressMessage,
+    generateSuggestions,
+    clearSuggestions,
+  } = useRuleSuggestions();
   const { activeCategories } = useCategories();
 
   const handleCreateRule = useCallback(async (input: {
@@ -138,9 +145,9 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
       category: r.category,
     })) || [];
     
-    await generateSuggestions(rows, activeCategories, rules);
     setShowSuggestions(true);
     setDismissedSuggestions([]);
+    await generateSuggestions(rows, activeCategories, rules);
   }, [importRows, activeCategories, rules, generateSuggestions, toast]);
 
   const handleCreateFromSuggestion = useCallback((suggestion: RuleSuggestion) => {
@@ -253,6 +260,8 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
                   <RuleSuggestions
                     suggestions={filteredSuggestions}
                     loading={suggestionsLoading}
+                    progress={suggestionsProgress}
+                    progressMessage={suggestionsProgressMessage}
                     onCreateFromSuggestion={handleCreateFromSuggestion}
                     onDismiss={handleDismissSuggestion}
                     onClose={() => { setShowSuggestions(false); clearSuggestions(); }}

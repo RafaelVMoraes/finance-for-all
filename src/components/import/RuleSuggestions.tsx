@@ -2,12 +2,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { Lightbulb, Plus, X } from 'lucide-react';
 import { RuleSuggestion } from '@/types/importRules';
 
 interface RuleSuggestionsProps {
   suggestions: RuleSuggestion[];
   loading: boolean;
+  progress: number;
+  progressMessage: string;
   onCreateFromSuggestion: (suggestion: RuleSuggestion) => void;
   onDismiss: (index: number) => void;
   onClose: () => void;
@@ -16,6 +19,8 @@ interface RuleSuggestionsProps {
 export function RuleSuggestions({
   suggestions,
   loading,
+  progress,
+  progressMessage,
   onCreateFromSuggestion,
   onDismiss,
   onClose,
@@ -24,9 +29,15 @@ export function RuleSuggestions({
     return (
       <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
         <CardContent className="py-6">
-          <div className="flex items-center justify-center gap-2">
-            <Lightbulb className="h-5 w-5 animate-pulse text-amber-600" />
-            <span>Analyzing patterns...</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Lightbulb className="h-5 w-5 animate-pulse text-amber-600" />
+              <span>{progressMessage || 'Analyzing patterns...'}</span>
+            </div>
+            <div className="space-y-1">
+              <Progress value={progress} className="h-2" />
+              <p className="text-center text-xs text-muted-foreground">{Math.round(progress)}% complete</p>
+            </div>
           </div>
         </CardContent>
       </Card>
