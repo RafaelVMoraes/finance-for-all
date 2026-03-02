@@ -194,117 +194,142 @@ export function useRuleSuggestions() {
     if (!user) return [];
     
     setLoading(true);
-    
-    // Build frequency maps
-    const labelFrequency = new Map<string, { count: number; categoryId?: string }>();
-    const keywordFrequency = new Map<string, number>();
-    const incomeCount = { count: 0, totalValue: 0 };
-    const expenseRanges = {
-      low: { count: 0, min: 0, max: 50 },
-      medium: { count: 0, min: 50, max: 200 },
-      high: { count: 0, min: 200, max: Infinity },
-    };
-    
-    for (const row of rows) {
-      const normalizedLabel = normalizeText(row.label);
-      
-      // Track full label frequency
-      const existing = labelFrequency.get(normalizedLabel) || { count: 0 };
-      labelFrequency.set(normalizedLabel, {
-        count: existing.count + 1,
-        categoryId: row.category ? existingCategories.find(c => 
-          c.name.toLowerCase() === row.category?.toLowerCase()
-        )?.id : existing.categoryId,
-      });
-      
-      // Extract keywords (words with 3+ characters)
-      const words = normalizedLabel.split(/\s+/).filter(w => w.length >= 3);
-      for (const word of words) {
-        keywordFrequency.set(word, (keywordFrequency.get(word) || 0) + 1);
-      }
-      
-      // Track value patterns
-      if (row.value > 0) {
-        incomeCount.count++;
-        incomeCount.totalValue += row.value;
-      } else {
-        const absValue = Math.abs(row.value);
-        if (absValue <= 50) expenseRanges.low.count++;
-        else if (absValue <= 200) expenseRanges.medium.count++;
-        else expenseRanges.high.count++;
-      }
-    }
-    
-    const newSuggestions: RuleSuggestion[] = [];
-    
-    // Check which patterns don't already have rules
-    const existingLabelPatterns = new Set(
-      existingRules.flatMap(r => 
-        r.conditions
-          .filter(c => c.type === 'label_contains')
-          .map(c => normalizeText(String(c.value)))
-      )
-    );
-    
-    // Suggest rules for frequent keywords (appearing 5+ times, not already covered)
-    const sortedKeywords = Array.from(keywordFrequency.entries())
-      .filter(([keyword, count]) => count >= 5 && !existingLabelPatterns.has(keyword))
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
-    
-    for (const [keyword, count] of sortedKeywords) {
-      // Find most common category for rows with this keyword
-      let suggestedCategory: { id: string; name: string } | undefined;
-      const categoryCount = new Map<string, number>();
-      
+
+    try {
+      const labelsByWord = new Map<string, Set<string>>();
+      const keywordFrequency = new Map<string, number>();
+      const exactLabelFrequency = new Map<string, number>();
+      const exactValueFrequency = new Map<string, { count: number; sign: 'income' | 'expense' }>();
+      const categoryByName = new Map(existingCategories.map(c => [normalizeText(c.name), c]));
+      const rowsByLabel: Array<{ normalizedLabel: string; categoryId?: string }> = [];
+
       for (const row of rows) {
-        if (normalizeText(row.label).includes(keyword) && row.category) {
-          const cat = existingCategories.find(c => 
-            c.name.toLowerCase() === row.category?.toLowerCase()
-          );
-          if (cat) {
-            categoryCount.set(cat.id, (categoryCount.get(cat.id) || 0) + 1);
+        const normalizedLabel = normalizeText(row.label);
+        const categoryId = row.category
+          ? categoryByName.get(normalizeText(row.category))?.id
+          : undefined;
+
+        rowsByLabel.push({ normalizedLabel, categoryId });
+        exactLabelFrequency.set(normalizedLabel, (exactLabelFrequency.get(normalizedLabel) || 0) + 1);
+
+        const words = normalizedLabel
+          .split(/[^a-z0-9]+/)
+          .filter(word => word.length >= 3 && !/^\d+$/.test(word));
+
+        const uniqueWords = new Set(words);
+        for (const word of uniqueWords) {
+          keywordFrequency.set(word, (keywordFrequency.get(word) || 0) + 1);
+          if (!labelsByWord.has(word)) {
+            labelsByWord.set(word, new Set());
           }
+          labelsByWord.get(word)?.add(normalizedLabel);
         }
-      }
-      
-      if (categoryCount.size > 0) {
-        const mostCommon = Array.from(categoryCount.entries())
-          .sort((a, b) => b[1] - a[1])[0];
-        suggestedCategory = existingCategories.find(c => c.id === mostCommon[0]);
-      }
-      
-      newSuggestions.push({
-        type: 'label',
-        label: keyword,
-        occurrences: count,
-        suggestedCategoryId: suggestedCategory?.id,
-        suggestedCategoryName: suggestedCategory?.name,
-        reason: `Keyword "${keyword}" appears in ${count} transactions`,
-      });
-    }
-    
-    // Suggest value range rules
-    if (incomeCount.count >= 10) {
-      const avgIncome = incomeCount.totalValue / incomeCount.count;
-      const hasIncomeRule = existingRules.some(r => 
-        r.conditions.some(c => c.type === 'value_sign' && c.value === 'income')
-      );
-      
-      if (!hasIncomeRule) {
-        newSuggestions.push({
-          type: 'value_range',
-          valueSign: 'income',
-          occurrences: incomeCount.count,
-          reason: `${incomeCount.count} income transactions detected (avg: €${avgIncome.toFixed(0)})`,
+
+        const sign: 'income' | 'expense' = row.value >= 0 ? 'income' : 'expense';
+        const normalizedValue = Math.abs(row.value).toFixed(2);
+        const valueKey = `${sign}:${normalizedValue}`;
+        const existingValue = exactValueFrequency.get(valueKey);
+        exactValueFrequency.set(valueKey, {
+          count: (existingValue?.count || 0) + 1,
+          sign,
         });
       }
+
+      const existingLabelPatterns = new Set(
+        existingRules.flatMap(rule =>
+          rule.conditions
+            .filter(condition => ['label_contains', 'label_exact', 'label_starts_with'].includes(condition.type))
+            .map(condition => normalizeText(String(condition.value)))
+        )
+      );
+
+      const hasRuleWithSign = (sign: 'income' | 'expense', min?: number, max?: number) =>
+        existingRules.some(rule => {
+          const signCondition = rule.conditions.some(c => c.type === 'value_sign' && c.value === sign);
+          if (!signCondition) return false;
+
+          const hasMin = min === undefined || rule.conditions.some(c => c.type === 'value_min' && Number(c.value) <= min);
+          const hasMax = max === undefined || rule.conditions.some(c => c.type === 'value_max' && Number(c.value) >= max);
+          return hasMin && hasMax;
+        });
+
+      const suggestionsBuffer: RuleSuggestion[] = [];
+
+      // Repeated exact labels
+      for (const [label, count] of exactLabelFrequency.entries()) {
+        if (count < 3 || existingLabelPatterns.has(label)) {
+          continue;
+        }
+
+        const categoryCount = new Map<string, number>();
+        for (const row of rowsByLabel) {
+          if (row.normalizedLabel === label && row.categoryId) {
+            categoryCount.set(row.categoryId, (categoryCount.get(row.categoryId) || 0) + 1);
+          }
+        }
+
+        const topCategory = Array.from(categoryCount.entries()).sort((a, b) => b[1] - a[1])[0];
+        const suggestedCategory = topCategory
+          ? existingCategories.find(category => category.id === topCategory[0])
+          : undefined;
+
+        suggestionsBuffer.push({
+          type: 'label',
+          label,
+          occurrences: count,
+          suggestedCategoryId: suggestedCategory?.id,
+          suggestedCategoryName: suggestedCategory?.name,
+          reason: `Label "${label}" repeats ${count} times`,
+        });
+      }
+
+      // Repeated keywords spread across distinct labels
+      for (const [word, count] of keywordFrequency.entries()) {
+        const distinctLabels = labelsByWord.get(word)?.size || 0;
+        if (count < 3 || distinctLabels < 2 || existingLabelPatterns.has(word)) {
+          continue;
+        }
+
+        suggestionsBuffer.push({
+          type: 'label',
+          label: word,
+          occurrences: count,
+          reason: `Word "${word}" appears ${count} times across ${distinctLabels} different labels`,
+        });
+      }
+
+      // Repeated exact values (same sign + amount)
+      for (const [valueKey, data] of exactValueFrequency.entries()) {
+        if (data.count < 4) {
+          continue;
+        }
+
+        const [sign, rawAmount] = valueKey.split(':');
+        const amount = Number(rawAmount);
+
+        if (hasRuleWithSign(sign as 'income' | 'expense', amount, amount)) {
+          continue;
+        }
+
+        suggestionsBuffer.push({
+          type: 'value_range',
+          valueSign: sign as 'income' | 'expense',
+          valueMin: amount,
+          valueMax: amount,
+          occurrences: data.count,
+          reason: `${data.count} ${sign} transactions have the exact value ${amount.toFixed(2)}`,
+        });
+      }
+
+      const newSuggestions = suggestionsBuffer
+        .sort((a, b) => b.occurrences - a.occurrences)
+        .slice(0, 15);
+
+      setSuggestions(newSuggestions);
+      return newSuggestions;
+    } finally {
+      setLoading(false);
     }
-    
-    setSuggestions(newSuggestions);
-    setLoading(false);
-    
-    return newSuggestions;
   }, [user]);
 
   const clearSuggestions = useCallback(() => {
