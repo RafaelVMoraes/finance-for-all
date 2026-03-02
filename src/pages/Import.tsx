@@ -414,7 +414,7 @@ export default function Import() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Import Transactions</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowRulesManager(true)}>
+          <Button data-tutorial="import-mapping-rules" variant="outline" onClick={() => setShowRulesManager(true)}>
             <Zap className="mr-2 h-4 w-4" />
             Import Rules {rules.length > 0 && `(${rules.length})`}
           </Button>
@@ -422,7 +422,7 @@ export default function Import() {
             <Download className="mr-2 h-4 w-4" />
             Download Template
           </Button>
-          <Button variant="outline" onClick={() => setShowHistoryModal(true)}>
+          <Button data-tutorial="import-history" variant="outline" onClick={() => setShowHistoryModal(true)}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Import History
           </Button>
@@ -430,7 +430,7 @@ export default function Import() {
       </div>
 
       {step === 'upload' && (
-        <Card>
+        <Card data-tutorial="import-source-template">
           <CardHeader>
             <CardTitle>Upload Excel File</CardTitle>
             <CardDescription>

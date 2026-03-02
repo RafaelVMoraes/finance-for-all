@@ -110,7 +110,7 @@ export default function Budget() {
 
       {/* Edit Categories Button */}
       <div className="flex justify-end">
-        <Button asChild>
+        <Button data-tutorial="budget-edit-categories-link" asChild>
           <Link to="/categories">
             <Pencil className="mr-2 h-4 w-4" />
             Edit Categories & Budgets
@@ -119,7 +119,7 @@ export default function Budget() {
       </div>
 
       {/* Income & Savings Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div data-tutorial="budget-overview-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardHeader className="pb-2">

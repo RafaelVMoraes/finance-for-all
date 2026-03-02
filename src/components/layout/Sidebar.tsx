@@ -1,19 +1,23 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  Receipt, 
-  Target, 
+import {
+  LayoutDashboard,
+  Receipt,
+  Target,
   TrendingUp,
   Upload,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
+import { useTutorial } from '@/contexts/TutorialContext';
+import { tutorialSectionLabels } from '@/config/tutorialSteps';
+import { TutorialSection } from '@/types/tutorial';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +27,8 @@ const navItems = [
   { path: '/import', label: 'Import', icon: Upload },
 ];
 
+const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budget', 'investment', 'import'];
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -31,9 +37,10 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const { logout, user } = useAuthContext();
+  const { startSectionTutorial, mandatoryOnboarding } = useTutorial();
 
   return (
-    <aside 
+    <aside
       className={cn(
         'flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
@@ -49,16 +56,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           size="icon"
           onClick={onToggle}
           className="h-8 w-8"
+          disabled={mandatoryOnboarding}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
-      
+
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           const linkContent = (
             <Link
               key={item.path}
@@ -91,6 +99,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
           return linkContent;
         })}
+
+        {!collapsed && (
+          <div className="mt-4 rounded-lg border border-border p-2">
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+              <GraduationCap className="h-3.5 w-3.5" /> Tutorials
+            </p>
+            <div className="space-y-1">
+              {tutorialSections.map((section) => (
+                <Button
+                  key={section}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => startSectionTutorial(section)}
+                >
+                  {tutorialSectionLabels[section]}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-border p-2">
@@ -99,14 +128,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {user?.email}
           </div>
         )}
-        
-        {/* Delete account option */}
+
         {!collapsed && (
           <div className="mb-2">
             <DeleteAccountDialog />
           </div>
         )}
-        
+
         {collapsed ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
