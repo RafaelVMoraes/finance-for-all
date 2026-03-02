@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Archive, Check, X, ArchiveRestore, ArrowLeft } from 'lucide-react';
 import { useCategories, PRESET_COLORS, Category } from '@/hooks/useCategories';
 import { useBudgets } from '@/hooks/useBudgets';
+import { useUserSettings, Currency } from '@/hooks/useUserSettings';
 import { useToast } from '@/hooks/use-toast';
 import { CategoryType } from '@/types/finance';
 import { Link } from 'react-router-dom';
@@ -55,6 +56,7 @@ export default function Categories() {
     updateCategory,
   } = useCategories();
   const { budgets, upsertBudget, loading: budgetsLoading } = useBudgets();
+  const { mainCurrency, updateMainCurrency } = useUserSettings();
   const { toast } = useToast();
 
   const loading = categoriesLoading || budgetsLoading;
@@ -314,6 +316,24 @@ export default function Categories() {
           </p>
         </div>
       )}
+
+      {/* Currency Setting */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm text-muted-foreground">Display Currency</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="EUR">€ EUR (Euro)</SelectItem>
+              <SelectItem value="BRL">R$ BRL (Real)</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Active Categories Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
