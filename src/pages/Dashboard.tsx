@@ -417,6 +417,10 @@ export default function Dashboard() {
 
     const maxHeat = Math.max(1, ...heatmapCategories.flatMap((cat) => cat.cells));
 
+    const expenseCategoryRows = Object.values(byCategory)
+      .filter((cat) => cat.type !== 'income')
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     return {
       expectedIncome,
       expectedExpenses,
@@ -436,6 +440,7 @@ export default function Dashboard() {
         expensesPct: calculateRatio(m.expenses, expectedExpenses),
         savingsPct: expectedSavings !== 0 ? (m.savedOrOverspent / expectedSavings) * 100 : 0,
       })),
+      expenseCategoryRows,
       heatmapCategories,
       maxHeat,
       totalIncome: monthlyStats.reduce((sum, m) => sum + m.income, 0),
@@ -767,6 +772,60 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Yearly Expense Matrix (Category × Month)</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="min-w-[980px] w-full text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="py-2 pr-2 text-left font-medium">Category</th>
+                    {yearPeriodData.map((m) => (
+                      <th key={`header-${m.key}`} className="py-2 px-2 text-right font-medium">{m.monthLabel}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {yearlyViewData.expenseCategoryRows.map((cat) => (
+                    <tr key={cat.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-2 font-medium">{cat.name}</td>
+                      {cat.values.map((value, idx) => (
+                        <td key={`${cat.id}-${idx}`} className="py-2 px-2 text-right">€{value.toFixed(0)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr className="border-b bg-muted/30 font-semibold">
+                    <td className="py-2 pr-2">Total Expenses</td>
+                    {yearlyViewData.monthlyStats.map((month) => (
+                      <td key={`expenses-${month.key}`} className="py-2 px-2 text-right">€{month.expenses.toFixed(0)}</td>
+                    ))}
+                  </tr>
+                  <tr className="border-b bg-muted/30 font-semibold">
+                    <td className="py-2 pr-2">Total Income</td>
+                    {yearlyViewData.monthlyStats.map((month) => (
+                      <td key={`income-${month.key}`} className="py-2 px-2 text-right">€{month.income.toFixed(0)}</td>
+                    ))}
+                  </tr>
+                  <tr className="border-b bg-muted/30 font-semibold">
+                    <td className="py-2 pr-2">Expense / Income Ratio</td>
+                    {yearlyViewData.monthlyStats.map((month) => {
+                      const ratio = month.income > 0 ? month.expenses / month.income : 0;
+                      return <td key={`ratio-${month.key}`} className="py-2 px-2 text-right">{(ratio * 100).toFixed(1)}%</td>;
+                    })}
+                  </tr>
+                  <tr className="bg-muted/30 font-semibold">
+                    <td className="py-2 pr-2">Total Investment Value</td>
+                    {investmentEvolution.map((investmentMonth, idx) => {
+                      const total = investmentMonth.Current + investmentMonth.Emergency + investmentMonth.Investments;
+                      return <td key={`investments-${idx}`} className="py-2 px-2 text-right">€{total.toFixed(0)}</td>;
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
