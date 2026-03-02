@@ -165,7 +165,7 @@ export default function Dashboard() {
 
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
 
-  const { settings } = useUserSettings();
+  const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
   const { monthlySettings, budgets, loading: budgetsLoading, updateMonthlyComment } = useBudgets({ month: monthDate });
   const { data: monthlySummary, loading: monthlyLoading, error: monthlyError } = useMonthlySummary(monthDate);
@@ -421,6 +421,13 @@ export default function Dashboard() {
       .filter((cat) => cat.type !== 'income')
       .sort((a, b) => a.name.localeCompare(b.name));
 
+    const totalIncome = monthlyStats.reduce((sum, m) => sum + m.income, 0);
+    const totalExpenses = monthlyStats.reduce((sum, m) => sum + m.expenses, 0);
+    const totalSavings = monthlyStats.reduce((sum, m) => sum + m.savings, 0);
+
+    // Count months that have any data for proper average calculation
+    const monthsWithData = monthlyStats.filter((m) => m.income > 0 || m.expenses > 0).length || 1;
+
     return {
       expectedIncome,
       expectedExpenses,
@@ -443,9 +450,10 @@ export default function Dashboard() {
       expenseCategoryRows,
       heatmapCategories,
       maxHeat,
-      totalIncome: monthlyStats.reduce((sum, m) => sum + m.income, 0),
-      totalExpenses: monthlyStats.reduce((sum, m) => sum + m.expenses, 0),
-      totalSavings: monthlyStats.reduce((sum, m) => sum + m.savings, 0),
+      totalIncome,
+      totalExpenses,
+      totalSavings,
+      monthsWithData,
     };
   }, [aggregation, budgets, monthlySettings, selectedYear, yearPeriodData, yearlySummary, yearlySummaryNext]);
 
@@ -510,11 +518,11 @@ export default function Dashboard() {
       <div className="rounded-lg border bg-background p-3 text-xs shadow-md">
         <p className="mb-2 font-medium">{label}</p>
         <div className="space-y-1 text-muted-foreground">
-          <p>Income: €{income.toFixed(0)}</p>
-          <p>Fixed: €{fixed.toFixed(0)} ({formatPercent(calculateRatio(fixed, income))})</p>
-          <p>Variable: €{variable.toFixed(0)} ({formatPercent(calculateRatio(variable, income))})</p>
+          <p>Income: {currencySymbol}{income.toFixed(0)}</p>
+          <p>Fixed: {currencySymbol}{fixed.toFixed(0)} ({formatPercent(calculateRatio(fixed, income))})</p>
+          <p>Variable: {currencySymbol}{variable.toFixed(0)} ({formatPercent(calculateRatio(variable, income))})</p>
           <p className={savedOrOverspent >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-            {savedOrOverspent >= 0 ? 'Saved' : 'Overspent'}: €{Math.abs(savedOrOverspent).toFixed(0)} ({formatPercent(calculateRatio(Math.abs(savedOrOverspent), income))})
+            {savedOrOverspent >= 0 ? 'Saved' : 'Overspent'}: {currencySymbol}{Math.abs(savedOrOverspent).toFixed(0)} ({formatPercent(calculateRatio(Math.abs(savedOrOverspent), income))})
           </p>
         </div>
       </div>
@@ -546,11 +554,11 @@ export default function Dashboard() {
           </div>
 
           <div data-tutorial="dashboard-key-metrics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">€{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Budget Balance</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected €{monthlyViewData.expectedSavings.toFixed(0)}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Investments vs Last Month</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{(settings?.main_currency || 'EUR')} {monthlyInvestmentEvolution.current.toFixed(0)} vs {(settings?.main_currency || 'EUR')} {monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Budget Balance</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Investments vs Last Month</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{currencySymbol}{monthlyInvestmentEvolution.current.toFixed(0)} vs {currencySymbol}{monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -562,7 +570,7 @@ export default function Dashboard() {
                     <ComposedChart data={monthlyViewData.weeklyData}>
                       <CartesianGrid vertical={false} />
                       <XAxis dataKey="week" tickLine={false} axisLine={false} />
-                      <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
+                      <YAxis tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Legend />
                       <Bar dataKey="spent" fill="hsl(var(--chart-1))" radius={6}>
@@ -582,7 +590,7 @@ export default function Dashboard() {
                   {monthlyViewData.alerts.map((alert) => (
                     <div key={alert.id} className="space-y-1 rounded-md border p-3">
                       <div className="flex items-center justify-between"><span className="font-medium">{alert.name}</span><Badge variant={alert.percent >= 100 ? 'destructive' : 'secondary'}>{alert.percent.toFixed(0)}%</Badge></div>
-                      <p className="text-xs text-muted-foreground">€{alert.spent.toFixed(0)} / €{alert.budget.toFixed(0)}</p>
+                      <p className="text-xs text-muted-foreground">{currencySymbol}{alert.spent.toFixed(0)} / {currencySymbol}{alert.budget.toFixed(0)}</p>
                       <Progress value={Math.min(alert.percent, 100)} />
                     </div>
                   ))}
@@ -596,7 +604,7 @@ export default function Dashboard() {
             <CardContent className="space-y-3">
               {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">No budgets set yet.</p> : monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (
                 <div key={cat.id} className="space-y-1">
-                  <div className="flex justify-between text-sm"><span>{cat.name}</span><span>€{cat.spent.toFixed(0)} / €{cat.budget.toFixed(0)}</span></div>
+                  <div className="flex justify-between text-sm"><span>{cat.name}</span><span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.budget.toFixed(0)}</span></div>
                   <Progress value={Math.min(cat.percent, 100)} />
                 </div>
               ))}
@@ -651,10 +659,10 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{Math.round(yearlyViewData.totalIncome / 12).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total €{Math.round(yearlyViewData.totalIncome).toLocaleString()}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{Math.round(yearlyViewData.totalExpenses / 12).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total €{Math.round(yearlyViewData.totalExpenses).toLocaleString()}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>€{Math.round(yearlyViewData.totalSavings / 12).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total €{Math.round(yearlyViewData.totalSavings).toLocaleString()}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">€{Math.round(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Income</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalIncome / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalIncome).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Expenses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalExpenses / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalExpenses).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Avg Savings</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{Math.round(yearlyViewData.totalSavings / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalSavings).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Net Worth</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
           </div>
 
           <Card>
@@ -664,7 +672,7 @@ export default function Dashboard() {
                 <BarChart data={yearlyViewData.chartData}>
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(v) => `€${v}`} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
                   <ChartTooltip content={yearlyIncomeExpenseTooltip} />
                   <Legend />
                   <Bar dataKey="income" fill="hsl(var(--chart-1))" />
@@ -722,7 +730,7 @@ export default function Dashboard() {
                       <div className="truncate text-[10px] font-medium">{cat.name}</div>
                       {cat.cells.map((value, idx) => {
                         const intensity = value > 0 ? Math.max(0.1, value / cat.maxCell) : 0;
-                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded-sm" style={{ backgroundColor: intensity > 0 ? `hsl(var(--chart-1) / ${intensity})` : undefined }} title={`€${value.toFixed(0)}`} />;
+                        return <div key={`${cat.id}-${idx}`} className="h-5 rounded-sm" style={{ backgroundColor: intensity > 0 ? `hsl(var(--chart-1) / ${intensity})` : undefined }} title={`${currencySymbol}${value.toFixed(0)}`} />;
                       })}
                     </div>
                   ))}
@@ -739,7 +747,7 @@ export default function Dashboard() {
                   <AreaChart data={investmentEvolution}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={(v) => `${settings?.main_currency || 'EUR'} ${Number(v).toFixed(0)}`} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `${currencySymbol}${Number(v).toFixed(0)}`} tickLine={false} axisLine={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Legend />
                     <Area type="monotone" dataKey="Current" stackId="nw" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.5} />
@@ -755,7 +763,7 @@ export default function Dashboard() {
               <CardContent className="space-y-4 text-sm">
                 <div>
                   <p className="mb-2 font-medium">Highest variable expenses</p>
-                  {yearlyViewData.variableAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: €{cat.avg.toFixed(0)} avg</p>)}
+                  {yearlyViewData.variableAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: {currencySymbol}{cat.avg.toFixed(0)} avg</p>)}
                 </div>
                 <div>
                   <p className="mb-2 font-medium">Highest standard deviation</p>
@@ -792,20 +800,20 @@ export default function Dashboard() {
                     <tr key={cat.id} className="border-b last:border-b-0">
                       <td className="py-2 pr-2 font-medium">{cat.name}</td>
                       {cat.values.map((value, idx) => (
-                        <td key={`${cat.id}-${idx}`} className="py-2 px-2 text-right">€{value.toFixed(0)}</td>
+                        <td key={`${cat.id}-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{value.toFixed(0)}</td>
                       ))}
                     </tr>
                   ))}
                   <tr className="border-b bg-muted/30 font-semibold">
                     <td className="py-2 pr-2">Total Expenses</td>
                     {yearlyViewData.monthlyStats.map((month) => (
-                      <td key={`expenses-${month.key}`} className="py-2 px-2 text-right">€{month.expenses.toFixed(0)}</td>
+                      <td key={`expenses-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.expenses.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
                     <td className="py-2 pr-2">Total Income</td>
                     {yearlyViewData.monthlyStats.map((month) => (
-                      <td key={`income-${month.key}`} className="py-2 px-2 text-right">€{month.income.toFixed(0)}</td>
+                      <td key={`income-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.income.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
@@ -819,7 +827,7 @@ export default function Dashboard() {
                     <td className="py-2 pr-2">Total Investment Value</td>
                     {investmentEvolution.map((investmentMonth, idx) => {
                       const total = investmentMonth.Current + investmentMonth.Emergency + investmentMonth.Investments;
-                      return <td key={`investments-${idx}`} className="py-2 px-2 text-right">€{total.toFixed(0)}</td>;
+                      return <td key={`investments-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{total.toFixed(0)}</td>;
                     })}
                   </tr>
                 </tbody>
