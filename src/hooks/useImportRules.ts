@@ -184,7 +184,15 @@ export function useImportRules() {
 export function useRuleSuggestions() {
   const [suggestions, setSuggestions] = useState<RuleSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const { user } = useAuthContext();
+
+  const updateProgress = useCallback(async (value: number, message: string) => {
+    setProgress(Math.max(0, Math.min(100, value)));
+    setProgressMessage(message);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }, []);
 
   const generateSuggestions = useCallback(async (
     rows: Array<{ label: string; value: number; category?: string }>,
@@ -194,6 +202,8 @@ export function useRuleSuggestions() {
     if (!user) return [];
     
     setLoading(true);
+    setProgress(0);
+    setProgressMessage('Preparing analysis...');
 
     try {
       const labelsByWord = new Map<string, Set<string>>();
@@ -202,6 +212,9 @@ export function useRuleSuggestions() {
       const exactValueFrequency = new Map<string, { count: number; sign: 'income' | 'expense' }>();
       const categoryByName = new Map(existingCategories.map(c => [normalizeText(c.name), c]));
       const rowsByLabel: Array<{ normalizedLabel: string; categoryId?: string }> = [];
+
+      const totalRows = rows.length || 1;
+      let processedRows = 0;
 
       for (const row of rows) {
         const normalizedLabel = normalizeText(row.label);
@@ -233,7 +246,15 @@ export function useRuleSuggestions() {
           count: (existingValue?.count || 0) + 1,
           sign,
         });
+
+        processedRows += 1;
+        if (processedRows % 25 === 0 || processedRows === totalRows) {
+          const scanProgress = (processedRows / totalRows) * 50;
+          await updateProgress(scanProgress, 'Scanning transactions...');
+        }
       }
+
+      await updateProgress(60, 'Comparing with existing rules...');
 
       const existingLabelPatterns = new Set(
         existingRules.flatMap(rule =>
@@ -283,6 +304,8 @@ export function useRuleSuggestions() {
         });
       }
 
+      await updateProgress(75, 'Extracting label patterns...');
+
       // Repeated keywords spread across distinct labels
       for (const [word, count] of keywordFrequency.entries()) {
         const distinctLabels = labelsByWord.get(word)?.size || 0;
@@ -321,24 +344,31 @@ export function useRuleSuggestions() {
         });
       }
 
+      await updateProgress(90, 'Ranking best suggestions...');
+
       const newSuggestions = suggestionsBuffer
         .sort((a, b) => b.occurrences - a.occurrences)
         .slice(0, 15);
 
       setSuggestions(newSuggestions);
+      await updateProgress(100, 'Analysis complete');
       return newSuggestions;
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [updateProgress, user]);
 
   const clearSuggestions = useCallback(() => {
     setSuggestions([]);
+    setProgress(0);
+    setProgressMessage('');
   }, []);
 
   return {
     suggestions,
     loading,
+    progress,
+    progressMessage,
     generateSuggestions,
     clearSuggestions,
   };
