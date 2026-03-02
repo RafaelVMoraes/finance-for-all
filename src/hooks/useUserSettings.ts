@@ -66,9 +66,13 @@ export function useUserSettings() {
     }
   }, [user, settings]);
 
+  const mainCurrency = (settings?.main_currency || 'EUR') as Currency;
+  const currencySymbol = mainCurrency === 'BRL' ? 'R$' : mainCurrency === 'USD' ? '$' : '€';
+
   return {
     settings,
-    mainCurrency: (settings?.main_currency || 'EUR') as Currency,
+    mainCurrency,
+    currencySymbol,
     loading,
     updateMainCurrency,
     refetch: fetchSettings,

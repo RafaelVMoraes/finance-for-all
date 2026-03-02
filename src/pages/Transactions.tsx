@@ -48,6 +48,7 @@ import { useTransactions, TransactionFilters } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { format, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { cn } from '@/lib/utils';
 import { APP_START_DATE, APP_START_DATE_STRING } from '@/constants/app';
 
@@ -77,6 +78,7 @@ export default function Transactions() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   
   const { toast } = useToast();
+  const { currencySymbol } = useUserSettings();
 
   const filters: TransactionFilters = useMemo(() => ({
     categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
@@ -331,7 +333,7 @@ export default function Transactions() {
           {/* Amount range */}
           <div className="mt-4 flex gap-4">
             <div className="flex items-center gap-2">
-              <Label className="whitespace-nowrap text-sm">Min €</Label>
+              <Label className="whitespace-nowrap text-sm">Min {currencySymbol}</Label>
               <Input
                 type="number"
                 value={minAmount}
@@ -341,7 +343,7 @@ export default function Transactions() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Label className="whitespace-nowrap text-sm">Max €</Label>
+              <Label className="whitespace-nowrap text-sm">Max {currencySymbol}</Label>
               <Input
                 type="number"
                 value={maxAmount}
@@ -489,7 +491,7 @@ export default function Transactions() {
                           "text-right font-medium whitespace-nowrap",
                           tx.amount > 0 ? 'text-emerald-600' : 'text-foreground'
                         )}>
-                          {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount).toFixed(2)}
+                          {tx.amount > 0 ? '+' : ''}{currencySymbol}{Math.abs(tx.amount).toFixed(2)}
                         </TableCell>
                         <TableCell>
                           {isComplete ? (
@@ -591,7 +593,7 @@ export default function Transactions() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="new-amount">Amount (€)</Label>
+              <Label htmlFor="new-amount">Amount ({currencySymbol})</Label>
               <Input
                 id="new-amount"
                 type="number"

@@ -7,6 +7,7 @@ import { TrendingDown, TrendingUp, PiggyBank, ChevronLeft, ChevronRight, Pencil 
 import { useBudgets } from '@/hooks/useBudgets';
 import { useCategories } from '@/hooks/useCategories';
 import { useBudgetMonthlySummary } from '@/hooks/useBudgetMonthlySummary';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { format, addMonths, subMonths } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,7 @@ export default function Budget() {
     actualIncome,
     loading: summaryLoading,
   } = useBudgetMonthlySummary(selectedMonth);
+  const { currencySymbol } = useUserSettings();
 
   // Month navigation with minimum date check
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
@@ -130,10 +132,10 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-              €{expectedIncome.toLocaleString()}
+              {currencySymbol}{expectedIncome.toLocaleString()}
             </div>
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-              Real: €{actualIncome.toLocaleString()}
+              Real: {currencySymbol}{actualIncome.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -148,10 +150,10 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-700 dark:text-red-300">
-              €{totalFixedBudget.toLocaleString()}
+              {currencySymbol}{totalFixedBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
-              Spent: €{totalFixedSpent.toFixed(2)}
+              Spent: {currencySymbol}{totalFixedSpent.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -166,10 +168,10 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-700 dark:text-red-300">
-              €{totalVariableBudget.toLocaleString()}
+              {currencySymbol}{totalVariableBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
-              Spent: €{totalVariableSpent.toFixed(2)}
+              Spent: {currencySymbol}{totalVariableSpent.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -184,10 +186,10 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${estimatedSavings >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
-              €{estimatedSavings.toLocaleString()}
+              {currencySymbol}{estimatedSavings.toLocaleString()}
             </div>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">
-              Actual: €{actualSavings.toFixed(2)}
+              Actual: {currencySymbol}{actualSavings.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -219,7 +221,7 @@ export default function Budget() {
                       />
                       <span className="font-medium">{cat.name}</span>
                     </div>
-                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                    <span className="font-medium">{currencySymbol}{expected.toFixed(0)}</span>
                   </div>
                   {expected > 0 && (
                     <>
@@ -229,10 +231,10 @@ export default function Budget() {
                       />
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">
-                          €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                          {currencySymbol}{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
                         </span>
                         <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-                          {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} remaining
                         </span>
                       </div>
                     </>
@@ -275,7 +277,7 @@ export default function Budget() {
                       />
                       <span className="font-medium">{cat.name}</span>
                     </div>
-                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                    <span className="font-medium">{currencySymbol}{expected.toFixed(0)}</span>
                   </div>
                   {expected > 0 && (
                     <>
@@ -285,10 +287,10 @@ export default function Budget() {
                       />
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">
-                          €{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                          {currencySymbol}{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
                         </span>
                         <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-                          {remaining >= 0 ? '+' : ''}€{remaining.toFixed(2)} remaining
+                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} remaining
                         </span>
                       </div>
                     </>
@@ -327,7 +329,7 @@ export default function Budget() {
                       />
                       <span className="font-medium">{cat.name}</span>
                     </div>
-                    <span className="font-medium">€{expected.toFixed(0)}</span>
+                    <span className="font-medium">{currencySymbol}{expected.toFixed(0)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Included in monthly actual income

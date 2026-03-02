@@ -56,7 +56,7 @@ export default function Categories() {
     updateCategory,
   } = useCategories();
   const { budgets, upsertBudget, loading: budgetsLoading } = useBudgets();
-  const { mainCurrency, updateMainCurrency } = useUserSettings();
+  const { mainCurrency, currencySymbol, updateMainCurrency } = useUserSettings();
   const { toast } = useToast();
 
   const loading = categoriesLoading || budgetsLoading;
@@ -206,7 +206,18 @@ export default function Categories() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Categories & Budgets</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground">Categories & Budgets</h1>
+              <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EUR">€ EUR</SelectItem>
+                  <SelectItem value="BRL">R$ BRL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <p className="text-sm text-muted-foreground">
               {activeCategories.length}/15 categories used
             </p>
@@ -268,7 +279,7 @@ export default function Categories() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="budget">Monthly Budget (€)</Label>
+                <Label htmlFor="budget">Monthly Budget</Label>
                 <Input
                   id="budget"
                   type="number"
@@ -317,25 +328,6 @@ export default function Categories() {
         </div>
       )}
 
-      {/* Currency Setting */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-muted-foreground">Display Currency</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="EUR">€ EUR (Euro)</SelectItem>
-              <SelectItem value="BRL">R$ BRL (Real)</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Active Categories Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {activeCategories.map((cat) => {
           const isEditing = editingId === cat.id;
@@ -381,7 +373,7 @@ export default function Categories() {
                       ))}
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Budget (€)</Label>
+                      <Label className="text-xs">Budget ({currencySymbol})</Label>
                       <Input
                         type="number"
                         value={formData.budget}
@@ -421,7 +413,7 @@ export default function Categories() {
                         {cat.type}
                       </Badge>
                       <span className="text-sm font-medium">
-                        €{budgetAmount.toLocaleString()}/mo
+                        {currencySymbol}{budgetAmount.toLocaleString()}/mo
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
