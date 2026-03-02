@@ -254,7 +254,7 @@ export default function Transactions() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card data-tutorial="transactions-filters">
         <CardContent className="pt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {/* Search */}

@@ -366,7 +366,7 @@ export default function Investments() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Investments</h1>
         <div className="flex items-center gap-2">
-          <Select value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
+          <Select data-tutorial="investments-main-currency" value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
@@ -413,7 +413,7 @@ export default function Investments() {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={isTypesDialogOpen} onOpenChange={setIsTypesDialogOpen}>
+          <Dialog data-tutorial="investments-types-assets" open={isTypesDialogOpen} onOpenChange={setIsTypesDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">Manage Types</Button>
             </DialogTrigger>
