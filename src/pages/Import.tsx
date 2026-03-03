@@ -57,8 +57,10 @@ import { ColumnMappingDialog } from '@/components/import/ColumnMappingDialog';
 import { detectColumnMapping, isTemplateFormat, ColumnMapping } from '@/lib/columnDetection';
 import { format } from 'date-fns';
 import { APP_START_DATE_STRING } from '@/constants/app';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Import() {
+  const isMobile = useIsMobile();
   const [step, setStep] = useState<'upload' | 'column-mapping' | 'validation' | 'complete'>('upload');
   const [parsedData, setParsedData] = useState<ImportRow[]>([]);
   const [editableData, setEditableData] = useState<ImportRow[]>([]);
@@ -410,11 +412,50 @@ export default function Import() {
   const ruleCategorizedCount = editableData.filter(r => r.appliedRule && r.categoryId).length;
   const selectedCount = selectedRows.size;
 
+  const getRowClassName = (row: ImportRow) => {
+    if (row.autoRejected) return 'bg-red-50/50 dark:bg-red-950/10 opacity-60';
+    if (row.isDuplicate && !row.autoAccepted) return 'bg-amber-50 dark:bg-amber-950/20';
+    if (row.isDuplicateInFile) return 'bg-orange-50 dark:bg-orange-950/20';
+    if (!row.isValid) return 'bg-red-50 dark:bg-red-950/20';
+    if (row.appliedRule) return 'bg-violet-50/50 dark:bg-violet-950/10';
+    return '';
+  };
+
+  const renderRowStatus = (row: ImportRow) => {
+    if (row.autoRejected) {
+      return <Badge variant="destructive" className="bg-red-100 text-red-800"><X className="mr-1 h-3 w-3" />Auto-rejected</Badge>;
+    }
+    if (row.autoAccepted) {
+      return <Badge variant="secondary" className="bg-emerald-100 text-emerald-800"><Check className="mr-1 h-3 w-3" />Auto-accepted</Badge>;
+    }
+    if (row.isDuplicate) {
+      return <Badge variant="secondary" className="bg-amber-100 text-amber-800"><AlertTriangle className="mr-1 h-3 w-3" />DB Duplicate</Badge>;
+    }
+    if (row.isDuplicateInFile) {
+      return <Badge variant="secondary" className="bg-orange-100 text-orange-800"><AlertTriangle className="mr-1 h-3 w-3" />File Dup #{row.duplicateIndex}</Badge>;
+    }
+    if (!row.isValid) {
+      return <Badge variant="destructive"><X className="mr-1 h-3 w-3" />{row.errors[0]}</Badge>;
+    }
+    if (row.appliedRule) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="cursor-help bg-violet-100 text-violet-800"><Sparkles className="mr-1 h-3 w-3" />Rule applied</Badge>
+          </TooltipTrigger>
+          <TooltipContent><p>Rule: {row.appliedRule.name}</p></TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return <Badge variant="default" className="bg-emerald-600"><Check className="mr-1 h-3 w-3" />Valid</Badge>;
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Import Transactions</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Import Transactions</h1>
+        <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
           <Button data-tutorial="import-mapping-rules" variant="outline" onClick={() => setShowRulesManager(true)}>
             <Zap className="mr-2 h-4 w-4" />
             Import Rules {rules.length > 0 && `(${rules.length})`}
@@ -444,12 +485,12 @@ export default function Import() {
             {/* Source selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Import Source (optional)</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Select 
                   value={selectedSourceId || '__none__'} 
                   onValueChange={(v) => setSelectedSourceId(v === '__none__' ? null : v)}
                 >
-                  <SelectTrigger className="w-64">
+                  <SelectTrigger className="w-full sm:w-64">
                     <SelectValue placeholder="Select source..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -465,8 +506,8 @@ export default function Import() {
               </div>
               
               {showNewSource && (
-                <div className="flex gap-2">
-                  <Input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder="e.g., Boursorama, Revolut, BNP..." className="w-64" />
+                <div className="flex flex-wrap gap-2">
+                  <Input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder="e.g., Boursorama, Revolut, BNP..." className="w-full sm:w-64" />
                   <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>Add Source</Button>
                 </div>
               )}
@@ -564,6 +605,50 @@ export default function Import() {
 
             {/* Data table */}
             <TooltipProvider>
+            {isMobile ? (
+              <div className="space-y-2">
+                {sortedEditableData.map((row, sortedIdx) => {
+                  const originalIdx = getOriginalIndex(sortedIdx);
+                  return (
+                    <Card key={sortedIdx} className={getRowClassName(row)}>
+                      <CardContent className="space-y-2 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          {renderRowStatus(row)}
+                          <Checkbox checked={selectedRows.has(originalIdx)} onCheckedChange={() => toggleRow(originalIdx)} disabled={!row.isValid || row.autoRejected} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{row.date}</p>
+                        <Input
+                          value={row.label}
+                          onChange={(e) => updateRow(originalIdx, 'label', e.target.value)}
+                          className={`h-8 ${!row.label ? 'border-destructive' : ''}`}
+                          placeholder="Transaction label"
+                        />
+                        <div className="text-right font-mono text-sm text-muted-foreground">{row.value.toFixed(2)}</div>
+                        <Select
+                          value={row.category || '__none__'}
+                          onValueChange={(v) => updateRow(originalIdx, 'category', v === '__none__' ? undefined : v)}
+                        >
+                          <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {activeCategories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.name}>
+                                <div className="flex items-center gap-2">
+                                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                                  {cat.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
             <ScrollArea className="h-[400px] rounded-md border">
               <Table>
                 <TableHeader>
@@ -580,17 +665,8 @@ export default function Import() {
                   {sortedEditableData.map((row, sortedIdx) => {
                     const originalIdx = getOriginalIndex(sortedIdx);
                     
-                    const getRowClassName = () => {
-                      if (row.autoRejected) return 'bg-red-50/50 dark:bg-red-950/10 opacity-60';
-                      if (row.isDuplicate && !row.autoAccepted) return 'bg-amber-50 dark:bg-amber-950/20';
-                      if (row.isDuplicateInFile) return 'bg-orange-50 dark:bg-orange-950/20';
-                      if (!row.isValid) return 'bg-red-50 dark:bg-red-950/20';
-                      if (row.appliedRule) return 'bg-violet-50/50 dark:bg-violet-950/10';
-                      return '';
-                    };
-                    
                     return (
-                      <TableRow key={sortedIdx} className={getRowClassName()}>
+                      <TableRow key={sortedIdx} className={getRowClassName(row)}>
                         <TableCell>
                           <Checkbox 
                             checked={selectedRows.has(originalIdx)}
@@ -599,40 +675,7 @@ export default function Import() {
                           />
                         </TableCell>
                         <TableCell>
-                          {row.autoRejected ? (
-                            <Badge variant="destructive" className="bg-red-100 text-red-800">
-                              <X className="mr-1 h-3 w-3" />Auto-rejected
-                            </Badge>
-                          ) : row.autoAccepted ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
-                              <Check className="mr-1 h-3 w-3" />Auto-accepted
-                            </Badge>
-                          ) : row.isDuplicate ? (
-                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                              <AlertTriangle className="mr-1 h-3 w-3" />DB Duplicate
-                            </Badge>
-                          ) : row.isDuplicateInFile ? (
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                              <AlertTriangle className="mr-1 h-3 w-3" />File Dup #{row.duplicateIndex}
-                            </Badge>
-                          ) : !row.isValid ? (
-                            <Badge variant="destructive">
-                              <X className="mr-1 h-3 w-3" />{row.errors[0]}
-                            </Badge>
-                          ) : row.appliedRule ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="secondary" className="bg-violet-100 text-violet-800 cursor-help">
-                                  <Sparkles className="mr-1 h-3 w-3" />Rule applied
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Rule: {row.appliedRule.name}</p></TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <Badge variant="default" className="bg-emerald-600">
-                              <Check className="mr-1 h-3 w-3" />Valid
-                            </Badge>
-                          )}
+                          {renderRowStatus(row)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{row.date}</TableCell>
                         <TableCell>
@@ -671,6 +714,7 @@ export default function Import() {
                 </TableBody>
               </Table>
             </ScrollArea>
+            )}
             </TooltipProvider>
 
             {/* Info boxes */}
