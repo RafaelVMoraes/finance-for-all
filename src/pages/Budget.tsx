@@ -121,17 +121,17 @@ export default function Budget() {
       </div>
 
       {/* Income & Savings Overview */}
-      <div data-tutorial="budget-overview-cards" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div data-tutorial="budget-overview-cards" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
               <TrendingUp className="h-4 w-4" />
               Expected Income
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+          <CardContent className="pt-2">
+            <div className="text-xl font-bold text-amber-700 dark:text-amber-300">
               {currencySymbol}{expectedIncome.toLocaleString()}
             </div>
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
@@ -142,14 +142,14 @@ export default function Budget() {
 
         {/* Fixed Expenses */}
         <Card className="border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
               <TrendingDown className="h-4 w-4" />
               Fixed Expenses
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+          <CardContent className="pt-2">
+            <div className="text-xl font-bold text-red-700 dark:text-red-300">
               {currencySymbol}{totalFixedBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
@@ -160,14 +160,14 @@ export default function Budget() {
 
         {/* Variable Expenses */}
         <Card className="border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
               <TrendingDown className="h-4 w-4" />
               Variable Expenses
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+          <CardContent className="pt-2">
+            <div className="text-xl font-bold text-red-700 dark:text-red-300">
               {currencySymbol}{totalVariableBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
@@ -178,14 +178,14 @@ export default function Budget() {
 
         {/* Savings */}
         <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
               <PiggyBank className="h-4 w-4" />
               Estimated Savings
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${estimatedSavings >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
+          <CardContent className="pt-2">
+            <div className={`text-xl font-bold ${estimatedSavings >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
               {currencySymbol}{estimatedSavings.toLocaleString()}
             </div>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">

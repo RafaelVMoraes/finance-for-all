@@ -363,11 +363,11 @@ export default function Investments() {
   return (
     <div className="space-y-6">
       {/* Header with Currency & Settings */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Investments</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Investments</h1>
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
           <Select data-tutorial="investments-main-currency" value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
-            <SelectTrigger className="w-24">
+            <SelectTrigger className="w-[88px] sm:w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -415,7 +415,7 @@ export default function Investments() {
           </Dialog>
           <Dialog data-tutorial="investments-types-assets" open={isTypesDialogOpen} onOpenChange={setIsTypesDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">Manage Types</Button>
+              <Button variant="outline" className="whitespace-nowrap">Manage Types</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>

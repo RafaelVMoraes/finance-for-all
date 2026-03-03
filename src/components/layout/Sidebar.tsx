@@ -32,9 +32,11 @@ const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budge
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onNavigate?: () => void;
+  showCollapseToggle?: boolean;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = true }: SidebarProps) {
   const location = useLocation();
   const { logout, user } = useAuthContext();
   const { startSectionTutorial, mandatoryOnboarding } = useTutorial();
@@ -51,15 +53,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed ? 'justify-center px-2' : 'justify-between px-4'
       )}>
         {!collapsed && <h1 className="text-xl font-bold text-foreground">FinTrack</h1>}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          className="h-8 w-8"
-          disabled={mandatoryOnboarding}
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        {showCollapseToggle && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className="h-8 w-8"
+            disabled={mandatoryOnboarding}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 p-2">
@@ -71,6 +75,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Link
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 collapsed ? 'justify-center' : 'gap-3',

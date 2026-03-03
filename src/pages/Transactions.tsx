@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Calendar as CalendarIcon, Check, AlertCircle, Pencil, X, Plus, Trash2, ChevronRight } from 'lucide-react';
+import { Search, Filter, Calendar as CalendarIcon, Check, AlertCircle, Pencil, X, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, endOfMonth, isBefore, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { useTransactions, type TransactionFilters } from '@/hooks/useTransactions';
@@ -33,6 +33,7 @@ export default function Transactions() {
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
@@ -151,31 +152,13 @@ export default function Transactions() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search transactions" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
-            </div>
-
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Category" /></SelectTrigger>
-              <SelectContent className="max-w-[90vw]">
-                <SelectItem value="all">All Categories</SelectItem>
-                {activeCategories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={completionFilter} onValueChange={(v) => setCompletionFilter(v as typeof completionFilter)}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-                <SelectItem value="incomplete">Incomplete</SelectItem>
-              </SelectContent>
-            </Select>
-
+          <div className="mb-3 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAdvancedFilters((prev) => !prev)}>
+              <Filter className="mr-2 h-4 w-4" />
+              {showAdvancedFilters ? 'Hide filters' : 'More filters'}
+            </Button>
+          </div>
+          <div className="grid gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start overflow-hidden text-left font-normal">
@@ -198,10 +181,40 @@ export default function Transactions() {
             </Popover>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center gap-2"><Label className="text-sm">Min {currencySymbol}</Label><Input type="number" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} /></div>
-            <div className="flex items-center gap-2"><Label className="text-sm">Max {currencySymbol}</Label><Input type="number" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} /></div>
-          </div>
+          {showAdvancedFilters && (
+            <>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Search transactions" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+                </div>
+
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent className="max-w-[90vw]">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {activeCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={completionFilter} onValueChange={(v) => setCompletionFilter(v as typeof completionFilter)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="complete">Complete</SelectItem>
+                    <SelectItem value="incomplete">Incomplete</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="flex items-center gap-2"><Label className="text-sm">Min {currencySymbol}</Label><Input type="number" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} /></div>
+                <div className="flex items-center gap-2"><Label className="text-sm">Max {currencySymbol}</Label><Input type="number" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} /></div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -244,11 +257,11 @@ export default function Transactions() {
                                   <Icon className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-lg font-semibold">{displayLabel}</p>
+                                  <p className="truncate text-base font-semibold">{displayLabel}</p>
                                   <p className="truncate text-sm text-muted-foreground">{tx.categories?.name || 'Uncategorized'}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className={cn('text-2xl font-semibold', tx.amount > 0 ? 'text-emerald-600' : 'text-foreground')}>
+                                  <p className={cn('text-lg font-semibold', tx.amount > 0 ? 'text-emerald-600' : 'text-foreground')}>
                                     {tx.amount > 0 ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} {currencySymbol}
                                   </p>
                                   <div className="mt-1 flex justify-end gap-1">
@@ -260,7 +273,6 @@ export default function Transactions() {
                                       </Select>
                                     )}
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(tx.id)}><Trash2 className="h-4 w-4" /></Button>
-                                    <ChevronRight className="h-4 w-4 self-center text-muted-foreground" />
                                   </div>
                                 </div>
                               </div>

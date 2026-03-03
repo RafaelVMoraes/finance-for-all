@@ -97,7 +97,7 @@ export function ColumnMappingDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Map Columns</DialogTitle>
           <DialogDescription>
@@ -142,7 +142,7 @@ export function ColumnMappingDialog({
           {isValid && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Preview (first 5 rows)</p>
-              <ScrollArea className="max-h-[200px] rounded-md border">
+              <ScrollArea className="max-h-[200px] w-full rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>

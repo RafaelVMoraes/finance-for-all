@@ -39,7 +39,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0">
-                <Sidebar collapsed={false} onToggle={() => setMobileOpen(false)} />
+                <Sidebar
+                  collapsed={false}
+                  onToggle={() => setMobileOpen(false)}
+                  onNavigate={() => setMobileOpen(false)}
+                  showCollapseToggle={false}
+                />
               </SheetContent>
             </Sheet>
             <h1 className="ml-2 truncate text-lg font-bold">FinTrack</h1>
