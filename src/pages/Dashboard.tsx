@@ -47,21 +47,6 @@ import { useInvestmentSummary, useMonthlySummary, useYearlySummary } from '@/hoo
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useUserSettings } from '@/hooks/useUserSettings';
 
-const MONTH_OPTIONS = [
-  { value: 0, label: 'January' },
-  { value: 1, label: 'February' },
-  { value: 2, label: 'March' },
-  { value: 3, label: 'April' },
-  { value: 4, label: 'May' },
-  { value: 5, label: 'June' },
-  { value: 6, label: 'July' },
-  { value: 7, label: 'August' },
-  { value: 8, label: 'September' },
-  { value: 9, label: 'October' },
-  { value: 10, label: 'November' },
-  { value: 11, label: 'December' },
-];
-
 type YearAggregation = 'month' | 'quarter';
 
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
@@ -164,6 +149,7 @@ export default function Dashboard() {
   }, [selectedYear]);
 
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
+  const yearlyStartMonth = useMemo(() => `${selectedYear}-${String(yearStartMonth + 1).padStart(2, '0')}`, [selectedYear, yearStartMonth]);
 
   const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
@@ -561,7 +547,7 @@ export default function Dashboard() {
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Investments vs Last Month</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{currencySymbol}{monthlyInvestmentEvolution.current.toFixed(0)} vs {currencySymbol}{monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
               <CardHeader><CardTitle className="text-lg">Weekly Spending vs Budget</CardTitle></CardHeader>
               <CardContent>
@@ -589,7 +575,7 @@ export default function Dashboard() {
                 <CardContent className="space-y-3">
                   {monthlyViewData.alerts.map((alert) => (
                     <div key={alert.id} className="space-y-1 rounded-md border p-3">
-                      <div className="flex items-center justify-between"><span className="font-medium">{alert.name}</span><Badge variant={alert.percent >= 100 ? 'destructive' : 'secondary'}>{alert.percent.toFixed(0)}%</Badge></div>
+                      <div className="flex items-center justify-between gap-2"><span className="min-w-0 flex-1 break-words font-medium">{alert.name}</span><Badge className="shrink-0" variant={alert.percent >= 100 ? 'destructive' : 'secondary'}>{alert.percent.toFixed(0)}%</Badge></div>
                       <p className="text-xs text-muted-foreground">{currencySymbol}{alert.spent.toFixed(0)} / {currencySymbol}{alert.budget.toFixed(0)}</p>
                       <Progress value={Math.min(alert.percent, 100)} />
                     </div>
@@ -635,14 +621,17 @@ export default function Dashboard() {
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Year window start</p>
-                <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Start month</p>
-                <Select value={String(yearStartMonth)} onValueChange={(v) => setYearStartMonth(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{MONTH_OPTIONS.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}</SelectContent>
-                </Select>
+                <input
+                  type="month"
+                  value={yearlyStartMonth}
+                  onChange={(e) => {
+                    const [year, month] = e.target.value.split('-');
+                    if (!year || !month) return;
+                    setSelectedYear(Number(year));
+                    setYearStartMonth(Number(month) - 1);
+                  }}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Aggregation</p>
@@ -685,11 +674,11 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Budget vs Reality</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[22rem] text-xs">
                   <thead>
                     <tr className="border-b text-muted-foreground">
                       <th className="py-1 text-left font-medium">Mo</th>
@@ -720,7 +709,7 @@ export default function Dashboard() {
                   <div className="h-2 w-24 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
                   <span>High</span>
                 </div>
-                <div className="w-full space-y-1">
+                <div className="w-full min-w-[26rem] space-y-1">
                   <div className="grid grid-cols-[100px_repeat(12,minmax(28px,1fr))] gap-0.5 text-[10px] text-muted-foreground">
                     <div />
                     {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
@@ -739,7 +728,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
               <CardHeader><CardTitle>Investments (Stacked Net Worth in {settings?.main_currency || 'EUR'})</CardTitle></CardHeader>
               <CardContent>
@@ -772,8 +761,8 @@ export default function Dashboard() {
                 <div>
                   <p className="mb-2 font-medium">Unstable patterns</p>
                   {yearlyViewData.unstableAlerts.length > 0 ? yearlyViewData.unstableAlerts.map((cat) => (
-                    <div key={cat.id} className="mb-1 flex items-center justify-between rounded border p-2">
-                      <span>{cat.name}</span><Badge variant="destructive">CV {cat.cv.toFixed(0)}%</Badge>
+                    <div key={cat.id} className="mb-1 flex items-center justify-between gap-2 rounded border p-2">
+                      <span className="min-w-0 flex-1 break-words">{cat.name}</span><Badge className="shrink-0" variant="destructive">CV {cat.cv.toFixed(0)}%</Badge>
                     </div>
                   )) : <p className="text-muted-foreground">No unstable categories detected.</p>}
                 </div>
@@ -786,10 +775,10 @@ export default function Dashboard() {
               <CardTitle>Yearly Expense Matrix (Category × Month)</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[42rem] text-xs">
                 <thead>
                   <tr className="border-b text-muted-foreground">
-                    <th className="py-2 pr-2 text-left font-medium">Category</th>
+                    <th className="sticky left-0 z-20 bg-card py-2 pr-2 text-left font-medium">Category</th>
                     {yearPeriodData.map((m) => (
                       <th key={`header-${m.key}`} className="py-2 px-2 text-right font-medium">{m.monthLabel}</th>
                     ))}
@@ -798,33 +787,33 @@ export default function Dashboard() {
                 <tbody>
                   {yearlyViewData.expenseCategoryRows.map((cat) => (
                     <tr key={cat.id} className="border-b last:border-b-0">
-                      <td className="py-2 pr-2 font-medium">{cat.name}</td>
+                      <td className="sticky left-0 z-10 bg-card py-2 pr-2 font-medium">{cat.name}</td>
                       {cat.values.map((value, idx) => (
                         <td key={`${cat.id}-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{value.toFixed(0)}</td>
                       ))}
                     </tr>
                   ))}
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="py-2 pr-2">Total Expenses</td>
+                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Expenses</td>
                     {yearlyViewData.monthlyStats.map((month) => (
                       <td key={`expenses-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.expenses.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="py-2 pr-2">Total Income</td>
+                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Income</td>
                     {yearlyViewData.monthlyStats.map((month) => (
                       <td key={`income-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.income.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="py-2 pr-2">Expense / Income Ratio</td>
+                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Expense / Income Ratio</td>
                     {yearlyViewData.monthlyStats.map((month) => {
                       const ratio = month.income > 0 ? month.expenses / month.income : 0;
                       return <td key={`ratio-${month.key}`} className="py-2 px-2 text-right">{(ratio * 100).toFixed(1)}%</td>;
                     })}
                   </tr>
                   <tr className="bg-muted/30 font-semibold">
-                    <td className="py-2 pr-2">Total Investment Value</td>
+                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Investment Value</td>
                     {investmentEvolution.map((investmentMonth, idx) => {
                       const total = investmentMonth.Current + investmentMonth.Emergency + investmentMonth.Investments;
                       return <td key={`investments-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{total.toFixed(0)}</td>;
