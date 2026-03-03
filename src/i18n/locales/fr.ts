@@ -28,5 +28,23 @@ export const fr: TranslationTree = {
       'import-mapping': { title: 'Règles de mappage des colonnes et catégories', description: 'Mappez les colonnes source et le comportement des catégories pour des imports propres et prévisibles.' },
       'import-history': { title: "Gestion de l'historique des imports", description: 'Suivez les imports précédents et examinez les résultats pour maintenir la qualité des données.' }
     }
+  },
+  budget: {
+    loading: 'Chargement du budget...', editCategories: 'Modifier les catégories', spent: 'dépensé', remaining: 'restant', noBudgetSet: 'Aucun budget défini', includedInActualIncome: 'Inclus dans le revenu réel mensuel',
+    cards: { expectedIncome: 'Revenu attendu', real: 'Réel', fixedExpenses: 'Dépenses fixes', variableExpenses: 'Dépenses variables', estimatedSavings: 'Épargne estimée', actual: 'Réel', spent: 'Dépensé' },
+    sections: { fixedExpensesBudget: 'Budget des dépenses fixes', variableExpensesBudget: 'Budget des dépenses variables', expectedIncomeSources: 'Sources de revenu attendues' },
+    empty: { noCategories: 'Aucune catégorie pour le moment.', createCategoriesFirst: 'Créez d’abord des catégories pour configurer votre budget.', createCategories: 'Créer des catégories' }
+  },
+  importPage: {
+    title: 'Importer des transactions', importRules: "Règles d'import", history: "Historique d'import", uploadTitle: "Téléverser un fichier d'import", sourceLabel: "Source d'import (optionnelle)", selectSource: 'Sélectionner une source...', noSource: 'Aucune source', addSource: 'Ajouter une source'
+  },
+  investments: {
+    title: 'Investissements', loading: 'Chargement des investissements...', manageTypes: 'Gérer les types', addAsset: 'Ajouter un actif',
+    summary: { totalNetWorth: 'Valeur nette totale' },
+    assets: { title: 'Vos actifs', empty: 'Aucun actif pour ce mois. Ajoutez votre premier investissement.' }
+  },
+  transactions: { title: 'Transactions', add: 'Ajouter', import: 'Importer' },
+  dashboard: {
+    budgetAlerts: 'Alertes budget', categoryBudgetProgress: 'Progression du budget par catégorie', monthlyNotes: 'Notes mensuelles', avgIncome: 'Revenu moyen', avgExpenses: 'Dépenses moyennes', avgSavings: 'Épargne moyenne', netWorth: 'Valeur nette', incomeVsExpenses: 'Revenus vs dépenses', monthly: 'Mensuel', quarterly: 'Trimestriel', budgetVsReality: 'Budget vs réalité', heatmapTitle: 'Carte de chaleur (Catégorie × Mois)', heatmapSubtitle: "Intensité relative au mois de pic de chaque catégorie.", investmentsStacked: 'Investissements (Valeur nette empilée en {{currency}})'
   }
 };

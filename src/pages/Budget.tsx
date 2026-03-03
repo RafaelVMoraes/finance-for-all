@@ -11,8 +11,10 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { format, addMonths, subMonths } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
 import { Link } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nProvider';
 
 export default function Budget() {
+  const { t } = useI18n();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   const { budgets, loading: budgetsLoading } = useBudgets({ month: selectedMonth });
@@ -82,7 +84,7 @@ export default function Budget() {
   if (budgetsLoading || categoriesLoading || summaryLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">Loading budget...</p>
+        <p className="text-muted-foreground">{t('budget.loading')}</p>
       </div>
     );
   }
@@ -94,7 +96,7 @@ export default function Budget() {
         <Button data-tutorial="budget-edit-categories-link" asChild className="h-10">
           <Link to="/categories">
             <Pencil className="mr-2 h-4 w-4" />
-            Edit Categories
+            {t('budget.editCategories')}
           </Link>
         </Button>
         <div className="flex items-center gap-2">
@@ -123,7 +125,7 @@ export default function Budget() {
           <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
               <TrendingUp className="h-4 w-4" />
-              Expected Income
+              {t('budget.cards.expectedIncome')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
@@ -131,7 +133,7 @@ export default function Budget() {
               {currencySymbol}{expectedIncome.toLocaleString()}
             </div>
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-              Real: {currencySymbol}{actualIncome.toLocaleString()}
+              {t('budget.cards.real')}: {currencySymbol}{actualIncome.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -141,7 +143,7 @@ export default function Budget() {
           <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
               <TrendingDown className="h-4 w-4" />
-              Fixed Expenses
+              {t('budget.cards.fixedExpenses')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
@@ -149,7 +151,7 @@ export default function Budget() {
               {currencySymbol}{totalFixedBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
-              Spent: {currencySymbol}{totalFixedSpent.toFixed(2)}
+              {t('budget.cards.spent')}: {currencySymbol}{totalFixedSpent.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -159,7 +161,7 @@ export default function Budget() {
           <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
               <TrendingDown className="h-4 w-4" />
-              Variable Expenses
+              {t('budget.cards.variableExpenses')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
@@ -167,7 +169,7 @@ export default function Budget() {
               {currencySymbol}{totalVariableBudget.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/70 dark:text-red-400/70">
-              Spent: {currencySymbol}{totalVariableSpent.toFixed(2)}
+              {t('budget.cards.spent')}: {currencySymbol}{totalVariableSpent.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -177,7 +179,7 @@ export default function Budget() {
           <CardHeader className="pb-1">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
               <PiggyBank className="h-4 w-4" />
-              Estimated Savings
+              {t('budget.cards.estimatedSavings')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
@@ -185,7 +187,7 @@ export default function Budget() {
               {currencySymbol}{estimatedSavings.toLocaleString()}
             </div>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">
-              Actual: {currencySymbol}{actualSavings.toFixed(2)}
+              {t('budget.cards.actual')}: {currencySymbol}{actualSavings.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -197,7 +199,7 @@ export default function Budget() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <div className="h-3 w-3 rounded-full bg-blue-500" />
-              Fixed Expenses Budget
+              {t('budget.sections.fixedExpensesBudget')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
@@ -227,17 +229,17 @@ export default function Budget() {
                       />
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">
-                          {currencySymbol}{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                          {currencySymbol}{spent.toFixed(2)} {t('budget.spent')} ({percent.toFixed(0)}%)
                         </span>
                         <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} remaining
+                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} {t('budget.remaining')}
                         </span>
                       </div>
                     </>
                   )}
                   {expected === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      No budget set
+                      {t('budget.noBudgetSet')}
                     </p>
                   )}
                 </div>
@@ -253,7 +255,7 @@ export default function Budget() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <div className="h-3 w-3 rounded-full bg-purple-500" />
-              Variable Expenses Budget
+              {t('budget.sections.variableExpensesBudget')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
@@ -283,17 +285,17 @@ export default function Budget() {
                       />
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">
-                          {currencySymbol}{spent.toFixed(2)} spent ({percent.toFixed(0)}%)
+                          {currencySymbol}{spent.toFixed(2)} {t('budget.spent')} ({percent.toFixed(0)}%)
                         </span>
                         <span className={remaining >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} remaining
+                          {remaining >= 0 ? '+' : ''}{currencySymbol}{remaining.toFixed(2)} {t('budget.remaining')}
                         </span>
                       </div>
                     </>
                   )}
                   {expected === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      No budget set
+                      {t('budget.noBudgetSet')}
                     </p>
                   )}
                 </div>
@@ -309,7 +311,7 @@ export default function Budget() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <div className="h-3 w-3 rounded-full bg-emerald-500" />
-              Expected Income Sources
+              {t('budget.sections.expectedIncomeSources')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
@@ -328,7 +330,7 @@ export default function Budget() {
                     <span className="font-medium">{currencySymbol}{expected.toFixed(0)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Included in monthly actual income
+                    {t('budget.includedInActualIncome')}
                   </p>
                 </div>
               );
@@ -341,12 +343,12 @@ export default function Budget() {
       {activeCategories.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No categories yet.</p>
+            <p className="text-muted-foreground">{t('budget.empty.noCategories')}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Create categories first to set up your budget.
+              {t('budget.empty.createCategoriesFirst')}
             </p>
             <Button className="mt-4" asChild>
-              <Link to="/categories">Create Categories</Link>
+              <Link to="/categories">{t('budget.empty.createCategories')}</Link>
             </Button>
           </CardContent>
         </Card>

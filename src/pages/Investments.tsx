@@ -47,6 +47,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { Area, AreaChart, XAxis, YAxis } from 'recharts';
+import { useI18n } from '@/i18n/I18nProvider';
 
 const currencySymbols: Record<Currency, string> = {
   EUR: '€',
@@ -62,6 +63,7 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function Investments() {
+  const { t } = useI18n();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isTypesDialogOpen, setIsTypesDialogOpen] = useState(false);
   const [isRatesDialogOpen, setIsRatesDialogOpen] = useState(false);
@@ -355,7 +357,7 @@ export default function Investments() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">Loading investments...</p>
+        <p className="text-muted-foreground">{t('investments.loading')}</p>
       </div>
     );
   }
@@ -364,7 +366,7 @@ export default function Investments() {
     <div className="space-y-6">
       {/* Header with Currency & Settings */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Investments</h1>
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('investments.title')}</h1>
         <div className="grid w-full grid-cols-4 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <Select data-tutorial="investments-main-currency" value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
             <SelectTrigger className="h-10 w-full text-xs sm:w-28 sm:text-sm">
@@ -415,7 +417,7 @@ export default function Investments() {
           </Dialog>
           <Dialog data-tutorial="investments-types-assets" open={isTypesDialogOpen} onOpenChange={setIsTypesDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="h-10 min-w-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm">Manage Types</Button>
+              <Button variant="outline" className="h-10 min-w-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm">{t('investments.manageTypes')}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -470,7 +472,7 @@ export default function Investments() {
             <DialogTrigger asChild>
               <Button className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Asset
+                {t('investments.addAsset')}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -599,7 +601,7 @@ export default function Investments() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Wallet className="h-4 w-4" />
-              Total Net Worth
+              {t('investments.summary.totalNetWorth')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -665,12 +667,12 @@ export default function Investments() {
       {/* Assets List */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Assets</CardTitle>
+          <CardTitle>{t('investments.assets.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {visibleInvestments.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              No assets for this month. Add your first investment.
+              {t('investments.assets.empty')}
             </p>
           ) : (
             <div className="space-y-3">

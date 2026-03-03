@@ -24,5 +24,23 @@ export const pt: TranslationTree = {
       'import-mapping': { title: 'Regras de mapeamento de colunas e categorias', description: 'Mapeie colunas de origem e comportamento de categorias para importações limpas e previsíveis.' },
       'import-history': { title: 'Gerenciamento do histórico de importação', description: 'Acompanhe importações anteriores e revise resultados para manter a qualidade dos dados.' }
     }
+  },
+  budget: {
+    loading: 'Carregando orçamento...', editCategories: 'Editar categorias', spent: 'gasto', remaining: 'restante', noBudgetSet: 'Nenhum orçamento definido', includedInActualIncome: 'Incluído na receita real mensal',
+    cards: { expectedIncome: 'Receita esperada', real: 'Real', fixedExpenses: 'Despesas fixas', variableExpenses: 'Despesas variáveis', estimatedSavings: 'Economia estimada', actual: 'Real', spent: 'Gasto' },
+    sections: { fixedExpensesBudget: 'Orçamento de despesas fixas', variableExpensesBudget: 'Orçamento de despesas variáveis', expectedIncomeSources: 'Fontes de receita esperada' },
+    empty: { noCategories: 'Ainda não há categorias.', createCategoriesFirst: 'Crie categorias primeiro para configurar seu orçamento.', createCategories: 'Criar categorias' }
+  },
+  importPage: {
+    title: 'Importar transações', importRules: 'Regras de importação', history: 'Histórico de importação', uploadTitle: 'Enviar arquivo de importação', sourceLabel: 'Fonte de importação (opcional)', selectSource: 'Selecionar fonte...', noSource: 'Sem fonte', addSource: 'Adicionar fonte'
+  },
+  investments: {
+    title: 'Investimentos', loading: 'Carregando investimentos...', manageTypes: 'Gerenciar tipos', addAsset: 'Adicionar ativo',
+    summary: { totalNetWorth: 'Patrimônio total' },
+    assets: { title: 'Seus ativos', empty: 'Nenhum ativo para este mês. Adicione seu primeiro investimento.' }
+  },
+  transactions: { title: 'Transações', add: 'Adicionar', import: 'Importar' },
+  dashboard: {
+    budgetAlerts: 'Alertas de orçamento', categoryBudgetProgress: 'Progresso do orçamento por categoria', monthlyNotes: 'Notas mensais', avgIncome: 'Receita média', avgExpenses: 'Despesas médias', avgSavings: 'Economia média', netWorth: 'Patrimônio líquido', incomeVsExpenses: 'Receitas vs despesas', monthly: 'Mensal', quarterly: 'Trimestral', budgetVsReality: 'Orçamento vs realidade', heatmapTitle: 'Mapa de calor (Categoria × Mês)', heatmapSubtitle: 'Intensidade relativa ao mês de pico de cada categoria.', investmentsStacked: 'Investimentos (Patrimônio empilhado em {{currency}})'
   }
 };
