@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Calendar as CalendarIcon, Check, AlertCircle, Pencil, X, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, endOfMonth, isBefore, isSameDay, parseISO, startOfMonth } from 'date-fns';
+import { enUS, fr, ptBR } from 'date-fns/locale';
 import { useTransactions, type TransactionFilters } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +24,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useI18n } from '@/i18n/I18nProvider';
 
 export default function Transactions() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -69,6 +70,8 @@ export default function Transactions() {
       return label.toLowerCase().includes(term) || tx.categories?.name?.toLowerCase().includes(term);
     });
   }, [transactions, searchTerm]);
+
+  const dateLocale = locale === 'fr' ? fr : locale === 'pt' ? ptBR : enUS;
 
   const groupedByDate = useMemo(() => {
     const groups: Record<string, typeof filteredTransactions> = {};
@@ -228,7 +231,7 @@ export default function Transactions() {
               {groupedByDate.map(([date, items]) => (
                 <div key={date} className="space-y-2">
                   <h3 className="text-lg font-semibold">
-                    {isSameDay(parseISO(date), new Date()) ? "Aujourd'hui" : format(parseISO(date), 'MMMM dd, yyyy')}
+                    {isSameDay(parseISO(date), new Date()) ? t('transactions.today') : format(parseISO(date), 'PPPP', { locale: dateLocale })}
                   </h3>
                   <div className="space-y-2">
                     {items.map((tx) => {
@@ -298,10 +301,10 @@ export default function Transactions() {
             <div className="space-y-2">
               <Label>Date</Label>
               <Popover>
-                <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{newDate ? format(newDate, 'PPP') : 'Pick a date'}</Button></PopoverTrigger>
+                <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{newDate ? format(newDate, 'PPP', { locale: dateLocale }) : t('transactions.pickDate')}</Button></PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={newDate} onSelect={setNewDate} disabled={(date) => isBefore(date, APP_START_DATE) || date > new Date()} initialFocus /></PopoverContent>
               </Popover>
-              <p className="text-xs text-muted-foreground">Only dates from {APP_START_DATE_STRING} onwards.</p>
+              <p className="text-xs text-muted-foreground">{t('transactions.onlyDatesFrom', { date: APP_START_DATE_STRING })}</p>
             </div>
             <div className="space-y-2"><Label>Label</Label><Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} /></div>
             <div className="space-y-2"><Label>Amount ({currencySymbol})</Label><Input type="number" step="0.01" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} /></div>

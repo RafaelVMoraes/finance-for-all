@@ -464,7 +464,7 @@ export default function Import() {
           </Button>
           <Button variant="outline" onClick={handleDownloadTemplate} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <Download className="mr-2 h-4 w-4" />
-            Download Template
+            {t('importPage.downloadTemplate')}
           </Button>
           <Button data-tutorial="import-history" variant="outline" onClick={() => setShowHistoryModal(true)} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -478,9 +478,9 @@ export default function Import() {
           <CardHeader>
             <CardTitle>{t('importPage.uploadTitle')}</CardTitle>
             <CardDescription>
-              Upload a .csv, .xlsx, or .xls file with your transactions. We can auto-detect comma/semicolon CSV and map columns for you.
+              {t('importPage.uploadClarification')}
               <br />
-              <span className="text-muted-foreground">Note: Only transactions from {APP_START_DATE_STRING} onwards are allowed.</span>
+              <span className="text-muted-foreground">{t('importPage.allowedDatesNote', { date: APP_START_DATE_STRING })}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -520,8 +520,8 @@ export default function Import() {
               className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/50 p-12 transition-colors hover:border-primary hover:bg-muted"
             >
               <Upload className="mb-4 h-12 w-12 text-muted-foreground" />
-              <span className="mb-2 text-lg font-medium">Drop your file here or click to browse</span>
-              <span className="text-sm text-muted-foreground">Supports .csv, .txt, .xlsx, and .xls files</span>
+              <span className="mb-2 text-lg font-medium">{t('importPage.dropFile')}</span>
+              <span className="text-sm text-muted-foreground">{t('importPage.supportedFiles')}</span>
               <input id="file-upload" type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain" onChange={handleFileChange} className="hidden" />
             </label>
           </CardContent>
@@ -775,7 +775,7 @@ export default function Import() {
           <DialogHeader><DialogTitle>{t('importPage.history')}</DialogTitle></DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             {importBatches.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No imports yet</p>
+              <p className="py-8 text-center text-muted-foreground">{t('importPage.noImportsYet')}</p>
             ) : (
               isMobile ? (
                 <div className="space-y-3">
@@ -802,12 +802,12 @@ export default function Import() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Import Date</TableHead>
-                    <TableHead>Date Range</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Filename</TableHead>
-                    <TableHead className="text-right">Rows</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('importPage.importDate')}</TableHead>
+                    <TableHead>{t('importPage.dateRange')}</TableHead>
+                    <TableHead>{t('importPage.source')}</TableHead>
+                    <TableHead>{t('importPage.filename')}</TableHead>
+                    <TableHead className="text-right">{t('importPage.rows')}</TableHead>
+                    <TableHead className="text-right">{t('importPage.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -837,7 +837,7 @@ export default function Import() {
             )}
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowHistoryModal(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setShowHistoryModal(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

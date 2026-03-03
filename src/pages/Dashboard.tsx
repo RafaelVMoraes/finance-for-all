@@ -244,7 +244,7 @@ export default function Dashboard() {
       const budget = weeklyBudget[idx] || 0;
       const delta = budget - spent;
       return {
-        week: `Week ${idx + 1}`,
+        week: t('dashboard.weekLabel', { number: idx + 1 }),
         spent,
         budget,
         delta,
@@ -268,7 +268,7 @@ export default function Dashboard() {
       weeklyData,
       alerts: categoryProgress.filter((c) => c.percent >= 85).slice(0, 3),
     };
-  }, [monthlySummary, monthlySettings, budgets, monthDate]);
+  }, [monthlySummary, monthlySettings, budgets, monthDate, t]);
 
   const monthlyInvestmentEvolution = useMemo(() => {
     if (!investmentSummary?.investments) return { current: 0, lastMonth: 0, pctChange: 0 };
@@ -506,11 +506,11 @@ export default function Dashboard() {
       <div className="rounded-lg border bg-background p-3 text-xs shadow-md">
         <p className="mb-2 font-medium">{label}</p>
         <div className="space-y-1 text-muted-foreground">
-          <p>Income: {currencySymbol}{income.toFixed(0)}</p>
-          <p>Fixed: {currencySymbol}{fixed.toFixed(0)} ({formatPercent(calculateRatio(fixed, income))})</p>
-          <p>Variable: {currencySymbol}{variable.toFixed(0)} ({formatPercent(calculateRatio(variable, income))})</p>
+          <p>{t('dashboard.income')}: {currencySymbol}{income.toFixed(0)}</p>
+          <p>{t('dashboard.fixed')}: {currencySymbol}{fixed.toFixed(0)} ({formatPercent(calculateRatio(fixed, income))})</p>
+          <p>{t('dashboard.variable')}: {currencySymbol}{variable.toFixed(0)} ({formatPercent(calculateRatio(variable, income))})</p>
           <p className={savedOrOverspent >= 0 ? 'text-emerald-600' : 'text-destructive'}>
-            {savedOrOverspent >= 0 ? 'Saved' : 'Overspent'}: {currencySymbol}{Math.abs(savedOrOverspent).toFixed(0)} ({formatPercent(calculateRatio(Math.abs(savedOrOverspent), income))})
+            {savedOrOverspent >= 0 ? t('dashboard.saved') : t('dashboard.overspent')}: {currencySymbol}{Math.abs(savedOrOverspent).toFixed(0)} ({formatPercent(calculateRatio(Math.abs(savedOrOverspent), income))})
           </p>
         </div>
       </div>
@@ -520,11 +520,11 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('nav.dashboard')}</h1>
         <Tabs data-tutorial="dashboard-view-tabs" value={view} onValueChange={(v) => setView(v as 'monthly' | 'yearly')}>
           <TabsList>
-            <TabsTrigger value="monthly" className="gap-2"><Calendar className="h-4 w-4" />Monthly</TabsTrigger>
-            <TabsTrigger value="yearly" className="gap-2"><Target className="h-4 w-4" />Yearly</TabsTrigger>
+            <TabsTrigger value="monthly" className="gap-2"><Calendar className="h-4 w-4" />{t('dashboard.monthly')}</TabsTrigger>
+            <TabsTrigger value="yearly" className="gap-2"><Target className="h-4 w-4" />{t('dashboard.yearly')}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -538,20 +538,20 @@ export default function Dashboard() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="rounded-md border bg-background px-3 py-2 text-sm"
             />
-            <Badge variant="outline">Analyze monthly performance</Badge>
+            <Badge variant="outline">{t('dashboard.analyzeMonthlyPerformance')}</Badge>
           </div>
 
           <div data-tutorial="dashboard-key-metrics" className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Budget Balance</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Investments vs Last Month</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{currencySymbol}{monthlyInvestmentEvolution.current.toFixed(0)} vs {currencySymbol}{monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.income')}</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.expected')} {currencySymbol}{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.expenses')}</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.expected')} {currencySymbol}{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.savings')}</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">{t('dashboard.expected')} {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.budgetBalance')}</CardTitle><TrendingUp className="h-4 w-4 text-chart-4" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.remainingBudget >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.remainingBudget.toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.expected')} {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.investmentsVsLastMonth')}</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyInvestmentEvolution.pctChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{formatPercent(monthlyInvestmentEvolution.pctChange)}</div><p className="text-xs text-muted-foreground">{currencySymbol}{monthlyInvestmentEvolution.current.toFixed(0)} {t('dashboard.vs')} {currencySymbol}{monthlyInvestmentEvolution.lastMonth.toFixed(0)}</p></CardContent></Card>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Weekly Spending vs Budget</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-lg">{t('dashboard.weeklySpendingVsBudget')}</CardTitle></CardHeader>
               <CardContent>
                 {monthlyViewData.weeklyData.length > 0 ? (
                   <ChartContainer config={chartConfig} className="h-[260px] w-full">
@@ -567,7 +567,7 @@ export default function Dashboard() {
                       <Line type="monotone" dataKey="budget" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
                     </ComposedChart>
                   </ChartContainer>
-                ) : <p className="py-8 text-center text-muted-foreground">No spending data yet</p>}
+                ) : <p className="py-8 text-center text-muted-foreground">{t('dashboard.noSpendingDataYet')}</p>}
               </CardContent>
             </Card>
 
@@ -590,13 +590,13 @@ export default function Dashboard() {
           <Card>
             <CardHeader><CardTitle>{t('dashboard.categoryBudgetProgress')}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">No budgets set yet.</p> : monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (
+              {monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">{t('dashboard.noBudgetsSetYet')}</p> : monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (
                 <div key={cat.id} className="space-y-1">
                   <div className="flex justify-between text-sm"><span>{cat.name}</span><span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.budget.toFixed(0)}</span></div>
                   <Progress value={Math.min(cat.percent, 100)} />
                 </div>
               ))}
-              <div className="pt-2"><Button asChild variant="outline"><Link to="/budget">Adjust Budget</Link></Button></div>
+              <div className="pt-2"><Button asChild variant="outline"><Link to="/budget">{t('dashboard.adjustBudget')}</Link></Button></div>
             </CardContent>
           </Card>
 
@@ -608,7 +608,7 @@ export default function Dashboard() {
             <CardContent>
               <textarea
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Write your thoughts, concerns, or goals for this month..."
+                placeholder={t('dashboard.monthlyNotesPlaceholder')}
                 value={commentDraft}
                 onChange={(e) => handleCommentChange(e.target.value)}
               />
@@ -622,7 +622,7 @@ export default function Dashboard() {
           <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Year window start</p>
+                <p className="text-xs text-muted-foreground">{t('dashboard.yearWindowStart')}</p>
                 <input
                   type="month"
                   value={yearlyStartMonth}
@@ -636,12 +636,12 @@ export default function Dashboard() {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Aggregation</p>
+                <p className="text-xs text-muted-foreground">{t('dashboard.aggregation')}</p>
                 <Select value={aggregation} onValueChange={(v) => setAggregation(v as YearAggregation)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="month">Monthly</SelectItem>
-                    <SelectItem value="quarter">Quarterly</SelectItem>
+                    <SelectItem value="month">{t('dashboard.monthly')}</SelectItem>
+                    <SelectItem value="quarter">{t('dashboard.quarterly')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -650,9 +650,9 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgIncome')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalIncome / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalIncome).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgExpenses')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalExpenses / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalExpenses).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgSavings')}</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{Math.round(yearlyViewData.totalSavings / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">Total {currencySymbol}{Math.round(yearlyViewData.totalSavings).toLocaleString()} · {yearlyViewData.monthsWithData}mo</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgIncome')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalIncome / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.total')} {currencySymbol}{Math.round(yearlyViewData.totalIncome).toLocaleString()} · {yearlyViewData.monthsWithData}{t('dashboard.monthAbbrev')}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgExpenses')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(yearlyViewData.totalExpenses / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.total')} {currencySymbol}{Math.round(yearlyViewData.totalExpenses).toLocaleString()} · {yearlyViewData.monthsWithData}{t('dashboard.monthAbbrev')}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.avgSavings')}</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${yearlyViewData.totalSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{Math.round(yearlyViewData.totalSavings / yearlyViewData.monthsWithData).toLocaleString()}</div><p className="text-xs text-muted-foreground">{t('dashboard.total')} {currencySymbol}{Math.round(yearlyViewData.totalSavings).toLocaleString()} · {yearlyViewData.monthsWithData}{t('dashboard.monthAbbrev')}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('dashboard.netWorth')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{Math.round(investmentSummary?.total_value || 0).toLocaleString()}</div></CardContent></Card>
           </div>
 
@@ -683,10 +683,10 @@ export default function Dashboard() {
                 <table className="w-full min-w-[22rem] text-xs">
                   <thead>
                     <tr className="border-b text-muted-foreground">
-                      <th className="py-1 text-left font-medium">Mo</th>
-                      <th className="py-1 text-right font-medium">Inc%</th>
-                      <th className="py-1 text-right font-medium">Exp%</th>
-                      <th className="py-1 text-right font-medium">Sav%</th>
+                      <th className="py-1 text-left font-medium">{t('dashboard.budgetRealityMo')}</th>
+                      <th className="py-1 text-right font-medium">{t('dashboard.budgetRealityInc')}</th>
+                      <th className="py-1 text-right font-medium">{t('dashboard.budgetRealityExp')}</th>
+                      <th className="py-1 text-right font-medium">{t('dashboard.budgetRealitySav')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -707,9 +707,9 @@ export default function Dashboard() {
               <CardHeader className="pb-2"><CardTitle className="text-base">{t('dashboard.heatmapTitle')}</CardTitle><p className="text-xs text-muted-foreground">{t('dashboard.heatmapSubtitle')}</p></CardHeader>
               <CardContent className="overflow-x-auto">
                 <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span>Low</span>
+                  <span>{t('dashboard.low')}</span>
                   <div className="h-2 w-24 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
-                  <span>High</span>
+                  <span>{t('dashboard.high')}</span>
                 </div>
                 <div className="w-full min-w-[26rem] space-y-1">
                   <div className="grid grid-cols-[100px_repeat(12,minmax(28px,1fr))] gap-0.5 text-[10px] text-muted-foreground">
@@ -753,20 +753,20 @@ export default function Dashboard() {
               <CardHeader><CardTitle>{t('dashboard.budgetAlerts')}</CardTitle></CardHeader>
               <CardContent className="space-y-4 text-sm">
                 <div>
-                  <p className="mb-2 font-medium">Highest variable expenses</p>
-                  {yearlyViewData.variableAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: {currencySymbol}{cat.avg.toFixed(0)} avg</p>)}
+                  <p className="mb-2 font-medium">{t('dashboard.highestVariableExpenses')}</p>
+                  {yearlyViewData.variableAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: {currencySymbol}{cat.avg.toFixed(0)} {t('dashboard.averageAbbrev')}</p>)}
                 </div>
                 <div>
-                  <p className="mb-2 font-medium">Highest standard deviation</p>
+                  <p className="mb-2 font-medium">{t('dashboard.highestStandardDeviation')}</p>
                   {yearlyViewData.stdDevAlerts.map((cat) => <p key={cat.id} className="text-muted-foreground">{cat.name}: σ {cat.stdDev.toFixed(0)}</p>)}
                 </div>
                 <div>
-                  <p className="mb-2 font-medium">Unstable patterns</p>
+                  <p className="mb-2 font-medium">{t('dashboard.unstablePatterns')}</p>
                   {yearlyViewData.unstableAlerts.length > 0 ? yearlyViewData.unstableAlerts.map((cat) => (
                     <div key={cat.id} className="mb-1 flex items-center justify-between gap-2 rounded border p-2">
                       <span className="min-w-0 flex-1 break-words">{cat.name}</span><Badge className="shrink-0" variant="destructive">CV {cat.cv.toFixed(0)}%</Badge>
                     </div>
-                  )) : <p className="text-muted-foreground">No unstable categories detected.</p>}
+                  )) : <p className="text-muted-foreground">{t('dashboard.noUnstableCategories')}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -774,13 +774,13 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Yearly Expense Matrix (Category × Month)</CardTitle>
+              <CardTitle>{t('dashboard.yearlyExpenseMatrix')}</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <table className="w-full min-w-[42rem] text-xs">
                 <thead>
                   <tr className="border-b text-muted-foreground">
-                    <th className="sticky left-0 z-20 bg-card py-2 pr-2 text-left font-medium">Category</th>
+                      <th className="sticky left-0 z-20 bg-muted py-2 pr-2 text-left font-medium">{t('budget.categories')}</th>
                     {yearPeriodData.map((m) => (
                       <th key={`header-${m.key}`} className="py-2 px-2 text-right font-medium">{m.monthLabel}</th>
                     ))}
@@ -789,33 +789,33 @@ export default function Dashboard() {
                 <tbody>
                   {yearlyViewData.expenseCategoryRows.map((cat) => (
                     <tr key={cat.id} className="border-b last:border-b-0">
-                      <td className="sticky left-0 z-10 bg-card py-2 pr-2 font-medium">{cat.name}</td>
+                      <td className="sticky left-0 z-10 bg-muted py-2 pr-2 font-medium">{cat.name}</td>
                       {cat.values.map((value, idx) => (
                         <td key={`${cat.id}-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{value.toFixed(0)}</td>
                       ))}
                     </tr>
                   ))}
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Expenses</td>
+                    <td className="sticky left-0 z-10 bg-muted py-2 pr-2">{t('dashboard.totalExpenses')}</td>
                     {yearlyViewData.monthlyStats.map((month) => (
                       <td key={`expenses-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.expenses.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Income</td>
+                    <td className="sticky left-0 z-10 bg-muted py-2 pr-2">{t('dashboard.totalIncome')}</td>
                     {yearlyViewData.monthlyStats.map((month) => (
                       <td key={`income-${month.key}`} className="py-2 px-2 text-right">{currencySymbol}{month.income.toFixed(0)}</td>
                     ))}
                   </tr>
                   <tr className="border-b bg-muted/30 font-semibold">
-                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Expense / Income Ratio</td>
+                    <td className="sticky left-0 z-10 bg-muted py-2 pr-2">{t('dashboard.expenseIncomeRatio')}</td>
                     {yearlyViewData.monthlyStats.map((month) => {
                       const ratio = month.income > 0 ? month.expenses / month.income : 0;
                       return <td key={`ratio-${month.key}`} className="py-2 px-2 text-right">{(ratio * 100).toFixed(1)}%</td>;
                     })}
                   </tr>
                   <tr className="bg-muted/30 font-semibold">
-                    <td className="sticky left-0 z-10 bg-muted/30 py-2 pr-2">Total Investment Value</td>
+                    <td className="sticky left-0 z-10 bg-muted py-2 pr-2">{t('dashboard.totalInvestmentValue')}</td>
                     {investmentEvolution.map((investmentMonth, idx) => {
                       const total = investmentMonth.Current + investmentMonth.Emergency + investmentMonth.Investments;
                       return <td key={`investments-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{total.toFixed(0)}</td>;
