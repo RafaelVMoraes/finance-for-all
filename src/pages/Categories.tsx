@@ -46,6 +46,7 @@ export default function Categories() {
     color: PRESET_COLORS[0],
     budget: 0,
     distribution: 'even' as BudgetDistribution,
+    icon: 'shopping-basket' as CategoryIconName,
   });
 
   const { 
@@ -84,7 +85,7 @@ export default function Categories() {
       return;
     }
 
-    const result = await createCategory(formData.name, formData.type, formData.color);
+    const result = await createCategory(formData.name, formData.type, formData.color, formData.icon);
     
     if (result.error) {
       toast({
@@ -102,7 +103,7 @@ export default function Categories() {
         description: `${formData.name} has been added`,
       });
       setIsDialogOpen(false);
-      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
+      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
     }
   };
 
@@ -114,12 +115,13 @@ export default function Categories() {
       color: cat.color,
       budget: getBudgetAmount(cat.id),
       distribution: getBudgetDistribution(cat.id),
+      icon: (cat.icon as CategoryIconName) || 'shopping-basket',
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
+    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
   };
 
   const saveEdit = async (id: string) => {
@@ -135,6 +137,7 @@ export default function Categories() {
       name: formData.name,
       type: formData.type,
       color: formData.color,
+      icon: formData.icon,
     });
 
     if (result.error) {
@@ -186,6 +189,7 @@ export default function Categories() {
       color: getNextColor(),
       budget: 0,
       distribution: 'even',
+      icon: 'shopping-basket',
     });
     setIsDialogOpen(true);
   };
@@ -281,7 +285,30 @@ export default function Categories() {
                   ))}
                 </div>
               </div>
-              
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <Select
+                  value={formData.icon}
+                  onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_ICON_OPTIONS.map((iconName) => {
+                      const Icon = getCategoryIcon(iconName);
+                      return (
+                        <SelectItem key={iconName} value={iconName}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {CATEGORY_ICON_LABELS[iconName]}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="budget">Monthly Budget</Label>
                 <Input
@@ -376,7 +403,27 @@ export default function Categories() {
                         />
                       ))}
                     </div>
-                    
+                    <Select
+                      value={formData.icon}
+                      onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_ICON_OPTIONS.map((iconName) => {
+                          const Icon = getCategoryIcon(iconName);
+                          return (
+                            <SelectItem key={iconName} value={iconName}>
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                {CATEGORY_ICON_LABELS[iconName]}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                     <div className="space-y-1">
                       <Label className="text-xs">Budget ({currencySymbol})</Label>
                       <Input
@@ -406,7 +453,7 @@ export default function Categories() {
                       className="flex h-8 w-8 items-center justify-center rounded-full"
                       style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
                     >
-                      {(() => { const Icon = getCategoryIcon(); return <Icon className="h-4 w-4" />; })()}
+                      {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
                     </div>
                     <CardTitle className="text-lg">{cat.name}</CardTitle>
                   </div>
@@ -496,7 +543,7 @@ export default function Categories() {
                         className="flex h-8 w-8 items-center justify-center rounded-full"
                         style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
                       >
-                        {(() => { const Icon = getCategoryIcon(); return <Icon className="h-4 w-4" />; })()}
+                        {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
                       </div>
                       <CardTitle className="text-lg line-through">{cat.name}</CardTitle>
                     </div>

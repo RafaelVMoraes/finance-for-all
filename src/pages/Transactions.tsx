@@ -219,7 +219,7 @@ export default function Transactions() {
                     {items.map((tx) => {
                       const isEditing = editingId === tx.id;
                       const displayLabel = tx.edited_label || tx.original_label;
-                      const Icon = getCategoryIcon();
+                      const Icon = getCategoryIcon(tx.categories?.icon);
                       return (
                         <Card key={tx.id} className={cn('border', !tx.category_id && 'border-amber-300')}>
                           <CardContent className="p-3">
