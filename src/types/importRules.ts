@@ -9,7 +9,7 @@ export type ConditionType =
   | 'value_sign' // 'income' or 'expense'
   | 'is_duplicate';
 
-export type DuplicateAction = 'accept' | 'reject';
+export type DuplicateAction = 'accept' | 'reject' | 'skip_import';
 
 export interface RuleCondition {
   type: ConditionType;

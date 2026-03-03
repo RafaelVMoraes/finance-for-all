@@ -531,8 +531,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Dashboard</h1>
         <Tabs data-tutorial="dashboard-view-tabs" value={view} onValueChange={(v) => setView(v as 'monthly' | 'yearly')}>
           <TabsList>
             <TabsTrigger value="monthly" className="gap-2"><Calendar className="h-4 w-4" />Monthly</TabsTrigger>
@@ -543,7 +543,7 @@ export default function Dashboard() {
 
       {view === 'monthly' && monthlyViewData && (
         <div className="space-y-6">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="month"
               value={selectedMonth}
@@ -553,7 +553,7 @@ export default function Dashboard() {
             <Badge variant="outline">Analyze monthly performance</Badge>
           </div>
 
-          <div data-tutorial="dashboard-key-metrics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div data-tutorial="dashboard-key-metrics" className="grid grid-cols-2 gap-3 xl:grid-cols-5">
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Income</CardTitle><ArrowUpRight className="h-4 w-4 text-emerald-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.actualIncome.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedIncome.toLocaleString()} · {formatPercent(calculateRatio(monthlyViewData.actualIncome, monthlyViewData.expectedIncome || 1))}</p></CardContent></Card>
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Expenses</CardTitle><ArrowDownRight className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold">{currencySymbol}{monthlyViewData.totalExpenses.toLocaleString()}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedExpenses.toFixed(0)} · {formatPercent(calculateRatio(monthlyViewData.totalExpenses, monthlyViewData.expectedExpenses || 1))}</p></CardContent></Card>
             <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">Savings</CardTitle><PiggyBank className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className={`text-2xl font-bold ${monthlyViewData.actualSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currencySymbol}{monthlyViewData.actualSavings.toFixed(0)}</div><p className="text-xs text-muted-foreground">Expected {currencySymbol}{monthlyViewData.expectedSavings.toFixed(0)} · {formatPercent(monthlyViewData.expectedSavings !== 0 ? (monthlyViewData.actualSavings / monthlyViewData.expectedSavings) * 100 : 0)}</p></CardContent></Card>
@@ -632,7 +632,7 @@ export default function Dashboard() {
       {view === 'yearly' && yearlyViewData && (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Year window start</p>
                 <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value) || today.getFullYear())} className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
@@ -720,7 +720,7 @@ export default function Dashboard() {
                   <div className="h-2 w-24 rounded bg-gradient-to-r from-muted via-chart-1/50 to-chart-1" />
                   <span>High</span>
                 </div>
-                <div className="min-w-[480px] space-y-1">
+                <div className="w-full space-y-1">
                   <div className="grid grid-cols-[100px_repeat(12,minmax(28px,1fr))] gap-0.5 text-[10px] text-muted-foreground">
                     <div />
                     {yearPeriodData.map((m) => <div key={m.key} className="text-center">{m.monthLabel}</div>)}
@@ -786,7 +786,7 @@ export default function Dashboard() {
               <CardTitle>Yearly Expense Matrix (Category × Month)</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-xs">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b text-muted-foreground">
                     <th className="py-2 pr-2 text-left font-medium">Category</th>
