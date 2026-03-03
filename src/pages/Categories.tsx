@@ -204,8 +204,8 @@ export default function Categories() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 items-start gap-2 sm:gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-2">
           <Button variant="ghost" size="icon" asChild>
             <Link to="/budget">
               <ArrowLeft className="h-4 w-4" />
@@ -213,9 +213,9 @@ export default function Categories() {
           </Button>
           <div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Categories & Budgets</h1>
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">Categories & Budgets</h1>
               <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
-                <SelectTrigger className="w-[140px] h-9">
+                <SelectTrigger className="h-9 w-[138px] text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,7 +359,7 @@ export default function Categories() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {activeCategories.map((cat) => {
           const isEditing = editingId === cat.id;
           const budgetAmount = getBudgetAmount(cat.id);
@@ -367,7 +367,7 @@ export default function Categories() {
           
           return (
             <Card key={cat.id} className="relative">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 {isEditing ? (
                   <div className="space-y-3">
                     <Input
@@ -455,7 +455,7 @@ export default function Categories() {
                     >
                       {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
                     </div>
-                    <CardTitle className="text-lg">{cat.name}</CardTitle>
+                    <CardTitle className="text-base">{cat.name}</CardTitle>
                   </div>
                 )}
               </CardHeader>
@@ -475,7 +475,7 @@ export default function Categories() {
                     </p>
                   </>
                 )}
-                <div className="flex gap-1 mt-2 justify-end">
+                <div className="mt-2 flex gap-1 justify-end">
                   {isEditing ? (
                     <>
                       <Button 
@@ -534,10 +534,10 @@ export default function Categories() {
           </Button>
           
           {showArchived && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 opacity-60">
+            <div className="grid grid-cols-2 gap-3 opacity-60 lg:grid-cols-3">
               {archivedCategories.map((cat) => (
                 <Card key={cat.id} className="relative">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-2">
                     <div className="flex items-center gap-3">
                       <div
                         className="flex h-8 w-8 items-center justify-center rounded-full"
@@ -549,7 +549,7 @@ export default function Categories() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <Badge variant="secondary">Archived</Badge>
                       <Button 
                         variant="ghost" 
