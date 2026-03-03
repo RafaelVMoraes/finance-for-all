@@ -58,8 +58,10 @@ import { detectColumnMapping, isTemplateFormat, ColumnMapping } from '@/lib/colu
 import { format } from 'date-fns';
 import { APP_START_DATE_STRING } from '@/constants/app';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useI18n } from '@/i18n/I18nProvider';
 
 export default function Import() {
+  const { t } = useI18n();
   const isMobile = useIsMobile();
   const [step, setStep] = useState<'upload' | 'column-mapping' | 'validation' | 'complete'>('upload');
   const [parsedData, setParsedData] = useState<ImportRow[]>([]);
@@ -454,11 +456,11 @@ export default function Import() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Import Transactions</h1>
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('importPage.title')}</h1>
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <Button data-tutorial="import-mapping-rules" variant="outline" onClick={() => setShowRulesManager(true)} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <Zap className="mr-2 h-4 w-4" />
-            Import Rules {rules.length > 0 && `(${rules.length})`}
+            {t('importPage.importRules')} {rules.length > 0 && `(${rules.length})`}
           </Button>
           <Button variant="outline" onClick={handleDownloadTemplate} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <Download className="mr-2 h-4 w-4" />
@@ -466,7 +468,7 @@ export default function Import() {
           </Button>
           <Button data-tutorial="import-history" variant="outline" onClick={() => setShowHistoryModal(true)} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Import History
+            {t('importPage.history')}
           </Button>
         </div>
       </div>
@@ -474,7 +476,7 @@ export default function Import() {
       {step === 'upload' && (
         <Card data-tutorial="import-source-template">
           <CardHeader>
-            <CardTitle>Upload Import File</CardTitle>
+            <CardTitle>{t('importPage.uploadTitle')}</CardTitle>
             <CardDescription>
               Upload a .csv, .xlsx, or .xls file with your transactions. We can auto-detect comma/semicolon CSV and map columns for you.
               <br />
@@ -484,17 +486,17 @@ export default function Import() {
           <CardContent className="space-y-6">
             {/* Source selection */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Import Source (optional)</label>
+              <label className="text-sm font-medium">{t('importPage.sourceLabel')}</label>
               <div className="flex items-center gap-2">
                 <Select 
                   value={selectedSourceId || '__none__'} 
                   onValueChange={(v) => setSelectedSourceId(v === '__none__' ? null : v)}
                 >
                   <SelectTrigger className="flex-1 sm:w-64">
-                    <SelectValue placeholder="Select source..." />
+                    <SelectValue placeholder={t('importPage.selectSource')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">No source</SelectItem>
+                    <SelectItem value="__none__">{t('importPage.noSource')}</SelectItem>
                     {sources.map(source => (
                       <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
                     ))}
@@ -508,7 +510,7 @@ export default function Import() {
               {showNewSource && (
                 <div className="flex flex-wrap gap-2">
                   <Input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder="e.g., Boursorama, Revolut, BNP..." className="w-full sm:w-64" />
-                  <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>Add Source</Button>
+                  <Button onClick={handleCreateSource} disabled={!newSourceName.trim()}>{t('importPage.addSource')}</Button>
                 </div>
               )}
             </div>
@@ -770,7 +772,7 @@ export default function Import() {
       {/* Import History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="w-[95vw] max-w-4xl p-4 sm:p-6">
-          <DialogHeader><DialogTitle>Import History</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('importPage.history')}</DialogTitle></DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             {importBatches.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">No imports yet</p>

@@ -20,8 +20,10 @@ import { APP_START_DATE, APP_START_DATE_STRING } from '@/constants/app';
 import { cn } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/categoryIcons';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useI18n } from '@/i18n/I18nProvider';
 
 export default function Transactions() {
+  const { t } = useI18n();
   const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -142,11 +144,11 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-bold sm:text-3xl">Transactions</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">{t('transactions.title')}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={incompleteCount > 0 ? 'destructive' : 'default'} className="h-10 px-3 text-sm">{completionRate}% Complete</Badge>
-          <Button className="h-10" onClick={() => setShowAddModal(true)}><Plus className="mr-2 h-4 w-4" />Add</Button>
-          <Button variant="outline" className="h-10" asChild><Link to="/import">Import</Link></Button>
+          <Button className="h-10" onClick={() => setShowAddModal(true)}><Plus className="mr-2 h-4 w-4" />{t('transactions.add')}</Button>
+          <Button variant="outline" className="h-10" asChild><Link to="/import">{t('transactions.import')}</Link></Button>
         </div>
       </div>
 
@@ -219,7 +221,7 @@ export default function Transactions() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Transactions ({filteredTransactions.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('transactions.title')} ({filteredTransactions.length})</CardTitle></CardHeader>
         <CardContent>
           {loading ? <div className="py-10 text-center text-muted-foreground">Loading...</div> : groupedByDate.length === 0 ? <div className="py-10 text-center text-muted-foreground">No transactions found.</div> : (
             <div className="space-y-5">
