@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Archive, Check, X, ArchiveRestore, ArrowLeft } from 'lucide-react';
+import { CATEGORY_ICON_LABELS, CATEGORY_ICON_OPTIONS, getCategoryIcon, type CategoryIconName } from '@/lib/categoryIcons';
 import { useCategories, PRESET_COLORS, Category } from '@/hooks/useCategories';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useUserSettings, Currency } from '@/hooks/useUserSettings';
@@ -45,6 +46,7 @@ export default function Categories() {
     color: PRESET_COLORS[0],
     budget: 0,
     distribution: 'even' as BudgetDistribution,
+    icon: 'shopping-basket' as CategoryIconName,
   });
 
   const { 
@@ -69,7 +71,8 @@ export default function Categories() {
 
   const getBudgetDistribution = useCallback((categoryId: string): BudgetDistribution => {
     const budget = budgets.find(b => b.category_id === categoryId);
-    return ((budget as any)?.distribution || 'even') as BudgetDistribution;
+    const distribution = (budget as { distribution?: BudgetDistribution } | undefined)?.distribution;
+    return distribution || 'even';
   }, [budgets]);
 
   const handleCreateCategory = async () => {
@@ -82,7 +85,7 @@ export default function Categories() {
       return;
     }
 
-    const result = await createCategory(formData.name, formData.type, formData.color);
+    const result = await createCategory(formData.name, formData.type, formData.color, formData.icon);
     
     if (result.error) {
       toast({
@@ -100,7 +103,7 @@ export default function Categories() {
         description: `${formData.name} has been added`,
       });
       setIsDialogOpen(false);
-      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
+      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
     }
   };
 
@@ -112,12 +115,13 @@ export default function Categories() {
       color: cat.color,
       budget: getBudgetAmount(cat.id),
       distribution: getBudgetDistribution(cat.id),
+      icon: (cat.icon as CategoryIconName) || 'shopping-basket',
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even' });
+    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
   };
 
   const saveEdit = async (id: string) => {
@@ -133,6 +137,7 @@ export default function Categories() {
       name: formData.name,
       type: formData.type,
       color: formData.color,
+      icon: formData.icon,
     });
 
     if (result.error) {
@@ -184,6 +189,7 @@ export default function Categories() {
       color: getNextColor(),
       budget: 0,
       distribution: 'even',
+      icon: 'shopping-basket',
     });
     setIsDialogOpen(true);
   };
@@ -198,16 +204,16 @@ export default function Categories() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 items-start gap-2 sm:gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link to="/budget">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-foreground">Categories & Budgets</h1>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Categories & Budgets</h1>
               <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
                 <SelectTrigger className="w-[140px] h-9">
                   <SelectValue />
@@ -224,8 +230,9 @@ export default function Categories() {
           </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog} disabled={!canAddMore}>
+            <Button onClick={openCreateDialog} disabled={!canAddMore} className="w-full md:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               New Category
             </Button>
@@ -277,6 +284,30 @@ export default function Categories() {
                     />
                   ))}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <Select
+                  value={formData.icon}
+                  onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_ICON_OPTIONS.map((iconName) => {
+                      const Icon = getCategoryIcon(iconName);
+                      return (
+                        <SelectItem key={iconName} value={iconName}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {CATEGORY_ICON_LABELS[iconName]}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="budget">Monthly Budget</Label>
@@ -372,6 +403,27 @@ export default function Categories() {
                         />
                       ))}
                     </div>
+                    <Select
+                      value={formData.icon}
+                      onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_ICON_OPTIONS.map((iconName) => {
+                          const Icon = getCategoryIcon(iconName);
+                          return (
+                            <SelectItem key={iconName} value={iconName}>
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                {CATEGORY_ICON_LABELS[iconName]}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                     <div className="space-y-1">
                       <Label className="text-xs">Budget ({currencySymbol})</Label>
                       <Input
@@ -397,10 +449,12 @@ export default function Categories() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="h-4 w-4 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: cat.color }}
-                    />
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                    >
+                      {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
+                    </div>
                     <CardTitle className="text-lg">{cat.name}</CardTitle>
                   </div>
                 )}
@@ -485,15 +539,17 @@ export default function Categories() {
                 <Card key={cat.id} className="relative">
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="h-4 w-4 rounded-full" 
-                        style={{ backgroundColor: cat.color }}
-                      />
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-full"
+                        style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                      >
+                        {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
+                      </div>
                       <CardTitle className="text-lg line-through">{cat.name}</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <Badge variant="secondary">Archived</Badge>
                       <Button 
                         variant="ghost" 

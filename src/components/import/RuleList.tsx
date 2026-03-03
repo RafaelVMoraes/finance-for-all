@@ -142,12 +142,18 @@ export function RuleList({
                     <Badge 
                       variant="secondary" 
                       className={
-                        rule.actions.duplicate_action === 'accept' 
-                          ? 'bg-emerald-100 text-emerald-800' 
-                          : 'bg-red-100 text-red-800'
+                        rule.actions.duplicate_action === 'accept'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : rule.actions.duplicate_action === 'reject'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-orange-100 text-orange-800'
                       }
                     >
-                      {rule.actions.duplicate_action === 'accept' ? 'Accept dup' : 'Reject dup'}
+                      {rule.actions.duplicate_action === 'accept'
+                        ? 'Accept dup'
+                        : rule.actions.duplicate_action === 'reject'
+                          ? 'Reject dup'
+                          : 'Never import'}
                     </Badge>
                   )}
                 </div>

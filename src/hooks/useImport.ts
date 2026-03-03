@@ -133,6 +133,40 @@ function sanitizeLabel(label: string): string {
   return label.replace(/^[=+\-@\t\r]/g, "'");
 }
 
+
+function detectCsvSeparator(content: string): ',' | ';' {
+  const firstLines = content
+    .split(/\r?\n/)
+    .slice(0, 5)
+    .join('\n');
+  const commaCount = (firstLines.match(/,/g) || []).length;
+  const semicolonCount = (firstLines.match(/;/g) || []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+}
+
+function sheetRowsFromCsv(content: string): unknown[][] {
+  const separator = detectCsvSeparator(content);
+  const workbook = XLSX.read(content, { type: 'string', FS: separator });
+  const sheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+}
+
+async function readSheetRows(file: File): Promise<unknown[][]> {
+  const lowerName = file.name.toLowerCase();
+
+  if (lowerName.endsWith('.csv')) {
+    const content = await file.text();
+    return sheetRowsFromCsv(content);
+  }
+
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+}
+
 export interface ColumnIndices {
   dateIdx: number;
   labelIdx: number;
@@ -157,36 +191,23 @@ export function useImport() {
       throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
     }
 
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+    try {
+      const jsonData = await readSheetRows(file);
 
-          if (jsonData.length < 2) {
-            reject(new Error('File is empty or has no data rows'));
-            return;
-          }
-          if (jsonData.length > MAX_ROW_COUNT + 1) {
-            reject(new Error(`File has too many rows. Maximum is ${MAX_ROW_COUNT} data rows.`));
-            return;
-          }
+      if (jsonData.length < 2) {
+        throw new Error('File is empty or has no data rows');
+      }
+      if (jsonData.length > MAX_ROW_COUNT + 1) {
+        throw new Error(`File has too many rows. Maximum is ${MAX_ROW_COUNT} data rows.`);
+      }
 
-          const rawHeaders = (jsonData[0] as string[]).map(h => String(h).trim());
-          const headers = rawHeaders.map(h => h.toLowerCase());
+      const rawHeaders = (jsonData[0] as string[]).map(h => String(h).trim());
+      const headers = rawHeaders.map(h => h.toLowerCase());
 
-          resolve({ headers, rawHeaders, jsonData });
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsArrayBuffer(file);
-    });
+      return { headers, rawHeaders, jsonData };
+    } catch {
+      throw new Error('Failed to read file');
+    }
   }, []);
 
   const parseFile = useCallback(async (file: File, columnIndices?: ColumnIndices): Promise<ParsedImportData> => {
@@ -367,7 +388,7 @@ export function useImport() {
         updatedRow.duplicateAction = result.duplicateAction;
         if (result.duplicateAction === 'accept') {
           updatedRow.autoAccepted = true;
-        } else if (result.duplicateAction === 'reject') {
+        } else if (result.duplicateAction === 'reject' || result.duplicateAction === 'skip_import') {
           updatedRow.autoRejected = true;
         }
       }

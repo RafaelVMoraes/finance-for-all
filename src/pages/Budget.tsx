@@ -90,7 +90,7 @@ export default function Budget() {
   return (
     <div className="space-y-6">
       {/* Header with Month Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold text-foreground">Budget Overview</h1>
         <div className="flex items-center gap-2">
           <Button 
@@ -111,7 +111,7 @@ export default function Budget() {
       </div>
 
       {/* Edit Categories Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-start sm:justify-end">
         <Button data-tutorial="budget-edit-categories-link" asChild>
           <Link to="/categories">
             <Pencil className="mr-2 h-4 w-4" />
@@ -121,7 +121,7 @@ export default function Budget() {
       </div>
 
       {/* Income & Savings Overview */}
-      <div data-tutorial="budget-overview-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div data-tutorial="budget-overview-cards" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
@@ -213,7 +213,7 @@ export default function Budget() {
 
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 
@@ -269,7 +269,7 @@ export default function Budget() {
 
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 
@@ -321,7 +321,7 @@ export default function Budget() {
               const expected = getBudgetAmount(cat.id);
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 

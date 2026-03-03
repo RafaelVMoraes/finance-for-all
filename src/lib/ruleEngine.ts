@@ -237,6 +237,8 @@ export function describeRule(rule: ImportRule, categoryName?: string): string {
     actionParts.push('auto-accept duplicate');
   } else if (rule.actions.duplicate_action === 'reject') {
     actionParts.push('auto-reject duplicate');
+  } else if (rule.actions.duplicate_action === 'skip_import') {
+    actionParts.push('never import matching rows');
   }
   
   return `If ${conditionParts.join(' AND ')} → ${actionParts.join(', ')}`;

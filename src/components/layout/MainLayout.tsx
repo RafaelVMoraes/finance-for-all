@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
@@ -21,7 +21,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         setCollapsed(true);
       }
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -30,11 +30,11 @@ export function MainLayout({ children }: MainLayoutProps) {
   if (isMobile) {
     return (
       <TooltipProvider>
-        <div className="flex h-screen flex-col bg-background">
-          <header className="flex h-14 items-center border-b border-border px-4">
+        <div className="min-h-screen w-full overflow-x-hidden bg-background">
+          <header className="sticky top-0 z-20 flex h-14 w-full items-center border-b border-border bg-background px-3">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Open navigation">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -42,13 +42,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <Sidebar collapsed={false} onToggle={() => setMobileOpen(false)} />
               </SheetContent>
             </Sheet>
-            <h1 className="ml-3 text-lg font-bold">FinTrack</h1>
+            <h1 className="ml-2 truncate text-lg font-bold">FinTrack</h1>
           </header>
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-4">
-              {children}
-            </div>
-          </main>
+          <main className="w-full overflow-x-hidden px-3 py-4">{children}</main>
         </div>
       </TooltipProvider>
     );
@@ -56,13 +52,9 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen bg-background">
+      <div className="flex min-h-screen w-full overflow-x-hidden bg-background">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-        <main className="flex-1 overflow-auto">
-          <div className="container mx-auto p-6">
-            {children}
-          </div>
-        </main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-6">{children}</main>
       </div>
     </TooltipProvider>
   );

@@ -205,11 +205,12 @@ export default function Import() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
     
-    if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
+    const fileName = selectedFile.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv')) {
       toast({
         variant: 'destructive',
         title: 'Invalid file type',
-        description: 'Please upload an Excel file (.xlsx or .xls)',
+        description: 'Please upload a supported file (.xlsx, .xls, or .csv)',
       });
       return;
     }
@@ -432,9 +433,9 @@ export default function Import() {
       {step === 'upload' && (
         <Card data-tutorial="import-source-template">
           <CardHeader>
-            <CardTitle>Upload Excel File</CardTitle>
+            <CardTitle>Upload Import File</CardTitle>
             <CardDescription>
-              Upload an .xlsx file with your transactions. You can use our template or any Excel file — we'll help you map the columns.
+              Upload a .csv, .xlsx, or .xls file with your transactions. We can auto-detect comma/semicolon CSV and map columns for you.
               <br />
               <span className="text-muted-foreground">Note: Only transactions from {APP_START_DATE_STRING} onwards are allowed.</span>
             </CardDescription>
@@ -477,8 +478,8 @@ export default function Import() {
             >
               <Upload className="mb-4 h-12 w-12 text-muted-foreground" />
               <span className="mb-2 text-lg font-medium">Drop your file here or click to browse</span>
-              <span className="text-sm text-muted-foreground">Supports .xlsx and .xls files — any format</span>
-              <input id="file-upload" type="file" accept=".xlsx,.xls" onChange={handleFileChange} className="hidden" />
+              <span className="text-sm text-muted-foreground">Supports .csv, .xlsx, and .xls files</span>
+              <input id="file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
             </label>
           </CardContent>
         </Card>

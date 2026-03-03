@@ -126,7 +126,7 @@ export function RuleEditor({ rule, categories, onSave, onClose, open }: RuleEdit
       conditions,
       actions: {
         category_id: categoryId,
-        duplicate_action: duplicateAction as 'accept' | 'reject' | null,
+        duplicate_action: duplicateAction as 'accept' | 'reject' | 'skip_import' | null,
       },
     });
     
@@ -309,7 +309,8 @@ export function RuleEditor({ rule, categories, onSave, onClose, open }: RuleEdit
                 <SelectContent>
                   <SelectItem value="__none__">No action</SelectItem>
                   <SelectItem value="accept">Auto-accept (import anyway)</SelectItem>
-                  <SelectItem value="reject">Auto-reject (skip)</SelectItem>
+                  <SelectItem value="reject">Auto-reject duplicate</SelectItem>
+                  <SelectItem value="skip_import">Never import matching row</SelectItem>
                 </SelectContent>
               </Select>
             </div>
