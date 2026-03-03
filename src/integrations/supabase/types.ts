@@ -619,6 +619,10 @@ export type Database = {
         Returns: Json
       }
       get_yearly_summary: { Args: { p_year: number }; Returns: Json }
+      increment_import_rule_usage: {
+        Args: { p_increments: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       category_type: "fixed" | "variable" | "income"
