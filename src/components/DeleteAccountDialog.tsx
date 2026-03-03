@@ -17,8 +17,8 @@ import { Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/i18n/I18nProvider';
 
-const CONFIRMATION_TEXT = 'DELETE MY ACCOUNT';
 
 export function DeleteAccountDialog() {
   const [open, setOpen] = useState(false);
@@ -26,8 +26,10 @@ export function DeleteAccountDialog() {
   const [loading, setLoading] = useState(false);
   const { user, logout } = useAuthContext();
   const { toast } = useToast();
+  const { t } = useI18n();
+  const confirmationText = t('deleteAccount.confirm').toUpperCase();
 
-  const isConfirmed = confirmText === CONFIRMATION_TEXT;
+  const isConfirmed = confirmText === confirmationText;
 
   const handleDelete = async () => {
     if (!user || !isConfirmed) return;
@@ -89,8 +91,8 @@ export function DeleteAccountDialog() {
       await supabase.from('profiles').delete().eq('id', user.id);
       
       toast({
-        title: 'Account deleted',
-        description: 'All your data has been permanently removed.',
+        title: t('deleteAccount.successTitle'),
+        description: t('deleteAccount.successDescription'),
       });
       
       // Logout after deletion
@@ -100,8 +102,8 @@ export function DeleteAccountDialog() {
       console.error('[ACCOUNT_DELETE_ERR]', error instanceof Error ? error.message : 'Unknown error');
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete account. Please try again.',
+        title: t('auth.errorTitle'),
+        description: t('deleteAccount.errorDescription'),
       });
     } finally {
       setLoading(false);
@@ -115,45 +117,45 @@ export function DeleteAccountDialog() {
       <AlertDialogTrigger asChild>
         <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive">
           <Trash2 className="h-4 w-4" />
-          Delete Account
+          {t('deleteAccount.button')}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-destructive">Delete Account</AlertDialogTitle>
+          <AlertDialogTitle className="text-destructive">{t('deleteAccount.title')}</AlertDialogTitle>
           <AlertDialogDescription className="space-y-3">
             <p>
-              This action is <strong>irreversible</strong>. All your data will be permanently deleted including:
+              {t('deleteAccount.description')}
             </p>
             <ul className="list-inside list-disc space-y-1 text-sm">
-              <li>All transactions</li>
-              <li>All categories and budgets</li>
-              <li>All investments and snapshots</li>
-              <li>All import history</li>
-              <li>Your account profile</li>
+              <li>{t('deleteAccount.consequenceTransactions')}</li>
+              <li>{t('deleteAccount.consequenceCategories')}</li>
+              <li>{t('deleteAccount.consequenceInvestments')}</li>
+              <li>{t('deleteAccount.consequenceRules')}</li>
+              
             </ul>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2 py-4">
           <Label htmlFor="confirm-delete">
-            Type <span className="font-mono font-bold">{CONFIRMATION_TEXT}</span> to confirm:
+            {t('deleteAccount.confirmLabel', { text: confirmationText })}
           </Label>
           <Input
             id="confirm-delete"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            placeholder={CONFIRMATION_TEXT}
+            placeholder={t('deleteAccount.placeholder')}
             className="font-mono"
           />
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setConfirmText('')}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setConfirmText('')}>{t('deleteAccount.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={!isConfirmed || loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {loading ? 'Deleting...' : 'Delete My Account'}
+            {loading ? t('deleteAccount.deleting') : t('deleteAccount.confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

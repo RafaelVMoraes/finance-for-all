@@ -10,6 +10,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { TutorialProvider } from "@/contexts/TutorialContext";
 import { TutorialStepManager } from "@/components/tutorial/TutorialStepManager";
 import { PwaStatus } from "@/components/PwaStatus";
+import { I18nProvider, useI18n } from "@/i18n/I18nProvider";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -22,8 +23,9 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
-const App = () => {
+const AppContent = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const handleUpdate = () => setUpdateAvailable(true);
@@ -41,7 +43,7 @@ const App = () => {
           <PwaStatus hasUpdate={updateAvailable} />
           <BrowserRouter>
             <TutorialProvider>
-              <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">{t('common.loading')}</div>}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/auth" element={<Auth />} />
@@ -102,6 +104,15 @@ const App = () => {
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
+  );
+};
+
+
+const App = () => {
+  return (
+    <I18nProvider>
+      <AppContent />
+    </I18nProvider>
   );
 };
 
