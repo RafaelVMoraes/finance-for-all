@@ -20,7 +20,6 @@ export interface Transaction {
     id: string;
     name: string;
     color: string;
-    icon: string;
     type: 'fixed' | 'variable' | 'income';
   } | null;
 }
@@ -66,7 +65,6 @@ const TRANSACTION_COLUMNS = `
     id,
     name,
     color,
-    icon,
     type
   )
 `;
