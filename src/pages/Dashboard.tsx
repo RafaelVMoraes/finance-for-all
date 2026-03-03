@@ -618,7 +618,7 @@ export default function Dashboard() {
       {view === 'yearly' && yearlyViewData && (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Year window start</p>
                 <input
@@ -630,7 +630,7 @@ export default function Dashboard() {
                     setSelectedYear(Number(year));
                     setYearStartMonth(Number(month) - 1);
                   }}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  className="w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </div>
               <div className="space-y-1">

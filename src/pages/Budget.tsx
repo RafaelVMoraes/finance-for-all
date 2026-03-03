@@ -90,8 +90,13 @@ export default function Budget() {
   return (
     <div className="space-y-6">
       {/* Header with Month Navigation */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Budget Overview</h1>
+      <div className="flex items-center justify-between gap-2">
+        <Button data-tutorial="budget-edit-categories-link" asChild className="h-10">
+          <Link to="/categories">
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit Categories
+          </Link>
+        </Button>
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
@@ -110,18 +115,9 @@ export default function Budget() {
         </div>
       </div>
 
-      {/* Edit Categories Button */}
-      <div className="flex justify-start sm:justify-end">
-        <Button data-tutorial="budget-edit-categories-link" asChild>
-          <Link to="/categories">
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Categories & Budgets
-          </Link>
-        </Button>
-      </div>
 
       {/* Income & Savings Overview */}
-      <div data-tutorial="budget-overview-cards" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tutorial="budget-overview-cards" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardHeader className="pb-1">
@@ -204,7 +200,7 @@ export default function Budget() {
               Fixed Expenses Budget
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-2 gap-3">
             {fixedCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
               const spent = categorySpent[cat.id] || 0;
@@ -213,7 +209,7 @@ export default function Budget() {
 
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 
@@ -260,7 +256,7 @@ export default function Budget() {
               Variable Expenses Budget
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-2 gap-3">
             {variableCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
               const spent = categorySpent[cat.id] || 0;
@@ -269,7 +265,7 @@ export default function Budget() {
 
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 
@@ -316,12 +312,12 @@ export default function Budget() {
               Expected Income Sources
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-2 gap-3">
             {incomeCategories.map(cat => {
               const expected = getBudgetAmount(cat.id);
               return (
                 <div key={cat.id} className="space-y-2 rounded-lg border p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div 
                         className="h-3 w-3 rounded-full flex-shrink-0" 
