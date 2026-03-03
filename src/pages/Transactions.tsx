@@ -144,9 +144,9 @@ export default function Transactions() {
       <div className="flex flex-col gap-3">
         <h1 className="text-2xl font-bold sm:text-3xl">Transactions</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={incompleteCount > 0 ? 'destructive' : 'default'}>{completionRate}% Complete</Badge>
-          <Button onClick={() => setShowAddModal(true)}><Plus className="mr-2 h-4 w-4" />Add</Button>
-          <Button variant="outline" asChild><Link to="/import">Import</Link></Button>
+          <Badge variant={incompleteCount > 0 ? 'destructive' : 'default'} className="h-10 px-3 text-sm">{completionRate}% Complete</Badge>
+          <Button className="h-10" onClick={() => setShowAddModal(true)}><Plus className="mr-2 h-4 w-4" />Add</Button>
+          <Button variant="outline" className="h-10" asChild><Link to="/import">Import</Link></Button>
         </div>
       </div>
 

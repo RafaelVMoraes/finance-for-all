@@ -208,11 +208,11 @@ export default function Import() {
     if (!selectedFile) return;
     
     const fileName = selectedFile.name.toLowerCase();
-    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv')) {
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
       toast({
         variant: 'destructive',
         title: 'Invalid file type',
-        description: 'Please upload a supported file (.xlsx, .xls, or .csv)',
+        description: 'Please upload a supported file (.xlsx, .xls, .csv, or .txt)',
       });
       return;
     }
@@ -455,16 +455,16 @@ export default function Import() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Import Transactions</h1>
-        <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
-          <Button data-tutorial="import-mapping-rules" variant="outline" onClick={() => setShowRulesManager(true)}>
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+          <Button data-tutorial="import-mapping-rules" variant="outline" onClick={() => setShowRulesManager(true)} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <Zap className="mr-2 h-4 w-4" />
             Import Rules {rules.length > 0 && `(${rules.length})`}
           </Button>
-          <Button variant="outline" onClick={handleDownloadTemplate}>
+          <Button variant="outline" onClick={handleDownloadTemplate} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <Download className="mr-2 h-4 w-4" />
             Download Template
           </Button>
-          <Button data-tutorial="import-history" variant="outline" onClick={() => setShowHistoryModal(true)}>
+          <Button data-tutorial="import-history" variant="outline" onClick={() => setShowHistoryModal(true)} className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Import History
           </Button>
@@ -485,12 +485,12 @@ export default function Import() {
             {/* Source selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Import Source (optional)</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2">
                 <Select 
                   value={selectedSourceId || '__none__'} 
                   onValueChange={(v) => setSelectedSourceId(v === '__none__' ? null : v)}
                 >
-                  <SelectTrigger className="w-full sm:w-64">
+                  <SelectTrigger className="flex-1 sm:w-64">
                     <SelectValue placeholder="Select source..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -500,7 +500,7 @@ export default function Import() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={() => setShowNewSource(!showNewSource)}>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setShowNewSource(!showNewSource)}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -519,8 +519,8 @@ export default function Import() {
             >
               <Upload className="mb-4 h-12 w-12 text-muted-foreground" />
               <span className="mb-2 text-lg font-medium">Drop your file here or click to browse</span>
-              <span className="text-sm text-muted-foreground">Supports .csv, .xlsx, and .xls files</span>
-              <input id="file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
+              <span className="text-sm text-muted-foreground">Supports .csv, .txt, .xlsx, and .xls files</span>
+              <input id="file-upload" type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain" onChange={handleFileChange} className="hidden" />
             </label>
           </CardContent>
         </Card>
@@ -769,12 +769,34 @@ export default function Import() {
 
       {/* Import History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[95vw] max-w-4xl p-4 sm:p-6">
           <DialogHeader><DialogTitle>Import History</DialogTitle></DialogHeader>
-          <ScrollArea className="max-h-[400px]">
+          <ScrollArea className="max-h-[70vh]">
             {importBatches.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">No imports yet</p>
             ) : (
+              isMobile ? (
+                <div className="space-y-3">
+                  {importBatches.map(batch => (
+                    <div key={batch.id} className="space-y-2 rounded-lg border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium">{format(new Date(batch.imported_at), 'MMM dd, yyyy HH:mm')}</p>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteBatch(batch.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <p className="truncate font-mono text-xs text-muted-foreground">{batch.filename}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <Badge variant="outline">{batch.row_count} rows</Badge>
+                        {batch.import_sources?.name ? <Badge variant="outline">{batch.import_sources.name}</Badge> : null}
+                        {batch.date_from && batch.date_to ? (
+                          <Badge variant="secondary">{format(new Date(batch.date_from), 'MMM dd')} - {format(new Date(batch.date_to), 'MMM dd, yyyy')}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -809,6 +831,7 @@ export default function Import() {
                   ))}
                 </TableBody>
               </Table>
+              )
             )}
           </ScrollArea>
           <DialogFooter>

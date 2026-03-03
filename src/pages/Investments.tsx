@@ -365,9 +365,9 @@ export default function Investments() {
       {/* Header with Currency & Settings */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Investments</h1>
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+        <div className="grid w-full grid-cols-4 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <Select data-tutorial="investments-main-currency" value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
-            <SelectTrigger className="w-[88px] sm:w-24">
+            <SelectTrigger className="h-10 w-full text-xs sm:w-28 sm:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -378,7 +378,7 @@ export default function Investments() {
           </Select>
           <Dialog open={isRatesDialogOpen} onOpenChange={setIsRatesDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="h-10 w-full sm:h-10 sm:w-10">
                 <Settings className="h-4 w-4" />
               </Button>
             </DialogTrigger>
@@ -415,7 +415,7 @@ export default function Investments() {
           </Dialog>
           <Dialog data-tutorial="investments-types-assets" open={isTypesDialogOpen} onOpenChange={setIsTypesDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="whitespace-nowrap">Manage Types</Button>
+              <Button variant="outline" className="h-10 min-w-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm">Manage Types</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -468,7 +468,7 @@ export default function Investments() {
           </Dialog>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="h-10 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Asset
               </Button>
@@ -594,7 +594,7 @@ export default function Investments() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

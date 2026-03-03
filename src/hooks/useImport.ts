@@ -155,7 +155,7 @@ function sheetRowsFromCsv(content: string): unknown[][] {
 async function readSheetRows(file: File): Promise<unknown[][]> {
   const lowerName = file.name.toLowerCase();
 
-  if (lowerName.endsWith('.csv')) {
+  if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
     const content = await file.text();
     return sheetRowsFromCsv(content);
   }
