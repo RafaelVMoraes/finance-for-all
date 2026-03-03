@@ -8,7 +8,6 @@ export interface Category {
   name: string;
   type: 'fixed' | 'variable' | 'income';
   color: string;
-  icon: string;
   archived: boolean;
   created_at: string;
   updated_at: string;
@@ -63,8 +62,7 @@ export function useCategories() {
   const createCategory = useCallback(async (
     name: string, 
     type: 'fixed' | 'variable' | 'income',
-    color: string,
-    icon: string
+    color: string
   ) => {
     if (!user) return { error: 'Not authenticated' };
 
@@ -75,7 +73,6 @@ export function useCategories() {
         name,
         type,
         color,
-        icon,
       })
       .select()
       .single();
@@ -90,7 +87,7 @@ export function useCategories() {
 
   const updateCategory = useCallback(async (
     id: string,
-    updates: Partial<Pick<Category, 'name' | 'type' | 'color' | 'icon' | 'archived'>>
+    updates: Partial<Pick<Category, 'name' | 'type' | 'color' | 'archived'>>
   ) => {
     const { data, error } = await supabase
       .from('categories')
