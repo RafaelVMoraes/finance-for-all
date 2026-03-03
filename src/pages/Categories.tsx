@@ -26,6 +26,7 @@ import { useUserSettings, Currency } from '@/hooks/useUserSettings';
 import { useToast } from '@/hooks/use-toast';
 import { CategoryType } from '@/types/finance';
 import { Link } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nProvider';
 
 type BudgetDistribution = 'even' | 'front' | 'back' | 'custom';
 
@@ -37,6 +38,7 @@ const DISTRIBUTION_OPTIONS: { value: BudgetDistribution; label: string; descript
 ];
 
 export default function Categories() {
+  const { t } = useI18n();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -197,7 +199,7 @@ export default function Categories() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">Loading categories...</p>
+        <p className="text-muted-foreground">{t('categories.loading')}</p>
       </div>
     );
   }
@@ -213,7 +215,7 @@ export default function Categories() {
           </Button>
           <div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">Categories & Budgets</h1>
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">{t('categories.title')}</h1>
               <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
                 <SelectTrigger className="h-9 w-[138px] text-xs sm:text-sm">
                   <SelectValue />
@@ -225,7 +227,7 @@ export default function Categories() {
               </Select>
             </div>
             <p className="text-sm text-muted-foreground">
-              {activeCategories.length}/15 categories used
+              {t('categories.categoriesUsed', { used: activeCategories.length, total: 15 })}
             </p>
           </div>
         </div>
@@ -471,7 +473,7 @@ export default function Categories() {
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Distribution: {DISTRIBUTION_OPTIONS.find(d => d.value === distribution)?.label || 'Even'}
+                      {t('categories.distribution')}: {DISTRIBUTION_OPTIONS.find(d => d.value === distribution)?.label || t('categories.even')}
                     </p>
                   </>
                 )}

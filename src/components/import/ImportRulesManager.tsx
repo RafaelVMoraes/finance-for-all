@@ -18,6 +18,7 @@ import { RuleList } from './RuleList';
 import { RuleSuggestions } from './RuleSuggestions';
 import { ImportRule, RuleSuggestion, RuleCondition, RuleActions } from '@/types/importRules';
 import { ImportRow } from '@/hooks/useImport';
+import { useI18n } from '@/i18n/I18nProvider';
 
 interface ImportRulesManagerProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface ImportRulesManagerProps {
 }
 
 export function ImportRulesManager({ open, onClose, importRows }: ImportRulesManagerProps) {
+  const { t } = useI18n();
   const [editingRule, setEditingRule] = useState<ImportRule | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -208,7 +210,7 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
-            Import Rules
+            {t('importPage.importRules')}
           </DialogTitle>
         </DialogHeader>
         
@@ -217,7 +219,7 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
             <TabsList className="w-full justify-start">
               <TabsTrigger value="rules">Rules ({rules.length})</TabsTrigger>
               <TabsTrigger value="suggestions">
-                Suggestions {filteredSuggestions.length > 0 && `(${filteredSuggestions.length})`}
+                {t('importPage.suggestions')} {filteredSuggestions.length > 0 && `(${filteredSuggestions.length})`}
               </TabsTrigger>
             </TabsList>
             
@@ -225,11 +227,11 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-muted-foreground">
-                    Rules are evaluated in priority order. First matching rule wins.
+                    {t('importPage.rulesPopupDescription')}
                   </p>
                   <Button onClick={() => { setEditingRule(null); setShowEditor(true); }}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Rule
+                    {t('importPage.createRule')}
                   </Button>
                 </div>
                 
@@ -248,11 +250,11 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-muted-foreground">
-                    Get rule suggestions based on your transaction patterns.
+                    {t('importPage.suggestionsDescription')}
                   </p>
                   <Button onClick={handleGenerateSuggestions} disabled={suggestionsLoading}>
                     <Lightbulb className="mr-2 h-4 w-4" />
-                    {suggestionsLoading ? 'Analyzing...' : 'Generate Suggestions'}
+                    {suggestionsLoading ? t('importPage.analyzing') : t('importPage.generateSuggestions')}
                   </Button>
                 </div>
                 
@@ -270,13 +272,13 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
                   <Card className="border-dashed">
                     <CardContent className="py-12 text-center">
                       <Lightbulb className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium">Get Smart Suggestions</h3>
+                      <h3 className="text-lg font-medium">{t('importPage.smartSuggestionsTitle')}</h3>
                       <p className="text-sm text-muted-foreground mt-1 mb-4">
-                        Analyze your transaction patterns to discover rules that could save you time.
+                        {t('importPage.smartSuggestionsDescription')}
                       </p>
                       <Button variant="outline" onClick={handleGenerateSuggestions}>
                         <Lightbulb className="mr-2 h-4 w-4" />
-                        Generate Suggestions
+                        {t('importPage.generateSuggestions')}
                       </Button>
                     </CardContent>
                   </Card>
@@ -288,7 +290,7 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
         
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('common.close')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -308,10 +310,10 @@ export function ImportRulesManager({ open, onClose, importRows }: ImportRulesMan
       <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Rule?</DialogTitle>
+            <DialogTitle>{t('importPage.deleteRuleTitle')}</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground">
-            This action cannot be undone. The rule will be permanently deleted.
+            {t('importPage.deleteRuleDescription')}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
