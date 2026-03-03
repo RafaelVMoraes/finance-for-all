@@ -1,0 +1,1 @@
+ALTER TABLE public.categories ADD COLUMN icon text NOT NULL DEFAULT 'Tag';

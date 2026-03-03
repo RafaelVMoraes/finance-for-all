@@ -57,8 +57,8 @@ export type Database = {
           archived: boolean
           color: string
           created_at: string
-          id: string
           icon: string
+          id: string
           name: string
           type: Database["public"]["Enums"]["category_type"]
           updated_at: string
@@ -68,8 +68,8 @@ export type Database = {
           archived?: boolean
           color?: string
           created_at?: string
-          id?: string
           icon?: string
+          id?: string
           name: string
           type?: Database["public"]["Enums"]["category_type"]
           updated_at?: string
@@ -79,8 +79,8 @@ export type Database = {
           archived?: boolean
           color?: string
           created_at?: string
-          id?: string
           icon?: string
+          id?: string
           name?: string
           type?: Database["public"]["Enums"]["category_type"]
           updated_at?: string
@@ -288,21 +288,18 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          icon: string
           name: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          icon?: string
           name: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          icon?: string
           name?: string
           user_id?: string
         }
@@ -349,7 +346,6 @@ export type Database = {
           created_at: string
           icon: string
           id: string
-          icon: string
           name: string
           user_id: string
         }
@@ -358,7 +354,6 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
-          icon?: string
           name: string
           user_id: string
         }
@@ -367,7 +362,6 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
-          icon?: string
           name?: string
           user_id?: string
         }
