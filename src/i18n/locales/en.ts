@@ -1,0 +1,132 @@
+import { TranslationTree } from '../types';
+
+export const en: TranslationTree = {
+  common: {
+    appName: 'FinTrack',
+    loading: 'Loading...',
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    close: 'Close',
+  },
+  language: {
+    label: 'Language',
+    en: 'English',
+    fr: 'French',
+    pt: 'Portuguese',
+  },
+  nav: {
+    dashboard: 'Dashboard',
+    transactions: 'Transactions',
+    budget: 'Budget',
+    investments: 'Investments',
+    import: 'Import',
+    tutorials: 'Tutorials',
+    logout: 'Logout',
+    openNavigation: 'Open navigation',
+  },
+  auth: {
+    subtitle: 'Manage your finances with clarity',
+    login: 'Login',
+    signUp: 'Sign Up',
+    email: 'Email',
+    password: 'Password',
+    emailPlaceholder: 'you@example.com',
+    signIn: 'Sign In',
+    signingIn: 'Signing in...',
+    createAccount: 'Create Account',
+    creatingAccount: 'Creating account...',
+    errorTitle: 'Error',
+    welcomeBack: 'Welcome back!',
+    accountCreated: 'Account created!',
+    confirmEmail: 'Please check your email to confirm your account.',
+    redirecting: 'Redirecting to dashboard...',
+  },
+  pwa: {
+    updateAvailableTitle: 'Update available',
+    updateAvailableDescription: 'A new version is ready. Refresh now to get the latest improvements.',
+    refreshNow: 'Refresh now',
+    dismiss: 'Dismiss',
+    offline: 'You are offline. Some live data may be unavailable.',
+  },
+  notFound: {
+    title: 'Oops! Page not found',
+    returnHome: 'Return to Home',
+  },
+  protectedRoute: {
+    checkingSession: 'Checking session...',
+  },
+  deleteAccount: {
+    button: 'Delete account',
+    title: 'Delete account permanently?',
+    description: 'This action cannot be undone. We will permanently remove your account and all related data.',
+    consequencesTitle: 'This will permanently delete:',
+    consequenceTransactions: 'All transactions and imported files',
+    consequenceCategories: 'All categories and budgets',
+    consequenceInvestments: 'All investments and exchange settings',
+    consequenceRules: 'All import rules and mappings',
+    confirmLabel: 'Type {{text}} to confirm:',
+    placeholder: 'Type confirmation text',
+    cancel: 'Cancel',
+    confirm: 'Delete My Account',
+    deleting: 'Deleting...',
+    successTitle: 'Account deleted',
+    successDescription: 'All your data has been permanently removed.',
+    errorDescription: 'Failed to delete account. Please try again.',
+  },
+  tutorial: {
+    step: 'Step {{current}} / {{total}}',
+    next: 'Next',
+    finish: 'Finish',
+    skip: 'Skip tutorial',
+    sections: {
+      dashboard: 'Dashboard tutorial',
+      transactions: 'Transactions tutorial',
+      budget: 'Budget tutorial',
+      investment: 'Investments tutorial',
+      import: 'Import tutorial',
+    },
+    steps: {
+      'dashboard-view-toggle': {
+        title: 'Dashboard monthly and yearly views',
+        description: 'Switch between monthly and yearly analytics here. Use monthly for execution and yearly for trends.',
+      },
+      'dashboard-key-metrics': {
+        title: 'Core monthly indicators',
+        description: 'These cards summarize income, expenses, savings and budget balance for the selected period.',
+      },
+      'transaction-filters': {
+        title: 'Transaction filters',
+        description: 'Filter by category, status, date and amount to quickly isolate what you need.',
+      },
+      'budget-overview': {
+        title: 'Budget overview (view-only)',
+        description: 'This page is your read-only budget health view across fixed and variable expenses.',
+      },
+      'budget-category-edit-link': {
+        title: 'Edit categories and distribution rules',
+        description: 'Open categories to configure fixed/variable types, distribution mode, and planned values.',
+      },
+      'investment-main-currency': {
+        title: 'Main investment currency',
+        description: 'Set your base currency for consolidated portfolio totals and comparisons.',
+      },
+      'investment-types-and-assets': {
+        title: 'Types and assets',
+        description: 'Manage investment types and add assets to keep allocations and totals up to date.',
+      },
+      'import-source-template': {
+        title: 'Import source and template',
+        description: 'Choose a source and use your template-driven flow to speed up recurring imports.',
+      },
+      'import-mapping': {
+        title: 'Column and category mapping rules',
+        description: 'Map source columns and category behavior so imports are clean and predictable.',
+      },
+      'import-history': {
+        title: 'Import history management',
+        description: 'Track previous imports and review outcomes to maintain data quality over time.',
+      },
+    },
+  },
+};

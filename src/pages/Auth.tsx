@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/i18n/I18nProvider';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export default function Auth() {
   const { user, login, signup } = useAuthContext();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -33,15 +35,15 @@ export default function Auth() {
     if (result.error) {
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: t('auth.errorTitle'),
         description: result.error,
       });
     } else {
       toast({
-        title: action === 'login' ? 'Welcome back!' : 'Account created!',
+        title: action === 'login' ? t('auth.welcomeBack') : t('auth.accountCreated'),
         description: action === 'signup' 
-          ? 'Please check your email to confirm your account.' 
-          : 'Redirecting to dashboard...',
+          ? t('auth.confirmEmail') 
+          : t('auth.redirecting'),
       });
       if (action === 'login') {
         navigate('/dashboard');
@@ -55,31 +57,31 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">FinTrack</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t('common.appName')}</CardTitle>
           <CardDescription>
-            Manage your finances with clarity
+            {t('auth.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
+              <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
+                <Label htmlFor="login-email">{t('auth.email')}</Label>
                 <Input
                   id="login-email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
+                <Label htmlFor="login-password">{t('auth.password')}</Label>
                 <Input
                   id="login-password"
                   type="password"
@@ -92,23 +94,23 @@ export default function Auth() {
                 onClick={() => handleSubmit('login')}
                 disabled={loading}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? t('auth.signingIn') : t('auth.signIn')}
               </Button>
             </TabsContent>
             
             <TabsContent value="signup" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
+                <Label htmlFor="signup-email">{t('auth.email')}</Label>
                 <Input
                   id="signup-email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
+                <Label htmlFor="signup-password">{t('auth.password')}</Label>
                 <Input
                   id="signup-password"
                   type="password"
@@ -121,7 +123,7 @@ export default function Auth() {
                 onClick={() => handleSubmit('signup')}
                 disabled={loading}
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
             </TabsContent>
           </Tabs>

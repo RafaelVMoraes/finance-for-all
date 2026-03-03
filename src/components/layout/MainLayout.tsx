@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useI18n } from '@/i18n/I18nProvider';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const { t } = useI18n();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -34,7 +36,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <header className="sticky top-0 z-20 flex h-14 w-full items-center border-b border-border bg-background px-3">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Open navigation">
+                <Button variant="ghost" size="icon" aria-label={t('nav.openNavigation')}>
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -47,7 +49,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 />
               </SheetContent>
             </Sheet>
-            <h1 className="ml-2 truncate text-lg font-bold">FinTrack</h1>
+            <h1 className="ml-2 truncate text-lg font-bold">{t('common.appName')}</h1>
           </header>
           <main className="w-full overflow-x-hidden px-3 py-4">{children}</main>
         </div>

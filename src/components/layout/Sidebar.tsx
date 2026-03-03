@@ -18,13 +18,15 @@ import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 import { useTutorial } from '@/contexts/TutorialContext';
 import { tutorialSectionLabels } from '@/config/tutorialSteps';
 import { TutorialSection } from '@/types/tutorial';
+import { useI18n } from '@/i18n/I18nProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/transactions', label: 'Transactions', icon: Receipt },
-  { path: '/budget', label: 'Budget', icon: Target },
-  { path: '/investments', label: 'Investments', icon: TrendingUp },
-  { path: '/import', label: 'Import', icon: Upload },
+  { path: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { path: '/transactions', labelKey: 'nav.transactions', icon: Receipt },
+  { path: '/budget', labelKey: 'nav.budget', icon: Target },
+  { path: '/investments', labelKey: 'nav.investments', icon: TrendingUp },
+  { path: '/import', labelKey: 'nav.import', icon: Upload },
 ];
 
 const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budget', 'investment', 'import'];
@@ -40,6 +42,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
   const location = useLocation();
   const { logout, user } = useAuthContext();
   const { startSectionTutorial, mandatoryOnboarding } = useTutorial();
+  const { t } = useI18n();
 
   return (
     <aside
@@ -52,7 +55,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
         'flex h-16 items-center border-b border-border',
         collapsed ? 'justify-center px-2' : 'justify-between px-4'
       )}>
-        {!collapsed && <h1 className="text-xl font-bold text-foreground">FinTrack</h1>}
+        {!collapsed && <h1 className="text-xl font-bold text-foreground">{t('common.appName')}</h1>}
         {showCollapseToggle && (
           <Button
             variant="ghost"
@@ -85,7 +88,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && item.label}
+              {!collapsed && t(item.labelKey)}
             </Link>
           );
 
@@ -96,7 +99,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
                   {linkContent}
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  {item.label}
+                  {t(item.labelKey)}
                 </TooltipContent>
               </Tooltip>
             );
@@ -108,7 +111,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
         {!collapsed && (
           <div className="mt-4 rounded-lg border border-border p-2">
             <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-              <GraduationCap className="h-3.5 w-3.5" /> Tutorials
+              <GraduationCap className="h-3.5 w-3.5" /> {t('nav.tutorials')}
             </p>
             <div className="space-y-1">
               {tutorialSections.map((section) => (
@@ -119,13 +122,15 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
                   className="w-full justify-start text-xs"
                   onClick={() => startSectionTutorial(section)}
                 >
-                  {tutorialSectionLabels[section]}
+                  {t(tutorialSectionLabels[section])}
                 </Button>
               ))}
             </div>
           </div>
         )}
       </nav>
+
+      {!collapsed && <LanguageSwitcher />}
 
       <div className="border-t border-border p-2">
         {!collapsed && (
@@ -153,7 +158,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              Logout
+              {t('nav.logout')}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -164,7 +169,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
             onClick={logout}
           >
             <LogOut className="h-4 w-4" />
-            Logout
+            {t('nav.logout')}
           </Button>
         )}
       </div>
