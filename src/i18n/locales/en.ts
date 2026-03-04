@@ -24,6 +24,7 @@ export const en: TranslationTree = {
     tutorials: 'Tutorials',
     logout: 'Logout',
     openNavigation: 'Open navigation',
+    installOnIphone: 'Install on iPhone',
   },
   auth: {
     subtitle: 'Manage your finances with clarity',
@@ -58,6 +59,18 @@ export const en: TranslationTree = {
     passwordResetSuccessDescription: 'Your password has been reset successfully.',
     invalidResetLink: 'Invalid reset link',
     invalidResetLinkDescription: 'This link is invalid or has expired. Please request a new one.',
+  },
+
+  installApp: {
+    title: 'Install on your iPhone',
+    description: 'Follow these steps to add FinTrack to your home screen.',
+    steps: {
+      safari: 'Use Safari to open the app.',
+      menu: 'Tap the ... menu.',
+      share: 'Tap Share.',
+      addToHome: 'Scroll down and tap "Add to Home Screen".',
+      webApp: 'Allow it to open as a web app.',
+    },
   },
   pwa: {
     updateAvailableTitle: 'Update available',

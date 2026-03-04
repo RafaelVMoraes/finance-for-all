@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -20,6 +21,14 @@ import { tutorialSectionLabels } from '@/config/tutorialSteps';
 import { TutorialSection } from '@/types/tutorial';
 import { useI18n } from '@/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const navItems = [
   { path: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
@@ -127,6 +136,33 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
               ))}
             </div>
           </div>
+        )}
+
+        {!collapsed && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="mt-2 w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                <Smartphone className="h-4 w-4 shrink-0" />
+                {t('nav.installOnIphone')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('installApp.title')}</DialogTitle>
+                <DialogDescription>{t('installApp.description')}</DialogDescription>
+              </DialogHeader>
+              <ol className="list-decimal space-y-2 pl-5 text-sm text-foreground">
+                <li>{t('installApp.steps.safari')}</li>
+                <li>{t('installApp.steps.menu')}</li>
+                <li>{t('installApp.steps.share')}</li>
+                <li>{t('installApp.steps.addToHome')}</li>
+                <li>{t('installApp.steps.webApp')}</li>
+              </ol>
+            </DialogContent>
+          </Dialog>
         )}
       </nav>
 

@@ -24,6 +24,7 @@ export const pt: TranslationTree = {
     tutorials: 'Tutoriais',
     logout: 'Sair',
     openNavigation: 'Abrir navegação',
+    installOnIphone: 'Instalar no iPhone',
   },
   auth: {
     subtitle: 'Gerencie suas finanças com clareza',
@@ -58,6 +59,18 @@ export const pt: TranslationTree = {
     passwordResetSuccessDescription: 'Sua senha foi redefinida com sucesso.',
     invalidResetLink: 'Link inválido',
     invalidResetLinkDescription: 'Este link é inválido ou expirou. Solicite um novo.',
+  },
+
+  installApp: {
+    title: 'Instalar no seu iPhone',
+    description: 'Siga estes passos para adicionar o FinTrack à tela inicial.',
+    steps: {
+      safari: 'Use o Safari para abrir o app.',
+      menu: 'Toque no menu ...',
+      share: 'Toque em Compartilhar.',
+      addToHome: 'Role para baixo e toque em "Adicionar à Tela de Início".',
+      webApp: 'Permita abrir como aplicativo web.',
+    },
   },
   pwa: {
     updateAvailableTitle: 'Atualização disponível',
