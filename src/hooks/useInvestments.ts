@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 export interface Investment {
   id: string;
@@ -64,7 +65,7 @@ export function useInvestments() {
       .order('name');
 
     if (error) {
-      console.error('Error fetching investments:', error);
+      logClientError('[INVESTMENTS_FETCH_ERR]', error);
     } else {
       setInvestments(data || []);
       

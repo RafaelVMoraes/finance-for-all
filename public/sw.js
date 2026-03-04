@@ -1,7 +1,6 @@
-const SW_VERSION = "v1.0.0";
+const SW_VERSION = "v1.1.0";
 const APP_SHELL_CACHE = `app-shell-${SW_VERSION}`;
 const ASSET_CACHE = `assets-${SW_VERSION}`;
-const API_CACHE = `api-${SW_VERSION}`;
 
 const APP_SHELL_FILES = [
   "/",
@@ -24,7 +23,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => ![APP_SHELL_CACHE, ASSET_CACHE, API_CACHE].includes(key))
+          .filter((key) => ![APP_SHELL_CACHE, ASSET_CACHE].includes(key))
           .map((key) => caches.delete(key))
       )
     )
@@ -46,8 +45,9 @@ const isStaticAsset = ({ request, url }) =>
   url.origin === self.location.origin &&
   ["style", "script", "font", "image"].includes(request.destination);
 
-const isApiRequest = ({ request, url }) => {
+const isSensitiveApiRequest = ({ request, url }) => {
   if (request.method !== "GET") return false;
+
   return (
     url.pathname.startsWith("/api/") ||
     url.pathname.includes("/rest/v1/") ||
@@ -71,41 +71,25 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isSensitiveApiRequest({ request, url })) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (isStaticAsset({ request, url })) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
+          if (response.headers.get("Cache-Control")?.includes("no-store")) {
+            return response;
+          }
+
           const cloned = response.clone();
           caches.open(ASSET_CACHE).then((cache) => cache.put(request, cloned));
           return response;
         });
       })
-    );
-    return;
-  }
-
-  if (isApiRequest({ request, url })) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const cloned = response.clone();
-          caches.open(API_CACHE).then((cache) => cache.put(request, cloned));
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          return new Response(
-            JSON.stringify({
-              message: "Offline and no cached data available.",
-            }),
-            {
-              status: 503,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        })
     );
   }
 });

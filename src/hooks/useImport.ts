@@ -8,6 +8,7 @@ import { ImportRule, DuplicateAction } from '@/types/importRules';
 import { batchEvaluateRules } from '@/lib/ruleEngine';
 import { extractPdfText } from '@/services/pdf.service';
 import { parseTransactionsFromText } from '@/services/parsing.service';
+import { logClientError } from '@/lib/logger';
 
 export interface ImportRow {
   date: string;
@@ -565,7 +566,7 @@ export function useImport() {
       .order('imported_at', { ascending: false });
     
     if (error) {
-      console.error('[IMPORT_BATCH_ERR]', error?.code || 'Unknown');
+      logClientError('[IMPORT_BATCH_ERR]', error);
     } else {
       setImportBatches((data || []) as ImportBatch[]);
     }

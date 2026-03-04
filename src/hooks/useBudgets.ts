@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { startOfMonth, format } from 'date-fns';
+import { logClientError } from '@/lib/logger';
 
 export interface Budget {
   id: string;
@@ -80,7 +81,7 @@ export function useBudgets(options?: UseBudgetsOptions) {
       .eq('user_id', user.id);
 
     if (budgetsError) {
-      console.error('Error fetching budgets:', budgetsError);
+      logClientError('[BUDGETS_FETCH_ERR]', budgetsError);
     } else {
       setBudgets((budgetsData || []) as Budget[]);
     }

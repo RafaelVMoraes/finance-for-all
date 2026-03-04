@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 export interface ImportSource {
   id: string;
@@ -25,7 +26,7 @@ export function useImportSources() {
       .order('name');
     
     if (error) {
-      console.error('Error fetching import sources:', error);
+      logClientError('[IMPORT_SOURCES_FETCH_ERR]', error);
     } else {
       setSources(data || []);
     }

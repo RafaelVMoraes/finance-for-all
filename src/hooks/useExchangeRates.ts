@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { format, startOfMonth } from 'date-fns';
+import { logClientError } from '@/lib/logger';
 
 export type Currency = 'EUR' | 'USD' | 'BRL';
 
@@ -32,7 +33,7 @@ export function useExchangeRates() {
       .order('month', { ascending: false });
 
     if (error) {
-      console.error('Error fetching exchange rates:', error);
+      logClientError('[EXCHANGE_RATES_FETCH_ERR]', error);
     } else {
       setRates((data || []) as unknown as ExchangeRate[]);
     }

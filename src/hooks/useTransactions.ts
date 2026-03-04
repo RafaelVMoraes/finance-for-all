@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { startOfMonth, endOfMonth, format, isBefore } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
+import { logClientError } from '@/lib/logger';
 
 export interface Transaction {
   id: string;
@@ -156,7 +157,7 @@ export function useTransactions(filters?: TransactionFilters) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('[TX_FETCH_ERR]', error?.code || 'Unknown');
+      logClientError('[TX_FETCH_ERR]', error);
       setLoading(false);
       isLoadingMoreRef.current = false;
       return;

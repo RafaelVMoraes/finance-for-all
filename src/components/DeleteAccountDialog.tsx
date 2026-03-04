@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n/I18nProvider';
+import { logClientError } from '@/lib/logger';
 
 
 export function DeleteAccountDialog() {
@@ -33,73 +34,23 @@ export function DeleteAccountDialog() {
 
   const handleDelete = async () => {
     if (!user || !isConfirmed) return;
-    
+
     setLoading(true);
-    
+
     try {
-      // Delete all user data in order (respecting foreign keys)
-      // Note: monthly_category_summary and monthly_totals are trigger-managed
-      // and will be cleaned up when transactions are deleted
-      
-      // 1. Delete investment snapshots (via investments)
-      const { data: investments } = await supabase
-        .from('investments')
-        .select('id')
-        .eq('user_id', user.id);
-      
-      if (investments && investments.length > 0) {
-        const investmentIds = investments.map(i => i.id);
-        await supabase
-          .from('investment_snapshots')
-          .delete()
-          .in('investment_id', investmentIds);
+      const { error } = await supabase.functions.invoke('delete-account');
+      if (error) {
+        throw error;
       }
-      
-      // 3. Delete investments
-      await supabase.from('investments').delete().eq('user_id', user.id);
-      
-      // 4. Delete investment types
-      await supabase.from('investment_types').delete().eq('user_id', user.id);
-      
-      // 5. Delete transactions
-      await supabase.from('transactions').delete().eq('user_id', user.id);
-      
-      // 6. Delete import rule matches and rules
-      await supabase.from('import_rule_matches').delete().eq('user_id', user.id);
-      await supabase.from('import_rules').delete().eq('user_id', user.id);
-      
-      // 7. Delete import batches and sources
-      await supabase.from('import_batches').delete().eq('user_id', user.id);
-      await supabase.from('import_sources').delete().eq('user_id', user.id);
-      
-      // 8. Delete budgets
-      await supabase.from('budgets').delete().eq('user_id', user.id);
-      
-      // 9. Delete monthly settings
-      await supabase.from('monthly_settings').delete().eq('user_id', user.id);
-      
-      // 10. Delete exchange rates
-      await supabase.from('exchange_rates').delete().eq('user_id', user.id);
-      
-      // 11. Delete categories
-      await supabase.from('categories').delete().eq('user_id', user.id);
-      
-      // 12. Delete user settings
-      await supabase.from('user_settings').delete().eq('user_id', user.id);
-      
-      // 13. Delete profile
-      await supabase.from('profiles').delete().eq('id', user.id);
-      
+
       toast({
         title: t('deleteAccount.successTitle'),
         description: t('deleteAccount.successDescription'),
       });
-      
-      // Logout after deletion
+
       await logout();
-      
     } catch (error) {
-      console.error('[ACCOUNT_DELETE_ERR]', error instanceof Error ? error.message : 'Unknown error');
+      logClientError('[ACCOUNT_DELETE_ERR]', error);
       toast({
         variant: 'destructive',
         title: t('auth.errorTitle'),
