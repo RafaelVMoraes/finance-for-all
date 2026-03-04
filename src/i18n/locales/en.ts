@@ -186,7 +186,7 @@ export const en: TranslationTree = {
     uploadClarification: 'Upload any table you want or use our template. We can map columns for you.',
     allowedDatesNote: 'Note: Only transactions from {{date}} onwards are allowed.',
     dropFile: 'Drop your file here or click to browse',
-    supportedFiles: 'Supports .csv, .txt, .xlsx, and .xls files',
+    supportedFiles: 'Supports .csv, .txt, .xlsx, .xls and some structured.pdf files',
     noImportsYet: 'No imports yet',
     importDate: 'Import Date',
     dateRange: 'Date Range',
@@ -208,8 +208,9 @@ export const en: TranslationTree = {
   investments: {
     title: 'Investments',
     loading: 'Loading investments...',
-    manageTypes: 'Manage Types',
-    addAsset: 'Add Asset',
+    manageTypes: 'Types',
+    addAsset: 'Add',
+    rate: 'Rate',
     summary: {
       totalNetWorth: 'Total Net Worth',
     },

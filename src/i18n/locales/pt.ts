@@ -186,7 +186,7 @@ export const pt: TranslationTree = {
     uploadClarification: 'Envie qualquer tabela que desejar ou use nosso modelo. Podemos mapear as colunas para você.',
     allowedDatesNote: 'Nota: Apenas transações a partir de {{date}} são permitidas.',
     dropFile: 'Solte seu arquivo aqui ou clique para procurar',
-    supportedFiles: 'Suporta arquivos .csv, .txt, .xlsx e .xls',
+    supportedFiles: 'Suporta arquivos .csv, .txt, .xlsx, .xls e alguns arquivos .pdf estruturados',
     noImportsYet: 'Nenhuma importação ainda',
     importDate: 'Data da importação',
     dateRange: 'Intervalo de datas',
@@ -208,8 +208,9 @@ export const pt: TranslationTree = {
   investments: {
     title: 'Investimentos',
     loading: 'Carregando investimentos...',
-    manageTypes: 'Gerenciar tipos',
-    addAsset: 'Adicionar ativo',
+    manageTypes: 'tipos',
+    addAsset: 'Adicionar',
+    rate: 'Taxa',
     summary: {
       totalNetWorth: 'Patrimônio total',
     },

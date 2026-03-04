@@ -371,8 +371,7 @@ export default function Investments() {
           </Select>
           <Dialog open={isRatesDialogOpen} onOpenChange={setIsRatesDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-full sm:h-10 sm:w-10">
-                <Settings className="h-4 w-4" />
+              <Button variant="outline" className="h-10 min-w-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm">{t('investments.rate')}
               </Button>
             </DialogTrigger>
             <DialogContent>
