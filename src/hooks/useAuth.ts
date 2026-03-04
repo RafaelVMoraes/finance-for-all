@@ -41,12 +41,11 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
+  const login = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ error?: string }> => {
     if (!email || !password) {
       return { error: 'Email and password are required' };
     }
     
-    // Validate email format
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
       return { error: emailResult.error.errors[0].message };
@@ -55,6 +54,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithPassword({
       email: emailResult.data,
       password,
+      options: { captchaToken },
     });
 
     if (error) {
@@ -64,18 +64,16 @@ export function useAuth() {
     return {};
   }, []);
 
-  const signup = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
+  const signup = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ error?: string }> => {
     if (!email || !password) {
       return { error: 'Email and password are required' };
     }
     
-    // Validate email format
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
       return { error: emailResult.error.errors[0].message };
     }
     
-    // Validate password strength
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
       return { error: passwordResult.error.errors[0].message };
@@ -88,6 +86,7 @@ export function useAuth() {
       password,
       options: {
         emailRedirectTo: redirectUrl,
+        captchaToken,
       },
     });
 
