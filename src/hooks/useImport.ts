@@ -4,8 +4,10 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { parse, isValid, format, isBefore } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
-import { ImportRule, RuleMatchResult, DuplicateAction } from '@/types/importRules';
+import { ImportRule, DuplicateAction } from '@/types/importRules';
 import { batchEvaluateRules } from '@/lib/ruleEngine';
+import { extractPdfText } from '@/services/pdf.service';
+import { parseTransactionsFromText } from '@/services/parsing.service';
 
 export interface ImportRow {
   date: string;
@@ -167,6 +169,23 @@ async function readSheetRows(file: File): Promise<unknown[][]> {
   return XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 }
 
+async function readPdfRows(file: File): Promise<ImportRow[]> {
+  const rawText = await extractPdfText(file);
+  const transactions = parseTransactionsFromText(rawText);
+
+  if (transactions.length === 0) {
+    throw new Error('Unable to detect transactions in this PDF');
+  }
+
+  return transactions.map((transaction) => ({
+    date: transaction.date,
+    label: sanitizeLabel(transaction.description),
+    value: transaction.amount,
+    isValid: Boolean(transaction.date) && !Number.isNaN(transaction.amount),
+    errors: [],
+  }));
+}
+
 export interface ColumnIndices {
   dateIdx: number;
   labelIdx: number;
@@ -192,6 +211,11 @@ export function useImport() {
     }
 
     try {
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith('.pdf')) {
+        throw new Error('PDF files do not support column mapping');
+      }
+
       const jsonData = await readSheetRows(file);
 
       if (jsonData.length < 2) {
@@ -211,6 +235,13 @@ export function useImport() {
   }, []);
 
   const parseFile = useCallback(async (file: File, columnIndices?: ColumnIndices): Promise<ParsedImportData> => {
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.pdf')) {
+      const rows = await readPdfRows(file);
+      const hasErrors = rows.some(r => !r.isValid);
+      return { rows, hasErrors, hasDuplicates: false, hasDuplicatesInFile: false };
+    }
+
     const { headers, jsonData } = await readFileRaw(file);
 
     let dateIdx: number, labelIdx: number, valueIdx: number, categoryIdx: number;

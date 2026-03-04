@@ -75,6 +75,7 @@ export default function Import() {
   const [showNewSource, setShowNewSource] = useState(false);
   const [showRulesManager, setShowRulesManager] = useState(false);
   const [rulesApplied, setRulesApplied] = useState(false);
+  const [processingState, setProcessingState] = useState<string | null>(null);
   
   // Column mapping state
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -196,6 +197,7 @@ export default function Import() {
       setSelectedRows(validIndices);
       setStep('validation');
     } catch (err) {
+      setProcessingState(null);
       toast({
         variant: 'destructive',
         title: 'Failed to parse file',
@@ -210,11 +212,11 @@ export default function Import() {
     if (!selectedFile) return;
     
     const fileName = selectedFile.name.toLowerCase();
-    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv') && !fileName.endsWith('.txt') && !fileName.endsWith('.pdf')) {
       toast({
         variant: 'destructive',
         title: 'Invalid file type',
-        description: 'Please upload a supported file (.xlsx, .xls, .csv, or .txt)',
+        description: 'Please upload a supported file (.xlsx, .xls, .csv, .txt, or .pdf)',
       });
       return;
     }
@@ -223,6 +225,51 @@ export default function Import() {
     setPendingFile(selectedFile);
     
     try {
+      if (fileName.endsWith('.pdf')) {
+        setProcessingState('Processing PDF...');
+        const result = await parseFile(selectedFile);
+        setProcessingState('Parsing transactions...');
+        const withDuplicates = await checkDuplicates(result.rows);
+
+        const enabledRules = rules.filter(r => r.enabled);
+        const processedRows = enabledRules.length > 0
+          ? applyRules(withDuplicates, enabledRules, categoryIdToName)
+          : withDuplicates;
+
+        setParsedData(processedRows);
+        setEditableData(processedRows);
+
+        const validIndices = new Set(
+          processedRows
+            .map((row, idx) => (
+              row.isValid &&
+              !row.autoRejected &&
+              (!row.isDuplicate || row.autoAccepted) &&
+              !row.isDuplicateInFile
+                ? idx
+                : -1
+            ))
+            .filter(idx => idx >= 0)
+        );
+
+        setSelectedRows(validIndices);
+        setStep('validation');
+        setProcessingState(null);
+
+        if (result.rows.length === 0) {
+          throw new Error('Unable to detect transactions in this PDF');
+        }
+
+        if (result.hasErrors) {
+          toast({
+            title: 'PDF partially parsed',
+            description: 'Some lines could not be parsed and were skipped.',
+          });
+        }
+
+        return;
+      }
+
       const raw = await readFileRaw(selectedFile);
       setRawFileData(raw);
 
@@ -266,13 +313,14 @@ export default function Import() {
       setColumnMapping(detected);
       setStep('column-mapping');
     } catch (err) {
+      setProcessingState(null);
       toast({
         variant: 'destructive',
         title: 'Failed to read file',
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, [readFileRaw, getMapping, selectedSourceId, processFileWithMapping, toast]);
+  }, [readFileRaw, getMapping, selectedSourceId, processFileWithMapping, parseFile, checkDuplicates, rules, applyRules, categoryIdToName, toast]);
 
   const handleColumnMappingConfirm = useCallback(async (mapping: ColumnMapping, saveForSource: boolean) => {
     if (!pendingFile) return;
@@ -388,6 +436,7 @@ export default function Import() {
     setPendingFile(null);
     setRawFileData(null);
     setColumnMapping({ date: null, label: null, value: null, category: null });
+    setProcessingState(null);
     setStep('upload');
   };
 
@@ -515,6 +564,10 @@ export default function Import() {
               )}
             </div>
 
+
+            {processingState && (
+              <p className="text-sm font-medium text-primary">{processingState}</p>
+            )}
             <label 
               htmlFor="file-upload"
               className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/50 p-12 transition-colors hover:border-primary hover:bg-muted"
@@ -522,7 +575,7 @@ export default function Import() {
               <Upload className="mb-4 h-12 w-12 text-muted-foreground" />
               <span className="mb-2 text-lg font-medium">{t('importPage.dropFile')}</span>
               <span className="text-sm text-muted-foreground">{t('importPage.supportedFiles')}</span>
-              <input id="file-upload" type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain" onChange={handleFileChange} className="hidden" />
+              <input id="file-upload" type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,text/plain,application/pdf" onChange={handleFileChange} className="hidden" />
             </label>
           </CardContent>
         </Card>
