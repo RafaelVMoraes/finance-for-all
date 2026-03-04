@@ -131,9 +131,6 @@ export default function Budget() {
             }}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm sm:w-auto"
           />
-          <Badge variant="outline" className="text-sm">
-            {format(selectedMonth, "MMMM yyyy")}
-          </Badge>
         </div>
       </div>
 
