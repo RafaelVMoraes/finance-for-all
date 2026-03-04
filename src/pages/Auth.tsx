@@ -40,6 +40,15 @@ function HCaptchaWidget({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | number>();
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  }, [onVerify, onExpire, onError]);
 
   useEffect(() => {
     if (!siteKey || !containerRef.current) {
@@ -57,9 +66,9 @@ function HCaptchaWidget({
 
       widgetIdRef.current = window.hcaptcha.render(containerRef.current, {
         sitekey: siteKey,
-        callback: onVerify,
-        'expired-callback': onExpire,
-        'error-callback': onError,
+        callback: (token: string) => onVerifyRef.current(token),
+        'expired-callback': () => onExpireRef.current(),
+        'error-callback': () => onErrorRef.current(),
       });
     };
 
@@ -75,7 +84,7 @@ function HCaptchaWidget({
     script.defer = true;
     script.dataset.hcaptchaScript = 'true';
     script.onload = renderWidget;
-    script.onerror = onError;
+    script.onerror = () => onErrorRef.current();
     document.body.appendChild(script);
 
     return () => {
@@ -83,7 +92,7 @@ function HCaptchaWidget({
         window.hcaptcha.remove(widgetIdRef.current);
       }
     };
-  }, [siteKey, onVerify, onExpire, onError]);
+  }, [siteKey]);
 
   return <div className="hcaptcha-container" ref={containerRef} />;
 }
@@ -115,6 +124,14 @@ export default function Auth() {
       description: 'Captcha failed to load. Please refresh and try again.',
     });
   }, [t, toast]);
+
+  const handleCaptchaVerify = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
+
+  const handleCaptchaExpire = useCallback(() => {
+    setCaptchaToken(undefined);
+  }, []);
 
   const handleForgotPassword = async () => {
     if (!email) {
@@ -189,8 +206,8 @@ export default function Auth() {
         <HCaptchaWidget
           key={`${id}-${captchaResetKey}`}
           siteKey={HCAPTCHA_SITEKEY}
-          onVerify={(token) => setCaptchaToken(token)}
-          onExpire={() => setCaptchaToken(undefined)}
+          onVerify={handleCaptchaVerify}
+          onExpire={handleCaptchaExpire}
           onError={handleCaptchaError}
         />
       ) : (
