@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,26 @@ export default function Auth() {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  const [forgotMode, setForgotMode] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({ variant: 'destructive', title: t('auth.errorTitle'), description: t('auth.emailRequired') });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      toast({ variant: 'destructive', title: t('auth.errorTitle'), description: error.message });
+    } else {
+      toast({ title: t('auth.resetEmailSent'), description: t('auth.resetEmailSentDescription') });
+      setForgotMode(false);
+    }
+    setLoading(false);
+  };
 
   const handleSubmit = async (action: 'login' | 'signup') => {
     setLoading(true);
@@ -89,13 +110,25 @@ export default function Auth() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <Button 
-                className="w-full" 
-                onClick={() => handleSubmit('login')}
-                disabled={loading}
-              >
-                {loading ? t('auth.signingIn') : t('auth.signIn')}
-              </Button>
+              {forgotMode ? (
+                <>
+                  <Button className="w-full" onClick={handleForgotPassword} disabled={loading}>
+                    {loading ? t('common.loading') : t('auth.sendResetLink')}
+                  </Button>
+                  <Button variant="ghost" className="w-full" onClick={() => setForgotMode(false)}>
+                    {t('auth.backToLogin')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className="w-full" onClick={() => handleSubmit('login')} disabled={loading}>
+                    {loading ? t('auth.signingIn') : t('auth.signIn')}
+                  </Button>
+                  <Button variant="link" className="w-full" onClick={() => setForgotMode(true)}>
+                    {t('auth.forgotPassword')}
+                  </Button>
+                </>
+              )}
             </TabsContent>
             
             <TabsContent value="signup" className="space-y-4">

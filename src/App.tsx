@@ -19,6 +19,7 @@ const Categories = lazy(() => import("./pages/Categories"));
 const Budget = lazy(() => import("./pages/Budget"));
 const Investments = lazy(() => import("./pages/Investments"));
 const Import = lazy(() => import("./pages/Import"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -37,7 +38,7 @@ const AppContent = () => {
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
       || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
-    const isStandalone = window.navigator.standalone === true;
+    const isStandalone = (window.navigator as any).standalone === true;
 
     document.documentElement.dataset.iosStandalone = isIOS && isStandalone ? "true" : "false";
   }, []);
@@ -55,6 +56,7 @@ const AppContent = () => {
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route
                     path="/dashboard"
                     element={
