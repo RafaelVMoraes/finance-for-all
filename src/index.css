@@ -14,6 +14,10 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --app-safe-area-top: 0px;
+    --app-safe-area-bottom: 0px;
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
 
@@ -154,6 +158,11 @@ All colors MUST be HSL.
     --font-serif: Lora, ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
     --font-mono: "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   }
+
+  :root[data-ios-standalone="true"] {
+    --app-safe-area-top: var(--safe-area-inset-top);
+    --app-safe-area-bottom: var(--safe-area-inset-bottom);
+  }
 }
 
 @layer base {
@@ -167,5 +176,11 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    padding-top: var(--app-safe-area-top);
+    padding-bottom: var(--app-safe-area-bottom);
+  }
+
+  #root {
+    min-height: calc(100vh - var(--app-safe-area-top));
   }
 }
