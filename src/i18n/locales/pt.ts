@@ -166,7 +166,7 @@ export const pt: TranslationTree = {
     noSource: 'Sem fonte',
     addSource: 'Adicionar fonte',
     downloadTemplate: 'Baixar modelo',
-    uploadClarification: 'Envie um arquivo .csv, .xlsx ou .xls com suas transações. Detectamos automaticamente CSV com vírgulas/ponto e vírgula e mapeamos as colunas para você.',
+    uploadClarification: 'Envie qualquer tabela que desejar ou use nosso modelo. Podemos mapear as colunas para você.',
     allowedDatesNote: 'Nota: Apenas transações a partir de {{date}} são permitidas.',
     dropFile: 'Solte seu arquivo aqui ou clique para procurar',
     supportedFiles: 'Suporta arquivos .csv, .txt, .xlsx e .xls',

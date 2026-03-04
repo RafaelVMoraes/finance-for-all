@@ -166,7 +166,7 @@ export const en: TranslationTree = {
     noSource: 'No source',
     addSource: 'Add Source',
     downloadTemplate: 'Download Template',
-    uploadClarification: 'Upload a .csv, .xlsx, or .xls file with your transactions. We can auto-detect comma/semicolon CSV and map columns for you.',
+    uploadClarification: 'Upload any table you want or use our template. We can map columns for you.',
     allowedDatesNote: 'Note: Only transactions from {{date}} onwards are allowed.',
     dropFile: 'Drop your file here or click to browse',
     supportedFiles: 'Supports .csv, .txt, .xlsx, and .xls files',

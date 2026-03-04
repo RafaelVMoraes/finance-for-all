@@ -154,7 +154,7 @@ export const fr: TranslationTree = {
     noSource: 'Aucune source',
     addSource: 'Ajouter une source',
     downloadTemplate: 'Télécharger le modèle',
-    uploadClarification: 'Téléversez un fichier .csv, .xlsx ou .xls avec vos transactions. Nous pouvons détecter automatiquement la virgule/le point-virgule et mapper les colonnes pour vous.',
+    uploadClarification: 'Téléversez n\'importe quel tableau que vous voulez ou utilisez notre modèle. Nous pouvons mapper les colonnes pour vous.',
     allowedDatesNote: 'Note : Seules les transactions à partir du {{date}} sont autorisées.',
     dropFile: 'Déposez votre fichier ici ou cliquez pour parcourir',
     supportedFiles: 'Prend en charge les fichiers .csv, .txt, .xlsx, et .xls',
