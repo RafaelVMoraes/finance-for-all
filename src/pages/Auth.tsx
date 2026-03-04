@@ -12,8 +12,6 @@ import { useI18n } from '@/i18n/I18nProvider';
 
 const HCAPTCHA_SITEKEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY;
 
-let hcaptchaScriptPromise: Promise<void> | null = null;
-
 declare global {
   interface Window {
     hcaptcha?: {
@@ -23,47 +21,10 @@ declare global {
         'expired-callback': () => void;
         'error-callback': () => void;
       }) => string | number;
+      reset: (widgetId?: string | number) => void;
       remove: (widgetId: string | number) => void;
     };
   }
-}
-
-function loadHcaptchaScript() {
-  if (window.hcaptcha) {
-    return Promise.resolve();
-  }
-
-  if (hcaptchaScriptPromise) {
-    return hcaptchaScriptPromise;
-  }
-
-  hcaptchaScriptPromise = new Promise<void>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-hcaptcha-script="true"]');
-
-    if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Failed to load hCaptcha script')), { once: true });
-
-      if (window.hcaptcha) {
-        resolve();
-      }
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    script.dataset.hcaptchaScript = 'true';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load hCaptcha script'));
-    document.body.appendChild(script);
-  }).catch((error) => {
-    hcaptchaScriptPromise = null;
-    throw error;
-  });
-
-  return hcaptchaScriptPromise;
 }
 
 function HCaptchaWidget({
@@ -81,37 +42,43 @@ function HCaptchaWidget({
   const widgetIdRef = useRef<string | number>();
 
   useEffect(() => {
-    let active = true;
+    if (!siteKey || !containerRef.current) {
+      return;
+    }
 
-    const renderWidget = async () => {
-      if (!siteKey || !containerRef.current) {
+    const renderWidget = () => {
+      if (!containerRef.current || !window.hcaptcha) {
         return;
       }
 
-      try {
-        await loadHcaptchaScript();
-
-        if (!active || !containerRef.current || !window.hcaptcha) {
-          return;
-        }
-
-        widgetIdRef.current = window.hcaptcha.render(containerRef.current, {
-          sitekey: siteKey,
-          callback: onVerify,
-          'expired-callback': onExpire,
-          'error-callback': onError,
-        });
-      } catch {
-        if (active) {
-          onError();
-        }
+      if (widgetIdRef.current !== undefined) {
+        window.hcaptcha.remove(widgetIdRef.current);
       }
+
+      widgetIdRef.current = window.hcaptcha.render(containerRef.current, {
+        sitekey: siteKey,
+        callback: onVerify,
+        'expired-callback': onExpire,
+        'error-callback': onError,
+      });
     };
 
-    renderWidget();
+    const existingScript = document.querySelector('script[data-hcaptcha-script="true"]');
+    if (existingScript) {
+      renderWidget();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.dataset.hcaptchaScript = 'true';
+    script.onload = renderWidget;
+    script.onerror = onError;
+    document.body.appendChild(script);
 
     return () => {
-      active = false;
       if (widgetIdRef.current !== undefined && window.hcaptcha) {
         window.hcaptcha.remove(widgetIdRef.current);
       }
