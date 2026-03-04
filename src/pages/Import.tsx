@@ -81,6 +81,7 @@ export default function Import() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [rawFileData, setRawFileData] = useState<RawFileData | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({ date: null, label: null, value: null, category: null });
+  const [hasHeaders, setHasHeaders] = useState(true);
   
   const { toast } = useToast();
   const { 
@@ -144,16 +145,19 @@ export default function Import() {
   }, [sortedEditableData, editableData]);
 
   /** Process file after column mapping is confirmed */
-  const processFileWithMapping = useCallback(async (file: File, mapping: ColumnMapping) => {
+  const processFileWithMapping = useCallback(async (file: File, mapping: ColumnMapping, headersPresent = true) => {
     try {
       const raw = rawFileData || await readFileRaw(file);
-      const rawHeaders = raw.rawHeaders;
-      
+      const rawHeaders = headersPresent
+        ? raw.rawHeaders
+        : Array.from({ length: Math.max(...raw.jsonData.map((row) => row.length), 0) }, (_, i) => `Column ${i + 1}`);
+
       const columnIndices: ColumnIndices = {
         dateIdx: mapping.date ? rawHeaders.findIndex(h => h === mapping.date) : -1,
         labelIdx: mapping.label ? rawHeaders.findIndex(h => h === mapping.label) : -1,
         valueIdx: mapping.value ? rawHeaders.findIndex(h => h === mapping.value) : -1,
         categoryIdx: mapping.category ? rawHeaders.findIndex(h => h === mapping.category) : -1,
+        dataStartRow: headersPresent ? 1 : 0,
       };
 
       if (columnIndices.dateIdx === -1 || columnIndices.labelIdx === -1 || columnIndices.valueIdx === -1) {
@@ -287,7 +291,7 @@ export default function Import() {
           if (allExist) {
             // Use saved mapping directly
             toast({ title: 'Using saved column mapping', description: `Mapping from source loaded automatically` });
-            await processFileWithMapping(selectedFile, savedMapping);
+            await processFileWithMapping(selectedFile, savedMapping, true);
             return;
           }
         }
@@ -310,6 +314,7 @@ export default function Import() {
       // Non-template: auto-detect and show mapping dialog
       const sampleRows = raw.jsonData.slice(1, 11);
       const detected = detectColumnMapping(raw.rawHeaders, sampleRows);
+      setHasHeaders(true);
       setColumnMapping(detected);
       setStep('column-mapping');
     } catch (err) {
@@ -330,13 +335,14 @@ export default function Import() {
       toast({ title: 'Column mapping saved', description: 'Will be used automatically for future imports from this source.' });
     }
     
-    await processFileWithMapping(pendingFile, mapping);
-  }, [pendingFile, selectedSourceId, saveMapping, processFileWithMapping, toast]);
+    await processFileWithMapping(pendingFile, mapping, hasHeaders);
+  }, [pendingFile, selectedSourceId, saveMapping, processFileWithMapping, toast, hasHeaders]);
 
   const handleColumnMappingCancel = useCallback(() => {
     setPendingFile(null);
     setRawFileData(null);
     setColumnMapping({ date: null, label: null, value: null, category: null });
+    setHasHeaders(true);
     setStep('upload');
   }, []);
 
@@ -585,10 +591,33 @@ export default function Import() {
       {step === 'column-mapping' && rawFileData && (
         <ColumnMappingDialog
           open={true}
+          hasHeaders={hasHeaders}
+          onHasHeadersChange={(value) => {
+            setHasHeaders(value);
+            if (!rawFileData) return;
+            if (value) {
+              const sampleRows = rawFileData.jsonData.slice(1, 11);
+              setColumnMapping(detectColumnMapping(rawFileData.rawHeaders, sampleRows));
+            } else {
+              const generatedHeaders = Array.from(
+                { length: Math.max(...rawFileData.jsonData.map((row) => row.length), 0) },
+                (_, i) => `Column ${i + 1}`,
+              );
+              const sampleRows = rawFileData.jsonData.slice(0, 10);
+              setColumnMapping(detectColumnMapping(generatedHeaders, sampleRows));
+            }
+          }}
           onConfirm={handleColumnMappingConfirm}
           onCancel={handleColumnMappingCancel}
-          headers={rawFileData.rawHeaders}
-          sampleRows={rawFileData.jsonData.slice(1, 11)}
+          headers={
+            hasHeaders
+              ? rawFileData.rawHeaders
+              : Array.from(
+                  { length: Math.max(...rawFileData.jsonData.map((row) => row.length), 0) },
+                  (_, i) => `Column ${i + 1}`,
+                )
+          }
+          sampleRows={hasHeaders ? rawFileData.jsonData.slice(1, 11) : rawFileData.jsonData.slice(0, 10)}
           mapping={columnMapping}
           onMappingChange={setColumnMapping}
           sourceName={sources.find(s => s.id === selectedSourceId)?.name}

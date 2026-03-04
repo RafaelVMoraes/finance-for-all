@@ -17,8 +17,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { 
   Plus, 
   TrendingUp, 
@@ -29,8 +29,6 @@ import {
   Trash2, 
   Check, 
   X,
-  ChevronLeft,
-  ChevronRight,
   AlertCircle,
   Settings
 } from 'lucide-react';
@@ -39,7 +37,7 @@ import { useInvestmentTypes, InvestmentType } from '@/hooks/useInvestmentTypes';
 import { useExchangeRates, Currency } from '@/hooks/useExchangeRates';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth, subMonths, addMonths, isSameMonth } from 'date-fns';
+import { format, startOfMonth, subMonths, isSameMonth } from 'date-fns';
 import { APP_START_DATE } from '@/constants/app';
 import {
   ChartContainer,
@@ -100,13 +98,6 @@ export default function Investments() {
   const currentMonthStr = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
   const isCurrentMonth = isSameMonth(selectedMonth, new Date());
 
-  // Navigate months with minimum date check
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newMonth = direction === 'prev' ? subMonths(selectedMonth, 1) : addMonths(selectedMonth, 1);
-    if (newMonth >= APP_START_DATE) {
-      setSelectedMonth(newMonth);
-    }
-  };
 
   // Get value for an investment for a specific month
   const getValueForMonth = useCallback((investmentId: string, month: string) => {
@@ -578,21 +569,19 @@ export default function Investments() {
       )}
 
       {/* Month Selector */}
-      <div className="flex items-center justify-center gap-2">
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={() => navigateMonth('prev')}
-          disabled={subMonths(selectedMonth, 1) < APP_START_DATE}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Badge variant="outline" className="min-w-[140px] justify-center text-sm">
-          {format(selectedMonth, 'MMMM yyyy')}
-        </Badge>
-        <Button variant="outline" size="icon" onClick={() => navigateMonth('next')}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      <div className="flex w-full max-w-xs items-center gap-2">
+        <input
+          type="month"
+          value={format(selectedMonth, 'yyyy-MM')}
+          min={format(APP_START_DATE, 'yyyy-MM')}
+          onChange={(e) => {
+            const parsedDate = startOfMonth(new Date(`${e.target.value}-01T00:00:00`));
+            if (parsedDate >= APP_START_DATE) {
+              setSelectedMonth(parsedDate);
+            }
+          }}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+        />
       </div>
 
       {/* Summary Cards */}

@@ -360,7 +360,7 @@ export function RuleEditor({
 
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">
-                Duplicate Handling
+                Handling
               </Label>
               <Select
                 value={duplicateAction || "__none__"}
@@ -374,9 +374,9 @@ export function RuleEditor({
                 <SelectContent>
                   <SelectItem value="__none__">No action</SelectItem>
                   <SelectItem value="accept">
-                    Auto-accept (import anyway)
+                    Auto-accept duplicate
                   </SelectItem>
-                  <SelectItem value="reject">Auto-reject duplicate</SelectItem>
+                  <SelectItem value="reject">Auto-reject Duplicate</SelectItem>
                   <SelectItem value="skip_import">
                     Never import matching row
                   </SelectItem>

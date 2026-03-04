@@ -41,7 +41,7 @@ import { CategoryType } from "@/types/finance";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 
-type BudgetDistribution = "even" | "front" | "back" | "custom";
+type BudgetDistribution = "even" | "front" | "back";
 
 const DISTRIBUTION_OPTIONS: {
   value: BudgetDistribution;
@@ -51,15 +51,14 @@ const DISTRIBUTION_OPTIONS: {
   { value: "even", label: "Even", description: "Spread equally across weeks" },
   {
     value: "front",
-    label: "Front-loaded",
+    label: "Front",
     description: "More spending early in month",
   },
   {
     value: "back",
-    label: "Back-loaded",
+    label: "Back",
     description: "More spending late in month",
   },
-  { value: "custom", label: "Custom", description: "Define your own pattern" },
 ];
 
 export default function Categories() {
@@ -444,7 +443,7 @@ export default function Categories() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         {activeCategories.map((cat) => {
           const isEditing = editingId === cat.id;
           const budgetAmount = getBudgetAmount(cat.id);
@@ -452,7 +451,7 @@ export default function Categories() {
 
           return (
             <Card key={cat.id} className="relative">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1">
                 {isEditing ? (
                   <div className="space-y-3">
                     <textarea
@@ -477,21 +476,29 @@ export default function Categories() {
                         <SelectItem value="income">Income</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex flex-wrap gap-1">
-                      {PRESET_COLORS.slice(0, 8).map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, color })}
-                          className={`h-6 w-6 rounded-full border-2 ${
-                            formData.color === color
-                              ? "border-foreground"
-                              : "border-transparent"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
+                    <Select
+                      value={formData.color}
+                      onValueChange={(value: string) =>
+                        setFormData({ ...formData, color: value })
+                      }
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRESET_COLORS.slice(0, 8).map((color) => (
+                          <SelectItem key={color} value={color}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: color }}
+                              />
+                              {color}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select
                       value={formData.icon}
                       onValueChange={(value: CategoryIconName) =>
@@ -569,7 +576,7 @@ export default function Categories() {
                   </div>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-2 pb-3">
                 {!isEditing && (
                   <>
                     <div className="flex items-center justify-between mb-2">
@@ -650,7 +657,7 @@ export default function Categories() {
             <div className="grid grid-cols-2 gap-3 opacity-60 lg:grid-cols-3">
               {archivedCategories.map((cat) => (
                 <Card key={cat.id} className="relative">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-1">
                     <div className="flex items-center gap-3">
                       <div
                         className="flex h-8 w-8 items-center justify-center rounded-full"
@@ -669,7 +676,7 @@ export default function Categories() {
                       </CardTitle>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-2 pb-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <Badge variant="secondary">Archived</Badge>
                       <Button
