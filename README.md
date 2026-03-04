@@ -36,6 +36,18 @@ npm i
 npm run dev
 ```
 
+### Environment variables
+
+For auth + captcha to work, set these in your local `.env` file:
+
+```sh
+VITE_SUPABASE_URL="https://<project-ref>.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="<anon-key>"
+VITE_HCAPTCHA_SITE_KEY="<your-hcaptcha-site-key>"
+```
+
+Also make sure your hCaptcha **secret** is configured in your Supabase Auth provider settings.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

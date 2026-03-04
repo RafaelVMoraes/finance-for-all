@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,16 +9,124 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n/I18nProvider';
-import HCaptcha from '@hcaptcha/react-hcaptcha';
 
-const HCAPTCHA_SITEKEY = '97204ffc-ba12-40ba-89d2-763ed2ecb744';
+const HCAPTCHA_SITEKEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+
+let hcaptchaScriptPromise: Promise<void> | null = null;
+
+declare global {
+  interface Window {
+    hcaptcha?: {
+      render: (container: HTMLElement, params: {
+        sitekey: string;
+        callback: (token: string) => void;
+        'expired-callback': () => void;
+        'error-callback': () => void;
+      }) => string | number;
+      remove: (widgetId: string | number) => void;
+    };
+  }
+}
+
+function loadHcaptchaScript() {
+  if (window.hcaptcha) {
+    return Promise.resolve();
+  }
+
+  if (hcaptchaScriptPromise) {
+    return hcaptchaScriptPromise;
+  }
+
+  hcaptchaScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-hcaptcha-script="true"]');
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load hCaptcha script')), { once: true });
+
+      if (window.hcaptcha) {
+        resolve();
+      }
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.dataset.hcaptchaScript = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load hCaptcha script'));
+    document.body.appendChild(script);
+  }).catch((error) => {
+    hcaptchaScriptPromise = null;
+    throw error;
+  });
+
+  return hcaptchaScriptPromise;
+}
+
+function HCaptchaWidget({
+  siteKey,
+  onVerify,
+  onExpire,
+  onError,
+}: {
+  siteKey: string;
+  onVerify: (token: string) => void;
+  onExpire: () => void;
+  onError: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | number>();
+
+  useEffect(() => {
+    let active = true;
+
+    const renderWidget = async () => {
+      if (!siteKey || !containerRef.current) {
+        return;
+      }
+
+      try {
+        await loadHcaptchaScript();
+
+        if (!active || !containerRef.current || !window.hcaptcha) {
+          return;
+        }
+
+        widgetIdRef.current = window.hcaptcha.render(containerRef.current, {
+          sitekey: siteKey,
+          callback: onVerify,
+          'expired-callback': onExpire,
+          'error-callback': onError,
+        });
+      } catch {
+        if (active) {
+          onError();
+        }
+      }
+    };
+
+    renderWidget();
+
+    return () => {
+      active = false;
+      if (widgetIdRef.current !== undefined && window.hcaptcha) {
+        window.hcaptcha.remove(widgetIdRef.current);
+      }
+    };
+  }, [siteKey, onVerify, onExpire, onError]);
+
+  return <div className="hcaptcha-container" ref={containerRef} />;
+}
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string>();
-  const captchaRef = useRef<HCaptcha>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const { user, login, signup } = useAuthContext();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -31,6 +139,15 @@ export default function Auth() {
   }, [user, navigate]);
 
   const [forgotMode, setForgotMode] = useState(false);
+
+  const handleCaptchaError = useCallback(() => {
+    setCaptchaToken(undefined);
+    toast({
+      variant: 'destructive',
+      title: t('auth.errorTitle'),
+      description: 'Captcha failed to load. Please refresh and try again.',
+    });
+  }, [t, toast]);
 
   const handleForgotPassword = async () => {
     if (!email) {
@@ -51,14 +168,32 @@ export default function Auth() {
   };
 
   const handleSubmit = async (action: 'login' | 'signup') => {
+    if (!HCAPTCHA_SITEKEY) {
+      toast({
+        variant: 'destructive',
+        title: t('auth.errorTitle'),
+        description: 'Missing hCaptcha site key. Set VITE_HCAPTCHA_SITE_KEY in your environment.',
+      });
+      return;
+    }
+
+    if (!captchaToken) {
+      toast({
+        variant: 'destructive',
+        title: t('auth.errorTitle'),
+        description: 'Please complete the captcha challenge.',
+      });
+      return;
+    }
+
     setLoading(true);
 
     const result = action === 'login'
       ? await login(email, password, captchaToken)
       : await signup(email, password, captchaToken);
 
-    captchaRef.current?.resetCaptcha();
     setCaptchaToken(undefined);
+    setCaptchaResetKey((prev) => prev + 1);
 
     if (result.error) {
       toast({
@@ -81,14 +216,19 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const captchaWidget = (
+  const renderCaptcha = (id: string) => (
     <div className="flex justify-center">
-      <HCaptcha
-        ref={captchaRef}
-        sitekey={HCAPTCHA_SITEKEY}
-        onVerify={(token) => setCaptchaToken(token)}
-        onExpire={() => setCaptchaToken(undefined)}
-      />
+      {HCAPTCHA_SITEKEY ? (
+        <HCaptchaWidget
+          key={`${id}-${captchaResetKey}`}
+          siteKey={HCAPTCHA_SITEKEY}
+          onVerify={(token) => setCaptchaToken(token)}
+          onExpire={() => setCaptchaToken(undefined)}
+          onError={handleCaptchaError}
+        />
+      ) : (
+        <p className="text-sm text-destructive">Set VITE_HCAPTCHA_SITE_KEY to enable sign in and sign up.</p>
+      )}
     </div>
   );
 
@@ -115,7 +255,7 @@ export default function Auth() {
                 <Label htmlFor="login-password">{t('auth.password')}</Label>
                 <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
-              {!forgotMode && captchaWidget}
+              {!forgotMode && renderCaptcha('login-captcha')}
               {forgotMode ? (
                 <>
                   <Button className="w-full" onClick={handleForgotPassword} disabled={loading}>
@@ -127,7 +267,7 @@ export default function Auth() {
                 </>
               ) : (
                 <>
-                  <Button className="w-full" onClick={() => handleSubmit('login')} disabled={loading || !captchaToken}>
+                  <Button className="w-full" onClick={() => handleSubmit('login')} disabled={loading || !captchaToken || !HCAPTCHA_SITEKEY}>
                     {loading ? t('auth.signingIn') : t('auth.signIn')}
                   </Button>
                   <Button variant="link" className="w-full" onClick={() => setForgotMode(true)}>
@@ -146,8 +286,8 @@ export default function Auth() {
                 <Label htmlFor="signup-password">{t('auth.password')}</Label>
                 <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
-              {captchaWidget}
-              <Button className="w-full" onClick={() => handleSubmit('signup')} disabled={loading || !captchaToken}>
+              {renderCaptcha('signup-captcha')}
+              <Button className="w-full" onClick={() => handleSubmit('signup')} disabled={loading || !captchaToken || !HCAPTCHA_SITEKEY}>
                 {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
             </TabsContent>
