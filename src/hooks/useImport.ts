@@ -192,6 +192,7 @@ export interface ColumnIndices {
   labelIdx: number;
   valueIdx: number;
   categoryIdx: number;
+  dataStartRow?: number;
 }
 
 export interface RawFileData {
@@ -246,12 +247,14 @@ export function useImport() {
     const { headers, jsonData } = await readFileRaw(file);
 
     let dateIdx: number, labelIdx: number, valueIdx: number, categoryIdx: number;
+    let dataStartRow = 1;
 
     if (columnIndices) {
       dateIdx = columnIndices.dateIdx;
       labelIdx = columnIndices.labelIdx;
       valueIdx = columnIndices.valueIdx;
       categoryIdx = columnIndices.categoryIdx;
+      dataStartRow = columnIndices.dataStartRow ?? 1;
     } else {
       dateIdx = headers.findIndex(h => h === 'date' || h === 'data');
       labelIdx = headers.findIndex(h => h === 'label' || h === 'description' || h === 'descricao');
@@ -268,7 +271,7 @@ export function useImport() {
           // Track duplicates within file
           const seenInFile = new Map<string, number>(); // key -> first occurrence index
           
-          for (let i = 1; i < jsonData.length; i++) {
+          for (let i = dataStartRow; i < jsonData.length; i++) {
             const row = jsonData[i] as unknown[];
             if (!row || row.length === 0) continue;
             

@@ -30,6 +30,8 @@ import { Check, AlertCircle } from "lucide-react";
 import { ColumnMapping } from "@/lib/columnDetection";
 
 interface ColumnMappingDialogProps {
+  hasHeaders: boolean;
+  onHasHeadersChange: (value: boolean) => void;
   open: boolean;
   onConfirm: (mapping: ColumnMapping, saveForSource: boolean) => void;
   onCancel: () => void;
@@ -45,6 +47,8 @@ const NONE_VALUE = "__none__";
 
 export function ColumnMappingDialog({
   open,
+  hasHeaders,
+  onHasHeadersChange,
   onConfirm,
   onCancel,
   headers,
@@ -87,7 +91,7 @@ export function ColumnMappingDialog({
     const valueIdx = mapping.value ? headers.indexOf(mapping.value) : -1;
     const catIdx = mapping.category ? headers.indexOf(mapping.category) : -1;
 
-    return sampleRows.slice(0, 5).map((row) => ({
+    return sampleRows.slice(0, 2).map((row) => ({
       date: dateIdx >= 0 ? String(row[dateIdx] ?? "") : "",
       label: labelIdx >= 0 ? String(row[labelIdx] ?? "") : "",
       value: valueIdx >= 0 ? String(row[valueIdx] ?? "") : "",
@@ -102,7 +106,7 @@ export function ColumnMappingDialog({
         if (!o) onCancel();
       }}
     >
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-2xl max-h-[90vh] overflow-hidden p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Map Columns</DialogTitle>
           <DialogDescription>
@@ -111,7 +115,18 @@ export function ColumnMappingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto pr-1">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="has-headers"
+              checked={hasHeaders}
+              onCheckedChange={(c) => onHasHeadersChange(!!c)}
+            />
+            <label htmlFor="has-headers" className="text-sm text-muted-foreground">
+              My file has a header row
+            </label>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             {(["date", "label", "value", "category"] as const).map((role) => {
               const required = role !== "category";
@@ -156,11 +171,10 @@ export function ColumnMappingDialog({
           {isValid && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Preview (first 5 rows)
+                Preview (first 2 rows)
               </p>
               <ScrollArea className="max-h-[200px] w-full rounded-md border">
-                <div className="w-full overflow-x-auto">
-                  <Table className="min-w-[540px]">
+                <Table className="w-full table-fixed">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
@@ -172,21 +186,20 @@ export function ColumnMappingDialog({
                     <TableBody>
                       {previewRows.map((row, i) => (
                         <TableRow key={i}>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="truncate text-muted-foreground">
                             {row.date}
                           </TableCell>
-                          <TableCell>{row.label}</TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell className="truncate">{row.label}</TableCell>
+                          <TableCell className="truncate text-right font-mono">
                             {row.value}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="truncate text-muted-foreground">
                             {row.category || "—"}
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                </div>
               </ScrollArea>
             </div>
           )}

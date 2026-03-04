@@ -106,18 +106,8 @@ export default function Budget() {
   return (
     <div className="space-y-6">
       {/* Header with Month Navigation */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          data-tutorial="budget-edit-categories-link"
-          asChild
-          className="h-10 w-full sm:w-auto"
-        >
-          <Link to="/categories">
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("budget.editCategories")}
-          </Link>
-        </Button>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+      <div className="flex w-full items-center gap-2">
+        <div className="flex-1 min-w-0">
           <input
             type="month"
             value={format(selectedMonth, "yyyy-MM")}
@@ -129,15 +119,25 @@ export default function Budget() {
                 setSelectedMonth(parsedDate);
               }
             }}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm sm:w-auto"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
           />
         </div>
+        <Button
+          data-tutorial="budget-edit-categories-link"
+          asChild
+          className="h-10 shrink-0"
+        >
+          <Link to="/categories">
+            <Pencil className="mr-2 h-4 w-4" />
+            {t("budget.editCategories")}
+          </Link>
+        </Button>
       </div>
 
       {/* Income & Savings Overview */}
       <div
         data-tutorial="budget-overview-cards"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
       >
         {/* Expected Income */}
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
@@ -240,10 +240,7 @@ export default function Budget() {
               const remaining = expected - spent;
 
               return (
-                <div
-                  key={cat.id}
-                  className="space-y-2 rounded-lg border p-4 min-w-0"
-                >
+                <div key={cat.id} className="space-y-2 rounded-lg border p-3 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div
@@ -265,11 +262,10 @@ export default function Budget() {
                         value={percent}
                         className={`h-2 ${getProgressColor(spent, expected)}`}
                       />
-                      <div className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between">
+                      <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">
                           {currencySymbol}
-                          {spent.toFixed(2)} {t("budget.spent")} (
-                          {percent.toFixed(0)}%)
+                          {spent.toFixed(0)} ({percent.toFixed(0)}%)
                         </span>
                         <span
                           className={
@@ -280,7 +276,7 @@ export default function Budget() {
                         >
                           {remaining >= 0 ? "+" : ""}
                           {currencySymbol}
-                          {remaining.toFixed(2)} {t("budget.remaining")}
+                          {remaining.toFixed(0)}
                         </span>
                       </div>
                     </>
@@ -315,10 +311,7 @@ export default function Budget() {
               const remaining = expected - spent;
 
               return (
-                <div
-                  key={cat.id}
-                  className="space-y-2 rounded-lg border p-4 min-w-0"
-                >
+                <div key={cat.id} className="space-y-2 rounded-lg border p-3 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div
@@ -340,11 +333,10 @@ export default function Budget() {
                         value={percent}
                         className={`h-2 ${getProgressColor(spent, expected)}`}
                       />
-                      <div className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between">
+                      <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">
                           {currencySymbol}
-                          {spent.toFixed(2)} {t("budget.spent")} (
-                          {percent.toFixed(0)}%)
+                          {spent.toFixed(0)} ({percent.toFixed(0)}%)
                         </span>
                         <span
                           className={
@@ -355,7 +347,7 @@ export default function Budget() {
                         >
                           {remaining >= 0 ? "+" : ""}
                           {currencySymbol}
-                          {remaining.toFixed(2)} {t("budget.remaining")}
+                          {remaining.toFixed(0)}
                         </span>
                       </div>
                     </>

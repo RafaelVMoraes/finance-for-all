@@ -63,10 +63,11 @@ import {
 import { useExchangeRates } from "@/hooks/useExchangeRates";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useI18n } from "@/i18n/I18nProvider";
+import { APP_START_DATE_STRING } from "@/constants/app";
 
 type YearAggregation = "month" | "quarter";
 
-const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const formatPercent = (value: number) => `${Math.round(value)}%`;
 
 const calculateRatio = (value: number, total: number) =>
   total > 0 ? (value / total) * 100 : 0;
@@ -742,9 +743,10 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="month"
+              min={APP_START_DATE_STRING.slice(0, 7)}
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border bg-background px-3 py-2 text-sm"
+              className="w-full max-w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm sm:w-auto"
             />
             <Badge variant="outline">
               {t("dashboard.analyzeMonthlyPerformance")}
@@ -1025,6 +1027,7 @@ export default function Dashboard() {
                 <input
                   type="month"
                   value={yearlyStartMonth}
+                  min={APP_START_DATE_STRING.slice(0, 7)}
                   onChange={(e) => {
                     const [year, month] = e.target.value.split("-");
                     if (!year || !month) return;
@@ -1203,20 +1206,20 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="w-full overflow-x-auto pr-1">
-                  <table className="w-full min-w-[22rem] text-xs">
+                <div className="w-full">
+                  <table className="w-full table-fixed text-xs">
                     <thead>
                       <tr className="border-b text-muted-foreground">
-                        <th className="py-1 text-left font-medium">
+                        <th className="w-[22%] py-1 pr-1 text-left font-medium">
                           {t("dashboard.budgetRealityMo")}
                         </th>
-                        <th className="py-1 text-right font-medium">
+                        <th className="w-[26%] py-1 pl-1 text-right font-medium">
                           {t("dashboard.budgetRealityInc")}
                         </th>
-                        <th className="py-1 text-right font-medium">
+                        <th className="w-[26%] py-1 pl-1 text-right font-medium">
                           {t("dashboard.budgetRealityExp")}
                         </th>
-                        <th className="py-1 text-right font-medium">
+                        <th className="w-[26%] py-1 pl-1 text-right font-medium">
                           {t("dashboard.budgetRealitySav")}
                         </th>
                       </tr>
@@ -1227,10 +1230,10 @@ export default function Dashboard() {
                           key={month.month}
                           className="border-b last:border-b-0"
                         >
-                          <td className="py-1 font-medium">{month.month}</td>
+                          <td className="py-1 pr-1 font-medium truncate">{month.month}</td>
                           <td className="py-1 text-right">
                             <span
-                              className="inline-block rounded px-1.5"
+                              className="inline-block rounded px-1"
                               style={getPctBgStyle(month.incomePct)}
                             >
                               {formatPercent(month.incomePct)}
@@ -1238,7 +1241,7 @@ export default function Dashboard() {
                           </td>
                           <td className="py-1 text-right">
                             <span
-                              className="inline-block rounded px-1.5"
+                              className="inline-block rounded px-1"
                               style={getPctBgStyle(month.expensesPct)}
                             >
                               {formatPercent(month.expensesPct)}
@@ -1246,7 +1249,7 @@ export default function Dashboard() {
                           </td>
                           <td className="py-1 text-right">
                             <span
-                              className="inline-block rounded px-1.5"
+                              className="inline-block rounded px-1"
                               style={getPctBgStyle(Math.abs(month.savingsPct))}
                             >
                               {formatPercent(month.savingsPct)}
