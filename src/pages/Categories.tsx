@@ -1,40 +1,65 @@
-import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Archive, Check, X, ArchiveRestore, ArrowLeft } from 'lucide-react';
-import { CATEGORY_ICON_LABELS, CATEGORY_ICON_OPTIONS, getCategoryIcon, type CategoryIconName } from '@/lib/categoryIcons';
-import { useCategories, PRESET_COLORS, Category } from '@/hooks/useCategories';
-import { useBudgets } from '@/hooks/useBudgets';
-import { useUserSettings, Currency } from '@/hooks/useUserSettings';
-import { useToast } from '@/hooks/use-toast';
-import { CategoryType } from '@/types/finance';
-import { Link } from 'react-router-dom';
-import { useI18n } from '@/i18n/I18nProvider';
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Pencil,
+  Archive,
+  Check,
+  X,
+  ArchiveRestore,
+  ArrowLeft,
+} from "lucide-react";
+import {
+  CATEGORY_ICON_LABELS,
+  CATEGORY_ICON_OPTIONS,
+  getCategoryIcon,
+  type CategoryIconName,
+} from "@/lib/categoryIcons";
+import { useCategories, PRESET_COLORS, Category } from "@/hooks/useCategories";
+import { useBudgets } from "@/hooks/useBudgets";
+import { useUserSettings, Currency } from "@/hooks/useUserSettings";
+import { useToast } from "@/hooks/use-toast";
+import { CategoryType } from "@/types/finance";
+import { Link } from "react-router-dom";
+import { useI18n } from "@/i18n/I18nProvider";
 
-type BudgetDistribution = 'even' | 'front' | 'back' | 'custom';
+type BudgetDistribution = "even" | "front" | "back" | "custom";
 
-const DISTRIBUTION_OPTIONS: { value: BudgetDistribution; label: string; description: string }[] = [
-  { value: 'even', label: 'Even', description: 'Spread equally across weeks' },
-  { value: 'front', label: 'Front-loaded', description: 'More spending early in month' },
-  { value: 'back', label: 'Back-loaded', description: 'More spending late in month' },
-  { value: 'custom', label: 'Custom', description: 'Define your own pattern' },
+const DISTRIBUTION_OPTIONS: {
+  value: BudgetDistribution;
+  label: string;
+  description: string;
+}[] = [
+  { value: "even", label: "Even", description: "Spread equally across weeks" },
+  {
+    value: "front",
+    label: "Front-loaded",
+    description: "More spending early in month",
+  },
+  {
+    value: "back",
+    label: "Back-loaded",
+    description: "More spending late in month",
+  },
+  { value: "custom", label: "Custom", description: "Define your own pattern" },
 ];
 
 export default function Categories() {
@@ -43,69 +68,94 @@ export default function Categories() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'variable' as CategoryType,
+    name: "",
+    type: "variable" as CategoryType,
     color: PRESET_COLORS[0],
     budget: 0,
-    distribution: 'even' as BudgetDistribution,
-    icon: 'shopping-basket' as CategoryIconName,
+    distribution: "even" as BudgetDistribution,
+    icon: "shopping-basket" as CategoryIconName,
   });
 
-  const { 
-    categories, 
-    activeCategories, 
-    loading: categoriesLoading, 
+  const {
+    categories,
+    activeCategories,
+    loading: categoriesLoading,
     canAddMore,
-    createCategory, 
+    createCategory,
     updateCategory,
   } = useCategories();
   const { budgets, upsertBudget, loading: budgetsLoading } = useBudgets();
-  const { mainCurrency, currencySymbol, updateMainCurrency } = useUserSettings();
+  const { mainCurrency, currencySymbol, updateMainCurrency } =
+    useUserSettings();
   const { toast } = useToast();
 
   const loading = categoriesLoading || budgetsLoading;
-  const archivedCategories = categories.filter(c => c.archived);
+  const archivedCategories = categories.filter((c) => c.archived);
 
-  const getBudgetAmount = useCallback((categoryId: string) => {
-    const budget = budgets.find(b => b.category_id === categoryId);
-    return budget?.expected_amount || 0;
-  }, [budgets]);
+  const getBudgetAmount = useCallback(
+    (categoryId: string) => {
+      const budget = budgets.find((b) => b.category_id === categoryId);
+      return budget?.expected_amount || 0;
+    },
+    [budgets],
+  );
 
-  const getBudgetDistribution = useCallback((categoryId: string): BudgetDistribution => {
-    const budget = budgets.find(b => b.category_id === categoryId);
-    const distribution = (budget as { distribution?: BudgetDistribution } | undefined)?.distribution;
-    return distribution || 'even';
-  }, [budgets]);
+  const getBudgetDistribution = useCallback(
+    (categoryId: string): BudgetDistribution => {
+      const budget = budgets.find((b) => b.category_id === categoryId);
+      const distribution = (
+        budget as { distribution?: BudgetDistribution } | undefined
+      )?.distribution;
+      return distribution || "even";
+    },
+    [budgets],
+  );
 
   const handleCreateCategory = async () => {
     if (!formData.name.trim()) {
       toast({
-        variant: 'destructive',
-        title: 'Name required',
-        description: 'Please enter a category name',
+        variant: "destructive",
+        title: "Name required",
+        description: "Please enter a category name",
       });
       return;
     }
 
-    const result = await createCategory(formData.name, formData.type, formData.color, formData.icon);
-    
+    const result = await createCategory(
+      formData.name,
+      formData.type,
+      formData.color,
+      formData.icon,
+    );
+
     if (result.error) {
       toast({
-        variant: 'destructive',
-        title: 'Failed to create category',
+        variant: "destructive",
+        title: "Failed to create category",
         description: result.error,
       });
     } else if (result.data) {
       // Set budget if provided
       if (formData.budget > 0) {
-        await upsertBudget(result.data.id, formData.budget, formData.distribution);
+        await upsertBudget(
+          result.data.id,
+          formData.budget,
+          formData.distribution,
+        );
       }
       toast({
-        title: 'Category created',
+        title: "Category created",
         description: `${formData.name} has been added`,
       });
       setIsDialogOpen(false);
-      setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
+      setFormData({
+        name: "",
+        type: "variable",
+        color: PRESET_COLORS[0],
+        budget: 0,
+        distribution: "even",
+        icon: "shopping-basket",
+      });
     }
   };
 
@@ -117,20 +167,27 @@ export default function Categories() {
       color: cat.color,
       budget: getBudgetAmount(cat.id),
       distribution: getBudgetDistribution(cat.id),
-      icon: (cat.icon as CategoryIconName) || 'shopping-basket',
+      icon: (cat.icon as CategoryIconName) || "shopping-basket",
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', type: 'variable', color: PRESET_COLORS[0], budget: 0, distribution: 'even', icon: 'shopping-basket' });
+    setFormData({
+      name: "",
+      type: "variable",
+      color: PRESET_COLORS[0],
+      budget: 0,
+      distribution: "even",
+      icon: "shopping-basket",
+    });
   };
 
   const saveEdit = async (id: string) => {
     if (!formData.name.trim()) {
       toast({
-        variant: 'destructive',
-        title: 'Name required',
+        variant: "destructive",
+        title: "Name required",
       });
       return;
     }
@@ -144,54 +201,56 @@ export default function Categories() {
 
     if (result.error) {
       toast({
-        variant: 'destructive',
-        title: 'Failed to update',
+        variant: "destructive",
+        title: "Failed to update",
         description: result.error,
       });
     } else {
       // Update budget
       await upsertBudget(id, formData.budget, formData.distribution);
-      toast({ title: 'Category updated' });
+      toast({ title: "Category updated" });
     }
-    
+
     cancelEdit();
   };
 
   const toggleArchive = async (cat: Category) => {
     const result = await updateCategory(cat.id, { archived: !cat.archived });
-    
+
     if (result.error) {
       toast({
-        variant: 'destructive',
-        title: 'Failed to update',
+        variant: "destructive",
+        title: "Failed to update",
         description: result.error,
       });
     } else {
       toast({
-        title: cat.archived ? 'Category restored' : 'Category archived',
+        title: cat.archived ? "Category restored" : "Category archived",
       });
     }
   };
 
   const typeColors = {
-    fixed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    variable: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-    income: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    fixed: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    variable:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    income:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   };
 
   const getNextColor = () => {
-    const usedColors = new Set(activeCategories.map(c => c.color));
-    return PRESET_COLORS.find(c => !usedColors.has(c)) || PRESET_COLORS[0];
+    const usedColors = new Set(activeCategories.map((c) => c.color));
+    return PRESET_COLORS.find((c) => !usedColors.has(c)) || PRESET_COLORS[0];
   };
 
   const openCreateDialog = () => {
     setFormData({
-      name: '',
-      type: 'variable',
+      name: "",
+      type: "variable",
       color: getNextColor(),
       budget: 0,
-      distribution: 'even',
-      icon: 'shopping-basket',
+      distribution: "even",
+      icon: "shopping-basket",
     });
     setIsDialogOpen(true);
   };
@@ -199,7 +258,7 @@ export default function Categories() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">{t('categories.loading')}</p>
+        <p className="text-muted-foreground">{t("categories.loading")}</p>
       </div>
     );
   }
@@ -215,8 +274,13 @@ export default function Categories() {
           </Button>
           <div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">{t('categories.title')}</h1>
-              <Select value={mainCurrency} onValueChange={(v: string) => updateMainCurrency(v as Currency)}>
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">
+                {t("categories.title")}
+              </h1>
+              <Select
+                value={mainCurrency}
+                onValueChange={(v: string) => updateMainCurrency(v as Currency)}
+              >
                 <SelectTrigger className="h-9 w-[138px] text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -227,14 +291,20 @@ export default function Categories() {
               </Select>
             </div>
             <p className="text-sm text-muted-foreground">
-              {t('categories.categoriesUsed', { used: activeCategories.length, total: 15 })}
+              {t("categories.categoriesUsed", {
+                used: activeCategories.length,
+                total: 15,
+              })}
             </p>
           </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog} disabled={!canAddMore} className="w-full md:w-auto">
+            <Button
+              onClick={openCreateDialog}
+              disabled={!canAddMore}
+              className="w-full md:w-auto"
+            >
               <Plus className="mr-2 h-4 w-4" />
               New Category
             </Button>
@@ -249,15 +319,19 @@ export default function Categories() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="e.g., Groceries"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Type</Label>
-                <Select 
-                  value={formData.type} 
-                  onValueChange={(value: CategoryType) => setFormData({ ...formData, type: value })}
+                <Select
+                  value={formData.type}
+                  onValueChange={(value: CategoryType) =>
+                    setFormData({ ...formData, type: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -278,9 +352,9 @@ export default function Categories() {
                       type="button"
                       onClick={() => setFormData({ ...formData, color })}
                       className={`h-8 w-8 rounded-full border-2 transition-all ${
-                        formData.color === color 
-                          ? 'border-foreground scale-110' 
-                          : 'border-transparent hover:scale-105'
+                        formData.color === color
+                          ? "border-foreground scale-110"
+                          : "border-transparent hover:scale-105"
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -291,7 +365,9 @@ export default function Categories() {
                 <Label>Icon</Label>
                 <Select
                   value={formData.icon}
-                  onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                  onValueChange={(value: CategoryIconName) =>
+                    setFormData({ ...formData, icon: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -317,25 +393,31 @@ export default function Categories() {
                   id="budget"
                   type="number"
                   value={formData.budget}
-                  onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, budget: Number(e.target.value) })
+                  }
                   placeholder="0"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Weekly Distribution</Label>
-                <Select 
-                  value={formData.distribution} 
-                  onValueChange={(value: BudgetDistribution) => setFormData({ ...formData, distribution: value })}
+                <Select
+                  value={formData.distribution}
+                  onValueChange={(value: BudgetDistribution) =>
+                    setFormData({ ...formData, distribution: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DISTRIBUTION_OPTIONS.map(opt => (
+                    {DISTRIBUTION_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         <div>
                           <span className="font-medium">{opt.label}</span>
-                          <span className="text-xs text-muted-foreground ml-2">- {opt.description}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            - {opt.description}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
@@ -356,7 +438,8 @@ export default function Categories() {
             Maximum categories reached
           </p>
           <p className="text-amber-700 dark:text-amber-300">
-            You can have up to 15 active categories. Archive unused ones to add more.
+            You can have up to 15 active categories. Archive unused ones to add
+            more.
           </p>
         </div>
       )}
@@ -366,20 +449,24 @@ export default function Categories() {
           const isEditing = editingId === cat.id;
           const budgetAmount = getBudgetAmount(cat.id);
           const distribution = getBudgetDistribution(cat.id);
-          
+
           return (
             <Card key={cat.id} className="relative">
               <CardHeader className="pb-2">
                 {isEditing ? (
                   <div className="space-y-3">
-                    <Input
+                    <textarea
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="font-semibold"
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      className="min-h-[64px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm font-medium leading-snug"
                     />
-                    <Select 
-                      value={formData.type} 
-                      onValueChange={(v: CategoryType) => setFormData({ ...formData, type: v })}
+                    <Select
+                      value={formData.type}
+                      onValueChange={(v: CategoryType) =>
+                        setFormData({ ...formData, type: v })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -397,9 +484,9 @@ export default function Categories() {
                           type="button"
                           onClick={() => setFormData({ ...formData, color })}
                           className={`h-6 w-6 rounded-full border-2 ${
-                            formData.color === color 
-                              ? 'border-foreground' 
-                              : 'border-transparent'
+                            formData.color === color
+                              ? "border-foreground"
+                              : "border-transparent"
                           }`}
                           style={{ backgroundColor: color }}
                         />
@@ -407,7 +494,9 @@ export default function Categories() {
                     </div>
                     <Select
                       value={formData.icon}
-                      onValueChange={(value: CategoryIconName) => setFormData({ ...formData, icon: value })}
+                      onValueChange={(value: CategoryIconName) =>
+                        setFormData({ ...formData, icon: value })
+                      }
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue />
@@ -427,24 +516,35 @@ export default function Categories() {
                       </SelectContent>
                     </Select>
                     <div className="space-y-1">
-                      <Label className="text-xs">Budget ({currencySymbol})</Label>
+                      <Label className="text-xs">
+                        Budget ({currencySymbol})
+                      </Label>
                       <Input
                         type="number"
                         value={formData.budget}
-                        onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            budget: Number(e.target.value),
+                          })
+                        }
                         className="h-8"
                       />
                     </div>
-                    <Select 
-                      value={formData.distribution} 
-                      onValueChange={(v: BudgetDistribution) => setFormData({ ...formData, distribution: v })}
+                    <Select
+                      value={formData.distribution}
+                      onValueChange={(v: BudgetDistribution) =>
+                        setFormData({ ...formData, distribution: v })
+                      }
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {DISTRIBUTION_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        {DISTRIBUTION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -453,11 +553,19 @@ export default function Categories() {
                   <div className="flex items-center gap-3">
                     <div
                       className="flex h-8 w-8 items-center justify-center rounded-full"
-                      style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                      style={{
+                        backgroundColor: `${cat.color}20`,
+                        color: cat.color,
+                      }}
                     >
-                      {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
+                      {(() => {
+                        const Icon = getCategoryIcon(cat.icon);
+                        return <Icon className="h-4 w-4" />;
+                      })()}
                     </div>
-                    <CardTitle className="text-base">{cat.name}</CardTitle>
+                    <CardTitle className="text-sm leading-snug break-words whitespace-normal">
+                      {cat.name}
+                    </CardTitle>
                   </div>
                 )}
               </CardHeader>
@@ -465,32 +573,34 @@ export default function Categories() {
                 {!isEditing && (
                   <>
                     <div className="flex items-center justify-between mb-2">
-                      <Badge className={typeColors[cat.type]}>
-                        {cat.type}
-                      </Badge>
+                      <Badge className={typeColors[cat.type]}>{cat.type}</Badge>
                       <span className="text-sm font-medium">
-                        {currencySymbol}{budgetAmount.toLocaleString()}/mo
+                        {currencySymbol}
+                        {budgetAmount.toLocaleString()}/mo
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {t('categories.distribution')}: {DISTRIBUTION_OPTIONS.find(d => d.value === distribution)?.label || t('categories.even')}
+                      {t("categories.distribution")}:{" "}
+                      {DISTRIBUTION_OPTIONS.find(
+                        (d) => d.value === distribution,
+                      )?.label || t("categories.even")}
                     </p>
                   </>
                 )}
                 <div className="mt-2 flex gap-1 justify-end">
                   {isEditing ? (
                     <>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => saveEdit(cat.id)}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={cancelEdit}
                       >
@@ -499,17 +609,17 @@ export default function Categories() {
                     </>
                   ) : (
                     <>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => startEdit(cat)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => toggleArchive(cat)}
                       >
@@ -527,14 +637,15 @@ export default function Categories() {
       {/* Archived Categories */}
       {archivedCategories.length > 0 && (
         <div className="space-y-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => setShowArchived(!showArchived)}
             className="text-muted-foreground"
           >
-            {showArchived ? 'Hide' : 'Show'} Archived ({archivedCategories.length})
+            {showArchived ? "Hide" : "Show"} Archived (
+            {archivedCategories.length})
           </Button>
-          
+
           {showArchived && (
             <div className="grid grid-cols-2 gap-3 opacity-60 lg:grid-cols-3">
               {archivedCategories.map((cat) => (
@@ -543,19 +654,27 @@ export default function Categories() {
                     <div className="flex items-center gap-3">
                       <div
                         className="flex h-8 w-8 items-center justify-center rounded-full"
-                        style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                        style={{
+                          backgroundColor: `${cat.color}20`,
+                          color: cat.color,
+                        }}
                       >
-                        {(() => { const Icon = getCategoryIcon(cat.icon); return <Icon className="h-4 w-4" />; })()}
+                        {(() => {
+                          const Icon = getCategoryIcon(cat.icon);
+                          return <Icon className="h-4 w-4" />;
+                        })()}
                       </div>
-                      <CardTitle className="text-lg line-through">{cat.name}</CardTitle>
+                      <CardTitle className="text-lg line-through">
+                        {cat.name}
+                      </CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <Badge variant="secondary">Archived</Badge>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => toggleArchive(cat)}
                       >
