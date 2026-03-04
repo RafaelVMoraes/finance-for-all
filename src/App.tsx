@@ -34,6 +34,14 @@ const AppContent = () => {
     return () => window.removeEventListener("sw-update-available", handleUpdate);
   }, []);
 
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
+      || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const isStandalone = window.navigator.standalone === true;
+
+    document.documentElement.dataset.iosStandalone = isIOS && isStandalone ? "true" : "false";
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

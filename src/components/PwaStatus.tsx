@@ -27,7 +27,7 @@ export const PwaStatus = ({ hasUpdate }: PwaStatusProps) => {
   return (
     <>
       {!isOnline && (
-        <div className="fixed left-0 right-0 top-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm text-white">
+        <div className="fixed left-0 right-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm text-white" style={{ top: 'var(--app-safe-area-top)' }}>
           {t('pwa.offline')}
         </div>
       )}
