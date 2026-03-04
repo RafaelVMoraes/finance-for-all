@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { ImportRule, RuleCondition, RuleActions, RuleSuggestion } from '@/types/importRules';
 import { normalizeText } from '@/lib/ruleEngine';
 import { Json } from '@/integrations/supabase/types';
+import { logClientError } from '@/lib/logger';
 
 interface RuleInput {
   name: string;
@@ -64,7 +65,7 @@ export function useImportRules() {
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('Error fetching rules:', error);
+      logClientError('[IMPORT_RULES_FETCH_ERR]', error);
     } else {
       const parsedRules = (data || []).map(parseDbRule);
       setRules(parsedRules);

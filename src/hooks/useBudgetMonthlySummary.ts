@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, startOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 interface MonthlyCategorySummaryRow {
   category_id: string;
@@ -49,7 +50,7 @@ export function useBudgetMonthlySummary(month: Date) {
     }
 
     if (categoryError) {
-      console.error('Error fetching monthly category summary:', categoryError);
+      logClientError('[MONTHLY_CATEGORY_SUMMARY_ERR]', categoryError);
       setCategorySpent({});
     } else {
       const spentMap = (categoryData as MonthlyCategorySummaryRow[] | null)?.reduce<Record<string, number>>((acc, row) => {
@@ -60,7 +61,7 @@ export function useBudgetMonthlySummary(month: Date) {
     }
 
     if (totalsError) {
-      console.error('Error fetching monthly totals:', totalsError);
+      logClientError('[MONTHLY_TOTALS_ERR]', totalsError);
       setActualIncome(0);
     } else {
       setActualIncome((totalsData as MonthlyTotalsRow | null)?.total_income ?? 0);

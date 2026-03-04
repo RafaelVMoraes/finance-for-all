@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 export interface Category {
   id: string;
@@ -49,7 +50,7 @@ export function useCategories() {
       .order('name');
 
     if (error) {
-      console.error('Error fetching categories:', error);
+      logClientError('[CATEGORIES_FETCH_ERR]', error);
     } else {
       setCategories(data || []);
     }

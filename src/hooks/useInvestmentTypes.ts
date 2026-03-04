@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 export interface InvestmentType {
   id: string;
@@ -34,7 +35,7 @@ export function useInvestmentTypes() {
       .order('name');
 
     if (error) {
-      console.error('Error fetching investment types:', error);
+      logClientError('[INVESTMENT_TYPES_FETCH_ERR]', error);
     } else if (data && data.length === 0) {
       // Seed default types for new users
       await seedDefaultTypes();

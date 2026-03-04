@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logClientError } from '@/lib/logger';
 
 export type Currency = 'EUR' | 'USD' | 'BRL';
 
@@ -28,7 +29,7 @@ export function useUserSettings() {
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching user settings:', error);
+      logClientError('[USER_SETTINGS_FETCH_ERR]', error);
     } else if (data) {
       setSettings(data as unknown as UserSettings);
     }
