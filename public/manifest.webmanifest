@@ -1,6 +1,6 @@
 {
   "name": "Finance for All",
-  "short_name": "Finance",
+  "short_name": "Personal Finance",
   "description": "Personal finance management app for budgeting, transactions, and investments.",
   "start_url": "/",
   "scope": "/",
