@@ -11,8 +11,8 @@ interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string) => Promise<{ error?: string }>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, captchaToken?: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
 }
 

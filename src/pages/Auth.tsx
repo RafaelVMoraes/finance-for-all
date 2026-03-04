@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,17 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n/I18nProvider';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+const HCAPTCHA_SITEKEY = '97204ffc-ba12-40ba-89d2-763ed2ecb744';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const captchaRef = useRef<HCaptcha>(null);
   const { user, login, signup } = useAuthContext();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useI18n();
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
@@ -48,10 +52,13 @@ export default function Auth() {
 
   const handleSubmit = async (action: 'login' | 'signup') => {
     setLoading(true);
-    
-    const result = action === 'login' 
-      ? await login(email, password)
-      : await signup(email, password);
+
+    const result = action === 'login'
+      ? await login(email, password, captchaToken)
+      : await signup(email, password, captchaToken);
+
+    captchaRef.current?.resetCaptcha();
+    setCaptchaToken(undefined);
 
     if (result.error) {
       toast({
@@ -62,26 +69,35 @@ export default function Auth() {
     } else {
       toast({
         title: action === 'login' ? t('auth.welcomeBack') : t('auth.accountCreated'),
-        description: action === 'signup' 
-          ? t('auth.confirmEmail') 
+        description: action === 'signup'
+          ? t('auth.confirmEmail')
           : t('auth.redirecting'),
       });
       if (action === 'login') {
         navigate('/dashboard');
       }
     }
-    
+
     setLoading(false);
   };
+
+  const captchaWidget = (
+    <div className="flex justify-center">
+      <HCaptcha
+        ref={captchaRef}
+        sitekey={HCAPTCHA_SITEKEY}
+        onVerify={(token) => setCaptchaToken(token)}
+        onExpire={() => setCaptchaToken(undefined)}
+      />
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">{t('common.appName')}</CardTitle>
-          <CardDescription>
-            {t('auth.subtitle')}
-          </CardDescription>
+          <CardDescription>{t('auth.subtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
@@ -89,27 +105,17 @@ export default function Auth() {
               <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
               <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="login-email">{t('auth.email')}</Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  placeholder={t('auth.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                <Input id="login-email" type="email" placeholder={t('auth.emailPlaceholder')} value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="login-password">{t('auth.password')}</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
+              {!forgotMode && captchaWidget}
               {forgotMode ? (
                 <>
                   <Button className="w-full" onClick={handleForgotPassword} disabled={loading}>
@@ -121,7 +127,7 @@ export default function Auth() {
                 </>
               ) : (
                 <>
-                  <Button className="w-full" onClick={() => handleSubmit('login')} disabled={loading}>
+                  <Button className="w-full" onClick={() => handleSubmit('login')} disabled={loading || !captchaToken}>
                     {loading ? t('auth.signingIn') : t('auth.signIn')}
                   </Button>
                   <Button variant="link" className="w-full" onClick={() => setForgotMode(true)}>
@@ -130,32 +136,18 @@ export default function Auth() {
                 </>
               )}
             </TabsContent>
-            
+
             <TabsContent value="signup" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-email">{t('auth.email')}</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder={t('auth.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                <Input id="signup-email" type="email" placeholder={t('auth.emailPlaceholder')} value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-password">{t('auth.password')}</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
-              <Button 
-                className="w-full" 
-                onClick={() => handleSubmit('signup')}
-                disabled={loading}
-              >
+              {captchaWidget}
+              <Button className="w-full" onClick={() => handleSubmit('signup')} disabled={loading || !captchaToken}>
                 {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
             </TabsContent>
