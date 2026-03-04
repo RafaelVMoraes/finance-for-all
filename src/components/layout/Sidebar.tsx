@@ -47,7 +47,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
   return (
     <aside
       className={cn(
-        'flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
+        'flex h-full max-h-screen flex-col border-r border-border bg-card transition-all duration-300 overflow-hidden',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -69,7 +69,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-2">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -132,7 +132,7 @@ export function Sidebar({ collapsed, onToggle, onNavigate, showCollapseToggle = 
 
       {!collapsed && <LanguageSwitcher />}
 
-      <div className="border-t border-border p-2">
+      <div className="shrink-0 border-t border-border p-2">
         {!collapsed && (
           <div className="mb-2 truncate px-3 text-xs text-muted-foreground">
             {user?.email}
