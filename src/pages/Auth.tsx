@@ -72,22 +72,32 @@ function HCaptchaWidget({
       });
     };
 
-    const existingScript = document.querySelector('script[data-hcaptcha-script="true"]');
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-hcaptcha-script="true"]');
     if (existingScript) {
-      renderWidget();
-      return;
+      if (window.hcaptcha) {
+        renderWidget();
+      } else {
+        existingScript.addEventListener('load', renderWidget, { once: true });
+      }
+      return () => {
+        existingScript.removeEventListener('load', renderWidget);
+        if (widgetIdRef.current !== undefined && window.hcaptcha) {
+          window.hcaptcha.remove(widgetIdRef.current);
+        }
+      };
     }
 
     const script = document.createElement('script');
-    script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit';
+    script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit&onload=hCaptchaOnLoad';
     script.async = true;
     script.defer = true;
     script.dataset.hcaptchaScript = 'true';
-    script.onload = renderWidget;
+    (window as Window & { hCaptchaOnLoad?: () => void }).hCaptchaOnLoad = renderWidget;
     script.onerror = () => onErrorRef.current();
     document.body.appendChild(script);
 
     return () => {
+      (window as Window & { hCaptchaOnLoad?: () => void }).hCaptchaOnLoad = undefined;
       if (widgetIdRef.current !== undefined && window.hcaptcha) {
         window.hcaptcha.remove(widgetIdRef.current);
       }
