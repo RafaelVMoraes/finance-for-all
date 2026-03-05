@@ -169,7 +169,7 @@ const getPctBgStyle = (pct: number) => {
 
 export default function Dashboard() {
   const { t } = useI18n();
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(format(today, "yyyy-MM"));
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -532,9 +532,51 @@ export default function Dashboard() {
       ...heatmapCategories.flatMap((cat) => cat.cells),
     );
 
+    const periodStart = startOfMonth(yearPeriodData[0].monthDate);
+    const periodEnd = endOfMonth(yearPeriodData[yearPeriodData.length - 1].monthDate);
+    const totalPeriodDays = Math.max(
+      1,
+      differenceInCalendarDays(periodEnd, periodStart) + 1,
+    );
+    const elapsedPeriodDays =
+      today < periodStart
+        ? 0
+        : today > periodEnd
+          ? totalPeriodDays
+          : differenceInCalendarDays(today, periodStart) + 1;
+    const elapsedRatio = Math.min(
+      1,
+      Math.max(0, elapsedPeriodDays / totalPeriodDays),
+    );
+
     const expenseCategoryRows = Object.values(byCategory)
       .filter((cat) => cat.type !== "income")
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    const yearlyCategoryBudgetProgress = budgets
+      .filter((budget) => budget.categories?.type !== "income")
+      .map((budget) => {
+        const monthlyBudget = Number(budget.expected_amount || 0);
+        const annualBudget = monthlyBudget * 12;
+        const categorySpent =
+          byCategory[budget.category_id]?.values.reduce((sum, v) => sum + v, 0) || 0;
+        const allowedByNow = annualBudget * elapsedRatio;
+        const spentWithinAllowed = Math.min(categorySpent, allowedByNow);
+        const overspent = Math.max(0, categorySpent - allowedByNow);
+
+        return {
+          id: budget.category_id,
+          name: budget.categories?.name || "Uncategorized",
+          spent: categorySpent,
+          annualBudget,
+          allowedByNow,
+          spentWithinAllowed,
+          overspent,
+          elapsedRatio,
+        };
+      })
+      .filter((row) => row.annualBudget > 0 || row.spent > 0)
+      .sort((a, b) => b.spent - a.spent);
 
     const totalIncome = monthlyStats.reduce((sum, m) => sum + m.income, 0);
     const totalExpenses = monthlyStats.reduce((sum, m) => sum + m.expenses, 0);
@@ -568,6 +610,7 @@ export default function Dashboard() {
             ? (m.savedOrOverspent / expectedSavings) * 100
             : 0,
       })),
+      yearlyCategoryBudgetProgress,
       expenseCategoryRows,
       heatmapCategories,
       maxHeat,
@@ -580,7 +623,7 @@ export default function Dashboard() {
     aggregation,
     budgets,
     monthlySettings,
-    selectedYear,
+    today,
     yearPeriodData,
     yearlySummary,
     yearlySummaryNext,
@@ -1427,6 +1470,85 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                {t("dashboard.categoryBudgetProgress")}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {t("dashboard.categoryBudgetProgressYearlySubtitle")}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("dashboard.noBudgetsSetYet")}
+                </p>
+              ) : (
+                yearlyViewData.yearlyCategoryBudgetProgress.map((cat) => {
+                  const spentPct =
+                    cat.annualBudget > 0
+                      ? Math.min((cat.spentWithinAllowed / cat.annualBudget) * 100, 100)
+                      : 0;
+                  const allowedPct =
+                    cat.annualBudget > 0
+                      ? Math.min((cat.allowedByNow / cat.annualBudget) * 100, 100)
+                      : 0;
+                  const overspendPct =
+                    cat.annualBudget > 0
+                      ? Math.min((cat.overspent / cat.annualBudget) * 100, 100)
+                      : 0;
+
+                  return (
+                    <div key={cat.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate font-medium">{cat.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
+                          {currencySymbol}
+                          {cat.spent.toFixed(0)} / {currencySymbol}
+                          {cat.annualBudget.toFixed(0)}
+                        </span>
+                      </div>
+                      <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="absolute left-0 top-0 h-full bg-black"
+                          style={{ width: `${spentPct}%` }}
+                        />
+                        {cat.spent <= cat.allowedByNow && allowedPct > spentPct ? (
+                          <div
+                            className="absolute top-0 h-full bg-emerald-200"
+                            style={{
+                              left: `${spentPct}%`,
+                              width: `${allowedPct - spentPct}%`,
+                            }}
+                          />
+                        ) : null}
+                        {cat.spent > cat.allowedByNow && overspendPct > 0 ? (
+                          <div
+                            className="absolute top-0 h-full bg-rose-200"
+                            style={{
+                              left: `${Math.min(allowedPct, 100)}%`,
+                              width: `${Math.min(overspendPct, 100 - Math.min(allowedPct, 100))}%`,
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
+                        <span>
+                          {t("dashboard.allowedByNow")}: {currencySymbol}
+                          {cat.allowedByNow.toFixed(0)}
+                        </span>
+                        <span>
+                          {Math.round(cat.elapsedRatio * 100)}% {t("dashboard.yearElapsed")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

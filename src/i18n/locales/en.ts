@@ -250,6 +250,7 @@ export const en: TranslationTree = {
   dashboard: {
     budgetAlerts: 'Budget Alerts',
     categoryBudgetProgress: 'Category Budget Progress',
+    categoryBudgetProgressYearlySubtitle: 'Black = spent, green = under budget for elapsed time, red = overspent vs elapsed budget.',
     monthlyNotes: 'Monthly Notes',
     avgIncome: 'Avg Income',
     avgExpenses: 'Avg Expenses',
@@ -274,6 +275,8 @@ export const en: TranslationTree = {
     weeklySpendingVsBudget: 'Weekly Spending vs Budget',
     noSpendingDataYet: 'No spending data yet',
     noBudgetsSetYet: 'No budgets set yet.',
+    allowedByNow: 'Allowed by now',
+    yearElapsed: 'year elapsed',
     adjustBudget: 'Adjust Budget',
     monthlyNotesPlaceholder: 'Write your thoughts, concerns, or goals for this month...',
     yearWindowStart: 'Year window start',
