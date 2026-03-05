@@ -236,6 +236,7 @@ export const fr: TranslationTree = {
   dashboard: {
     budgetAlerts: 'Alertes budget',
     categoryBudgetProgress: 'Progression du budget par catégorie',
+    categoryBudgetProgressYearlySubtitle: 'Noir = dépensé, vert = sous le budget pour le temps écoulé, rouge = dépassement par rapport au budget écoulé.',
     monthlyNotes: 'Notes mensuelles',
     avgIncome: 'Revenu moyen',
     avgExpenses: 'Dépenses moyennes',
@@ -260,6 +261,8 @@ export const fr: TranslationTree = {
     weeklySpendingVsBudget: 'Dépenses hebdomadaires vs budget',
     noSpendingDataYet: "Pas encore de données de dépenses",
     noBudgetsSetYet: "Aucun budget défini pour l'instant.",
+    allowedByNow: 'Autorisé à ce jour',
+    yearElapsed: 'de l’année écoulée',
     adjustBudget: 'Ajuster le budget',
     monthlyNotesPlaceholder: 'Écrivez vos réflexions, préoccupations ou objectifs pour ce mois...',
     yearWindowStart: 'Début de la période annuelle',
