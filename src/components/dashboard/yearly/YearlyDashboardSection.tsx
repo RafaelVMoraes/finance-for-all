@@ -161,44 +161,74 @@ export function YearlyDashboardSection({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.categoryBudgetProgress")}</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{t("dashboard.categoryBudgetProgress")}</CardTitle>
+          <p className="text-xs text-muted-foreground">{t("dashboard.categoryBudgetProgressYearlySubtitle")}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-4 rounded-sm bg-black" /> Spent
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-4 rounded-sm border border-emerald-700"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.4) 0 2px, rgba(5, 150, 105, 0.15) 2px 5px)",
+                }}
+              />
+              Under budget
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-4 rounded-sm border border-black bg-red-800" />
+              Over budget
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">{t("dashboard.categoryBudgetProgressYearlySubtitle")}</p>
           {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
-            <p className="text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
           ) : (
             yearlyViewData.yearlyCategoryBudgetProgress.slice(0, 15).map((cat) => {
-              const allowedPct = cat.annualBudget > 0 ? (cat.allowedByNow / cat.annualBudget) * 100 : 0;
-              const spentPct = cat.annualBudget > 0 ? (cat.spent / cat.annualBudget) * 100 : 0;
-
-              // Determine bar segments
-              const spentWithinAllowedPct = Math.min(spentPct, allowedPct);
-              const overspentPct = Math.max(0, spentPct - allowedPct);
-              const remainingAllowedPct = Math.max(0, allowedPct - spentPct);
-              const futurePct = Math.max(0, 100 - allowedPct);
+              const allowedPct = cat.annualBudget > 0 ? Math.min((cat.allowedByNow / cat.annualBudget) * 100, 100) : 0;
+              const spentPct = cat.annualBudget > 0 ? Math.min((cat.spent / cat.annualBudget) * 100, 100) : 0;
+              const overspentPct = cat.annualBudget > 0 ? Math.min((Math.max(0, cat.spent - cat.allowedByNow) / cat.annualBudget) * 100, 100) : 0;
 
               return (
-                <div key={cat.id} className="space-y-1">
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium">{cat.name}</span>
-                    <span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
+                <div key={cat.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium">{cat.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
+                      {currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.allowedByNow.toFixed(0)}
+                    </span>
                   </div>
-                  <div className="relative h-3 w-full overflow-hidden rounded bg-muted">
+                  <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
                     {/* Black: spent within allowed */}
-                    {spentWithinAllowedPct > 0 && (
-                      <div className="absolute left-0 top-0 h-full bg-foreground" style={{ width: `${Math.min(spentWithinAllowedPct, 100)}%` }} />
-                    )}
-                    {/* Green: underspent (allowed but not yet spent) */}
-                    {remainingAllowedPct > 0 && (
-                      <div className="absolute top-0 h-full bg-emerald-500" style={{ left: `${Math.min(spentWithinAllowedPct, 100)}%`, width: `${Math.min(remainingAllowedPct, 100 - spentWithinAllowedPct)}%` }} />
-                    )}
-                    {/* Red: overspent beyond allowed */}
-                    {overspentPct > 0 && (
-                      <div className="absolute top-0 h-full bg-destructive" style={{ left: `${Math.min(allowedPct, 100)}%`, width: `${Math.min(overspentPct, 100 - Math.min(allowedPct, 100))}%` }} />
-                    )}
-                    {/* Grey background already covers future available via bg-muted */}
+                    <div
+                      className="absolute left-0 top-0 h-full bg-black"
+                      style={{ width: `${spentPct}%` }}
+                    />
+                    {/* Hatched green: underspent (allowed but not yet spent) */}
+                    {cat.spent <= cat.allowedByNow && allowedPct > spentPct ? (
+                      <div
+                        className="absolute top-0 h-full border border-emerald-700"
+                        style={{
+                          left: `${spentPct}%`,
+                          width: `${allowedPct - spentPct}%`,
+                          backgroundImage:
+                            "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0 3px, rgba(5, 150, 105, 0.15) 3px 7px)",
+                        }}
+                      />
+                    ) : null}
+                    {/* Dark red with black border: overspent */}
+                    {cat.spent > cat.allowedByNow && overspentPct > 0 ? (
+                      <div
+                        className="absolute top-0 h-full border border-black bg-red-800"
+                        style={{
+                          left: `${Math.min(allowedPct, 100)}%`,
+                          width: `${Math.min(overspentPct, 100 - Math.min(allowedPct, 100))}%`,
+                        }}
+                      />
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
                     <span>Consumed: {(cat.allowedByNow > 0 ? (cat.spent / cat.allowedByNow) * 100 : 0).toFixed(0)}%</span>
