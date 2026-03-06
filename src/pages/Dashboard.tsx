@@ -563,12 +563,14 @@ export default function Dashboard() {
         const allowedByNow = annualBudget * elapsedRatio;
         const spentWithinAllowed = Math.min(categorySpent, allowedByNow);
         const overspent = Math.max(0, categorySpent - allowedByNow);
+        const consumedPct = annualBudget > 0 ? (categorySpent / annualBudget) * 100 : 0;
 
         return {
           id: budget.category_id,
           name: budget.categories?.name || "Uncategorized",
           spent: categorySpent,
           annualBudget,
+          consumedPct,
           allowedByNow,
           spentWithinAllowed,
           overspent,
@@ -576,7 +578,7 @@ export default function Dashboard() {
         };
       })
       .filter((row) => row.annualBudget > 0 || row.spent > 0)
-      .sort((a, b) => b.spent - a.spent);
+      .sort((a, b) => b.consumedPct - a.consumedPct);
 
     const totalIncome = monthlyStats.reduce((sum, m) => sum + m.income, 0);
     const totalExpenses = monthlyStats.reduce((sum, m) => sum + m.expenses, 0);
@@ -1476,9 +1478,25 @@ export default function Dashboard() {
               <CardTitle className="text-base">
                 {t("dashboard.categoryBudgetProgress")}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {t("dashboard.categoryBudgetProgressYearlySubtitle")}
-              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-4 rounded-sm bg-black" /> Spent
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-4 rounded-sm border border-emerald-700"
+                    style={{
+                      backgroundImage:
+                        "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.4) 0 2px, rgba(5, 150, 105, 0.15) 2px 5px)",
+                    }}
+                  />
+                  Under budget
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-4 rounded-sm border border-black bg-red-800" />
+                  Over budget
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
@@ -1517,16 +1535,18 @@ export default function Dashboard() {
                         />
                         {cat.spent <= cat.allowedByNow && allowedPct > spentPct ? (
                           <div
-                            className="absolute top-0 h-full bg-emerald-200"
+                            className="absolute top-0 h-full border border-emerald-700"
                             style={{
                               left: `${spentPct}%`,
                               width: `${allowedPct - spentPct}%`,
+                              backgroundImage:
+                                "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0 3px, rgba(5, 150, 105, 0.15) 3px 7px)",
                             }}
                           />
                         ) : null}
                         {cat.spent > cat.allowedByNow && overspendPct > 0 ? (
                           <div
-                            className="absolute top-0 h-full bg-rose-200"
+                            className="absolute top-0 h-full border border-black bg-red-800"
                             style={{
                               left: `${Math.min(allowedPct, 100)}%`,
                               width: `${Math.min(overspendPct, 100 - Math.min(allowedPct, 100))}%`,
@@ -1536,11 +1556,11 @@ export default function Dashboard() {
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
                         <span>
-                          {t("dashboard.allowedByNow")}: {currencySymbol}
-                          {cat.allowedByNow.toFixed(0)}
+                          Consumed: {cat.consumedPct.toFixed(0)}%
                         </span>
                         <span>
-                          {Math.round(cat.elapsedRatio * 100)}% {t("dashboard.yearElapsed")}
+                          Expected: {currencySymbol}
+                          {cat.annualBudget.toFixed(0)}
                         </span>
                       </div>
                     </div>
