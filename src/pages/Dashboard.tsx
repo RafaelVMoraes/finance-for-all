@@ -1560,7 +1560,7 @@ export default function Dashboard() {
                         </span>
                         <span>
                           Expected: {currencySymbol}
-                          {cat.annualBudget.toFixed(0)}
+                          {cat.allowedByNow.toFixed(0)}
                         </span>
                       </div>
                     </div>
