@@ -594,18 +594,7 @@ export default function Import() {
           hasHeaders={hasHeaders}
           onHasHeadersChange={(value) => {
             setHasHeaders(value);
-            if (!rawFileData) return;
-            if (value) {
-              const sampleRows = rawFileData.jsonData.slice(1, 11);
-              setColumnMapping(detectColumnMapping(rawFileData.rawHeaders, sampleRows));
-            } else {
-              const generatedHeaders = Array.from(
-                { length: Math.max(...rawFileData.jsonData.map((row) => row.length), 0) },
-                (_, i) => `Column ${i + 1}`,
-              );
-              const sampleRows = rawFileData.jsonData.slice(0, 10);
-              setColumnMapping(detectColumnMapping(generatedHeaders, sampleRows));
-            }
+            setColumnMapping({ date: null, label: null, value: null, category: null });
           }}
           onConfirm={handleColumnMappingConfirm}
           onCancel={handleColumnMappingCancel}

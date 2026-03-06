@@ -25,6 +25,7 @@ import {
   RuleActions,
   ConditionType,
 } from "@/types/importRules";
+import { useI18n } from "@/i18n/I18nProvider";
 
 interface RuleEditorProps {
   rule?: ImportRule;
@@ -40,16 +41,6 @@ interface RuleEditorProps {
   open: boolean;
 }
 
-const CONDITION_TYPES: { value: ConditionType; label: string }[] = [
-  { value: "label_contains", label: "Label contains" },
-  { value: "label_starts_with", label: "Label starts with" },
-  { value: "label_exact", label: "Label is exactly" },
-  { value: "value_min", label: "Value ≥ (min)" },
-  { value: "value_max", label: "Value ≤ (max)" },
-  { value: "value_sign", label: "Value type" },
-  { value: "is_duplicate", label: "Is duplicate" },
-];
-
 export function RuleEditor({
   rule,
   categories,
@@ -57,6 +48,18 @@ export function RuleEditor({
   onClose,
   open,
 }: RuleEditorProps) {
+  const { t } = useI18n();
+
+  const conditionTypes: { value: ConditionType; label: string }[] = [
+    { value: "label_contains", label: t("importPage.ruleEditor.conditionTypes.labelContains") },
+    { value: "label_starts_with", label: t("importPage.ruleEditor.conditionTypes.labelStartsWith") },
+    { value: "label_exact", label: t("importPage.ruleEditor.conditionTypes.labelExact") },
+    { value: "value_min", label: t("importPage.ruleEditor.conditionTypes.valueMin") },
+    { value: "value_max", label: t("importPage.ruleEditor.conditionTypes.valueMax") },
+    { value: "value_sign", label: t("importPage.ruleEditor.conditionTypes.valueType") },
+    { value: "is_duplicate", label: t("importPage.ruleEditor.conditionTypes.isDuplicate") },
+  ];
+
   const [name, setName] = useState(rule?.name || "");
   const [priority, setPriority] = useState(rule?.priority || 0);
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
@@ -83,7 +86,6 @@ export function RuleEditor({
   ) => {
     const updated = [...conditions];
     if (field === "type") {
-      // Reset value when type changes
       const newType = value as ConditionType;
       updated[index] = {
         type: newType,
@@ -106,16 +108,15 @@ export function RuleEditor({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError("Rule name is required");
+      setError(t("importPage.ruleEditor.errors.nameRequired"));
       return;
     }
 
     if (conditions.length === 0) {
-      setError("At least one condition is required");
+      setError(t("importPage.ruleEditor.errors.conditionRequired"));
       return;
     }
 
-    // Validate conditions have values
     for (const cond of conditions) {
       if (
         (cond.type === "label_contains" ||
@@ -123,22 +124,20 @@ export function RuleEditor({
           cond.type === "label_exact") &&
         !String(cond.value).trim()
       ) {
-        setError("Label condition requires a value");
+        setError(t("importPage.ruleEditor.errors.labelValueRequired"));
         return;
       }
       if (
         (cond.type === "value_min" || cond.type === "value_max") &&
         (cond.value === "" || isNaN(Number(cond.value)))
       ) {
-        setError("Value conditions require a numeric value");
+        setError(t("importPage.ruleEditor.errors.numericValueRequired"));
         return;
       }
     }
 
     if (!categoryId && !duplicateAction) {
-      setError(
-        "At least one action (category or duplicate handling) is required",
-      );
+      setError(t("importPage.ruleEditor.errors.actionRequired"));
       return;
     }
 
@@ -171,26 +170,28 @@ export function RuleEditor({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-[calc(100vw-env(safe-area-inset-left)-env(safe-area-inset-right)-0.75rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>{rule ? "Edit Rule" : "Create Rule"}</DialogTitle>
+          <DialogTitle>
+            {rule
+              ? t("importPage.ruleEditor.editTitle")
+              : t("importPage.ruleEditor.createTitle")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Rule name */}
           <div className="space-y-2">
-            <Label>Rule Name</Label>
+            <Label>{t("importPage.ruleEditor.ruleName")}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Categorize grocery stores"
+              placeholder={t("importPage.ruleEditor.namePlaceholder")}
             />
           </div>
 
-          {/* Priority and enabled */}
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="flex-1 space-y-2">
-              <Label>Priority (higher = first)</Label>
+              <Label>{t("importPage.ruleEditor.priority")}</Label>
               <Input
                 type="number"
                 value={priority}
@@ -201,23 +202,22 @@ export function RuleEditor({
             </div>
             <div className="flex items-end gap-2 pb-2">
               <Switch checked={enabled} onCheckedChange={setEnabled} />
-              <Label>Enabled</Label>
+              <Label>{t("importPage.ruleEditor.enabled")}</Label>
             </div>
           </div>
 
-          {/* Conditions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Conditions (all must match)</Label>
+              <Label>{t("importPage.ruleEditor.conditions")}</Label>
               <Button variant="outline" size="sm" onClick={addCondition}>
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                {t("importPage.ruleEditor.add")}
               </Button>
             </div>
 
             {conditions.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No conditions yet. Add at least one.
+                {t("importPage.ruleEditor.noConditions")}
               </p>
             )}
 
@@ -234,7 +234,7 @@ export function RuleEditor({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CONDITION_TYPES.map((ct) => (
+                    {conditionTypes.map((ct) => (
                       <SelectItem key={ct.value} value={ct.value}>
                         {ct.label}
                       </SelectItem>
@@ -252,8 +252,8 @@ export function RuleEditor({
                     }
                     placeholder={
                       condition.type === "label_exact"
-                        ? "exact label text"
-                        : "keyword"
+                        ? t("importPage.ruleEditor.exactLabelPlaceholder")
+                        : t("importPage.ruleEditor.keywordPlaceholder")
                     }
                     className="flex-1"
                   />
@@ -271,7 +271,7 @@ export function RuleEditor({
                         parseFloat(e.target.value) || 0,
                       )
                     }
-                    placeholder="amount"
+                    placeholder={t("importPage.ruleEditor.amountPlaceholder")}
                     className="flex-1"
                   />
                 )}
@@ -286,10 +286,10 @@ export function RuleEditor({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="income">
-                        Income (value &gt; 0)
+                        {t("importPage.ruleEditor.income")}
                       </SelectItem>
                       <SelectItem value="expense">
-                        Expense (value &lt; 0)
+                        {t("importPage.ruleEditor.expense")}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -306,8 +306,8 @@ export function RuleEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">Is duplicate</SelectItem>
-                      <SelectItem value="false">Is not duplicate</SelectItem>
+                      <SelectItem value="true">{t("importPage.ruleEditor.isDuplicate")}</SelectItem>
+                      <SelectItem value="false">{t("importPage.ruleEditor.isNotDuplicate")}</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -324,13 +324,12 @@ export function RuleEditor({
             ))}
           </div>
 
-          {/* Actions */}
           <div className="space-y-3">
-            <Label>Actions</Label>
+            <Label>{t("importPage.ruleEditor.actions")}</Label>
 
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">
-                Assign Category
+                {t("importPage.ruleEditor.assignCategory")}
               </Label>
               <Select
                 value={categoryId || "__none__"}
@@ -339,10 +338,10 @@ export function RuleEditor({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="No category" />
+                  <SelectValue placeholder={t("importPage.ruleEditor.noCategory")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">No category</SelectItem>
+                  <SelectItem value="__none__">{t("importPage.ruleEditor.noCategory")}</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       <div className="flex items-center gap-2">
@@ -360,7 +359,7 @@ export function RuleEditor({
 
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">
-                Handling
+                {t("importPage.ruleEditor.handling")}
               </Label>
               <Select
                 value={duplicateAction || "__none__"}
@@ -369,17 +368,13 @@ export function RuleEditor({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="No action" />
+                  <SelectValue placeholder={t("importPage.ruleEditor.noAction")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">No action</SelectItem>
-                  <SelectItem value="accept">
-                    Auto-accept duplicate
-                  </SelectItem>
-                  <SelectItem value="reject">Auto-reject Duplicate</SelectItem>
-                  <SelectItem value="skip_import">
-                    Never import matching row
-                  </SelectItem>
+                  <SelectItem value="__none__">{t("importPage.ruleEditor.noAction")}</SelectItem>
+                  <SelectItem value="accept">{t("importPage.ruleEditor.autoAccept")}</SelectItem>
+                  <SelectItem value="reject">{t("importPage.ruleEditor.autoReject")}</SelectItem>
+                  <SelectItem value="skip_import">{t("importPage.ruleEditor.neverImport")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -395,10 +390,14 @@ export function RuleEditor({
 
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : rule ? "Update Rule" : "Create Rule"}
+            {saving
+              ? t("importPage.ruleEditor.saving")
+              : rule
+                ? t("importPage.ruleEditor.update")
+                : t("importPage.ruleEditor.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
