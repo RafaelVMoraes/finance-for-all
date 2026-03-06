@@ -29,7 +29,7 @@ interface YearlyDashboardSectionProps {
   currencySymbol: string;
   chartConfig: Record<string, { label: string; color: string }>;
   yearlyIncomeExpenseTooltip: YearlyTooltipRenderer;
-  getPctBgStyle: (pct: number) => { backgroundColor: string };
+  
   investmentEvolution: InvestmentEvolutionItem[];
   netWorth: number;
 }
@@ -45,7 +45,7 @@ export function YearlyDashboardSection({
   currencySymbol,
   chartConfig,
   yearlyIncomeExpenseTooltip,
-  getPctBgStyle,
+  
   investmentEvolution,
   netWorth,
 }: YearlyDashboardSectionProps) {
