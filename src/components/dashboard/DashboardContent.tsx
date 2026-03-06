@@ -717,7 +717,7 @@ export default function DashboardContent() {
           currencySymbol={currencySymbol}
           chartConfig={chartConfig}
           yearlyIncomeExpenseTooltip={yearlyIncomeExpenseTooltip}
-          getPctBgStyle={getPctBgStyle}
+          
           investmentEvolution={investmentEvolution}
           netWorth={investmentSummary?.total_value || 0}
         />

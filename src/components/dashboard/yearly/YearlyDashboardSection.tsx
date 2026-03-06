@@ -29,7 +29,7 @@ interface YearlyDashboardSectionProps {
   currencySymbol: string;
   chartConfig: Record<string, { label: string; color: string }>;
   yearlyIncomeExpenseTooltip: YearlyTooltipRenderer;
-  getPctBgStyle: (pct: number) => { backgroundColor: string };
+  
   investmentEvolution: InvestmentEvolutionItem[];
   netWorth: number;
 }
@@ -45,7 +45,7 @@ export function YearlyDashboardSection({
   currencySymbol,
   chartConfig,
   yearlyIncomeExpenseTooltip,
-  getPctBgStyle,
+  
   investmentEvolution,
   netWorth,
 }: YearlyDashboardSectionProps) {
@@ -126,10 +126,10 @@ export function YearlyDashboardSection({
                   {yearlyViewData.budgetVsReality.map((row) => (
                     <tr key={row.month} className="border-b last:border-b-0">
                       <td className="py-2 pr-1 text-left font-medium">{row.month}</td>
-                      <td className="py-2 pl-1 text-right">{currencySymbol}{Math.round(row.actualIncome).toLocaleString()} ({row.incomePct.toFixed(0)}%)</td>
-                      <td className="py-2 pl-1 text-right">{currencySymbol}{Math.round(row.actualExpenses).toLocaleString()} ({row.expensesPct.toFixed(0)}%)</td>
+                      <td className="py-2 pl-1 text-right">{row.incomePct.toFixed(0)}%</td>
+                      <td className="py-2 pl-1 text-right">{row.expensesPct.toFixed(0)}%</td>
                       <td className={`py-2 pl-1 text-right ${row.actualSavings >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                        {currencySymbol}{Math.round(row.actualSavings).toLocaleString()} ({row.savingsPct.toFixed(0)}%)
+                        {row.savingsPct.toFixed(0)}%
                       </td>
                     </tr>
                   ))}
@@ -141,7 +141,7 @@ export function YearlyDashboardSection({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t("dashboard.investmentGrowth")}</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.investmentsStacked", { currency: currencySymbol })}</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[260px] w-full">
@@ -162,42 +162,47 @@ export function YearlyDashboardSection({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("dashboard.yearlyCategoryBudgetProgress")}</CardTitle>
+          <CardTitle>{t("dashboard.categoryBudgetProgress")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">{t("dashboard.categoryBudgetProgressYearlySubtitle")}</p>
           {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
             <p className="text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
           ) : (
             yearlyViewData.yearlyCategoryBudgetProgress.slice(0, 15).map((cat) => {
               const allowedPct = cat.annualBudget > 0 ? (cat.allowedByNow / cat.annualBudget) * 100 : 0;
-              const consumedPct = cat.annualBudget > 0 ? (cat.spent / cat.annualBudget) * 100 : 0;
-              const overspendPct = Math.max(0, consumedPct - allowedPct);
+              const spentPct = cat.annualBudget > 0 ? (cat.spent / cat.annualBudget) * 100 : 0;
+
+              // Determine bar segments
+              const spentWithinAllowedPct = Math.min(spentPct, allowedPct);
+              const overspentPct = Math.max(0, spentPct - allowedPct);
+              const remainingAllowedPct = Math.max(0, allowedPct - spentPct);
+              const futurePct = Math.max(0, 100 - allowedPct);
 
               return (
                 <div key={cat.id} className="space-y-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="font-medium">{cat.name}</span>
-                    <span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.annualBudget.toFixed(0)}</span>
+                    <span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
                   </div>
                   <div className="relative h-3 w-full overflow-hidden rounded bg-muted">
-                    <div className="absolute inset-0" style={getPctBgStyle(cat.consumedPct)} />
-                    <div className="absolute left-0 top-0 h-full bg-emerald-500/60" style={{ width: `${Math.min(consumedPct, 100)}%` }} />
-                    {cat.spentWithinAllowed > 0 ? (
-                      <div
-                        className="absolute top-0 h-full"
-                        style={{
-                          width: `${Math.min(allowedPct, 100)}%`,
-                          backgroundImage: "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0 3px, rgba(5, 150, 105, 0.15) 3px 7px)",
-                        }}
-                      />
-                    ) : null}
-                    {cat.spent > cat.allowedByNow && overspendPct > 0 ? (
-                      <div className="absolute top-0 h-full border border-black bg-red-800" style={{ left: `${Math.min(allowedPct, 100)}%`, width: `${Math.min(overspendPct, 100 - Math.min(allowedPct, 100))}%` }} />
-                    ) : null}
+                    {/* Black: spent within allowed */}
+                    {spentWithinAllowedPct > 0 && (
+                      <div className="absolute left-0 top-0 h-full bg-foreground" style={{ width: `${Math.min(spentWithinAllowedPct, 100)}%` }} />
+                    )}
+                    {/* Green: underspent (allowed but not yet spent) */}
+                    {remainingAllowedPct > 0 && (
+                      <div className="absolute top-0 h-full bg-emerald-500" style={{ left: `${Math.min(spentWithinAllowedPct, 100)}%`, width: `${Math.min(remainingAllowedPct, 100 - spentWithinAllowedPct)}%` }} />
+                    )}
+                    {/* Red: overspent beyond allowed */}
+                    {overspentPct > 0 && (
+                      <div className="absolute top-0 h-full bg-destructive" style={{ left: `${Math.min(allowedPct, 100)}%`, width: `${Math.min(overspentPct, 100 - Math.min(allowedPct, 100))}%` }} />
+                    )}
+                    {/* Grey background already covers future available via bg-muted */}
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
                     <span>Consumed: {(cat.allowedByNow > 0 ? (cat.spent / cat.allowedByNow) * 100 : 0).toFixed(0)}%</span>
-                    <span>Expected: {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
+                    <span>{t("dashboard.expected")}: {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
                   </div>
                 </div>
               );
