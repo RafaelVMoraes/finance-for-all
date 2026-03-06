@@ -196,7 +196,7 @@ export function YearlyDashboardSection({
                     ) : null}
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
-                    <span>Consumed: {cat.consumedPct.toFixed(0)}%</span>
+                    <span>Consumed: {(cat.allowedByNow > 0 ? (cat.spent / cat.allowedByNow) * 100 : 0).toFixed(0)}%</span>
                     <span>Expected: {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
                   </div>
                 </div>
