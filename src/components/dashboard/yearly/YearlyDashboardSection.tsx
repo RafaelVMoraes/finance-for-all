@@ -141,7 +141,7 @@ export function YearlyDashboardSection({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t("dashboard.investmentGrowth")}</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.investmentsStacked", { currency: currencySymbol })}</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[260px] w-full">
@@ -162,7 +162,7 @@ export function YearlyDashboardSection({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("dashboard.yearlyCategoryBudgetProgress")}</CardTitle>
+          <CardTitle>{t("dashboard.categoryBudgetProgress")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
