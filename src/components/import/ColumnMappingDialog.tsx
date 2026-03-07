@@ -78,28 +78,26 @@ export function ColumnMappingDialog({
     });
   };
 
-  const previewByRole = useMemo(() => {
-    const roleToColumn = {
-      date: mapping.date,
-      label: mapping.label,
-      value: mapping.value,
-      category: mapping.category,
-    } as const;
+  /** Build display label for a header: when no headers, append first row example */
+  const getHeaderDisplayLabel = (header: string): string => {
+    if (hasHeaders) return header;
+    const colIdx = headers.indexOf(header);
+    if (colIdx < 0) return header;
+    const example = sampleRows[0]?.[colIdx];
+    const exampleStr = example != null ? String(example).trim() : "";
+    return exampleStr ? `${header} (${exampleStr})` : header;
+  };
 
-    return (Object.keys(roleToColumn) as Array<keyof typeof roleToColumn>).map(
-      (role) => {
-        const selectedColumn = roleToColumn[role];
-        const columnIndex = selectedColumn ? headers.indexOf(selectedColumn) : -1;
-        return {
-          role,
-          selectedColumn,
-          examples: sampleRows.slice(0, 2).map((row) =>
-            columnIndex >= 0 ? String(row[columnIndex] ?? "") : "",
-          ),
-        };
-      },
-    );
-  }, [mapping, headers, sampleRows]);
+  /** Get preview samples for a mapped column */
+  const getColumnPreview = (columnName: string | null): string[] => {
+    if (!columnName) return [];
+    const colIdx = headers.indexOf(columnName);
+    if (colIdx < 0) return [];
+    return sampleRows
+      .slice(0, 3)
+      .map((row) => String(row[colIdx] ?? "").trim())
+      .filter(Boolean);
+  };
 
   const roleLabelKey: Record<keyof ColumnMapping, string> = {
     date: "importPage.columnMapping.roles.date",
@@ -115,15 +113,17 @@ export function ColumnMappingDialog({
         if (!o) onCancel();
       }}
     >
-      <DialogContent className="max-w-[calc(100vw-env(safe-area-inset-left)-env(safe-area-inset-right)-0.75rem)] sm:max-w-2xl max-h-[90vh] overflow-hidden p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>{t("importPage.columnMapping.title")}</DialogTitle>
-          <DialogDescription>
-            {t("importPage.columnMapping.description")}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0">
+        <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+          <DialogHeader>
+            <DialogTitle>{t("importPage.columnMapping.title")}</DialogTitle>
+            <DialogDescription>
+              {t("importPage.columnMapping.description")}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4 overflow-y-auto pr-1">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:px-6 space-y-4">
           <div className="flex items-center gap-2">
             <Checkbox
               id="has-headers"
@@ -135,15 +135,16 @@ export function ColumnMappingDialog({
             </label>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-4">
             {(["date", "label", "value", "category"] as const).map((role) => {
               const required = role !== "category";
               const current = mapping[role];
               const available = getAvailableHeaders(role);
               const isMapped = !!current;
+              const preview = getColumnPreview(current);
 
               return (
-                <div key={role} className="space-y-1">
+                <div key={role} className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">
                       {t(roleLabelKey[role])}
@@ -168,47 +169,24 @@ export function ColumnMappingDialog({
                       </SelectItem>
                       {available.map((h) => (
                         <SelectItem key={h} value={h}>
-                          {h}
+                          {getHeaderDisplayLabel(h)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {isMapped && preview.length > 0 && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      Preview: {preview.join(", ")}
+                    </p>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          {isValid && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                {t("importPage.columnMapping.previewTitle")}
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {previewByRole.map((item) => (
-                  <div key={item.role} className="rounded-md border p-3 text-sm">
-                    <p className="font-medium">{t(roleLabelKey[item.role])}</p>
-                    <p className="text-muted-foreground">
-                      {item.selectedColumn || t("importPage.columnMapping.noColumnSelected")}
-                    </p>
-                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {t("importPage.columnMapping.examples")}
-                    </p>
-                    <div className="mt-1 space-y-1">
-                      {item.examples.map((example, index) => (
-                        <p key={index} className="truncate text-muted-foreground">
-                          {example || "—"}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {!isValid && (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3 text-sm">
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <AlertCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span>{t("importPage.columnMapping.validationHint")}</span>
             </div>
           )}
@@ -230,17 +208,19 @@ export function ColumnMappingDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onCancel}>
-            {t("common.cancel")}
-          </Button>
-          <Button
-            onClick={() => onConfirm(mapping, saveForSource)}
-            disabled={!isValid}
-          >
-            {t("importPage.columnMapping.confirm")}
-          </Button>
-        </DialogFooter>
+        <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={onCancel}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={() => onConfirm(mapping, saveForSource)}
+              disabled={!isValid}
+            >
+              {t("importPage.columnMapping.confirm")}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
