@@ -203,7 +203,7 @@ export default function Investments() {
 
   const handleCreateInvestment = async () => {
     if (!newInvestment.name || !newInvestment.investmentType) {
-      toast({ variant: 'destructive', title: 'Please fill all required fields' });
+      toast({ variant: 'destructive', title: t('investments.feedback.requiredFields') });
       return;
     }
 
@@ -219,13 +219,13 @@ export default function Investments() {
     );
 
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to create', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedCreate'), description: result.error });
     } else if (result.data) {
       // Add initial snapshot as confirmed for the start month
       if (newInvestment.value > 0) {
         await addSnapshot(result.data.id, newInvestment.startMonth, newInvestment.value);
       }
-      toast({ title: 'Investment added' });
+      toast({ title: t('investments.feedback.investmentAdded') });
       setIsDialogOpen(false);
       setNewInvestment({ 
         name: '', 
@@ -240,9 +240,9 @@ export default function Investments() {
   const handleDeleteInvestment = async (id: string) => {
     const result = await deleteInvestment(id);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to delete', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedDelete'), description: result.error });
     } else {
-      toast({ title: 'Investment deleted' });
+      toast({ title: t('investments.feedback.investmentDeleted') });
     }
   };
 
@@ -256,9 +256,9 @@ export default function Investments() {
     if (!updatingValueId) return;
     const result = await addSnapshot(updatingValueId, currentMonthStr, tempValue);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to update', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedUpdate'), description: result.error });
     } else {
-      toast({ title: confirm ? 'Value confirmed' : 'Value saved' });
+      toast({ title: confirm ? t('investments.feedback.valueConfirmed') : t('investments.feedback.valueSaved') });
     }
     setUpdatingValueId(null);
   };
@@ -268,9 +268,9 @@ export default function Investments() {
     const value = snapshot?.total_value ?? getPreviousValue(investmentId);
     const result = await addSnapshot(investmentId, currentMonthStr, value);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to confirm', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedConfirm'), description: result.error });
     } else {
-      toast({ title: 'Value confirmed for ' + format(selectedMonth, 'MMMM yyyy') });
+      toast({ title: t('investments.feedback.valueConfirmedForMonth', { month: format(selectedMonth, 'MMMM yyyy') }) });
     }
   };
 
@@ -279,9 +279,9 @@ export default function Investments() {
     if (!newTypeName.trim()) return;
     const result = await createType(newTypeName);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to create type', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedCreateType'), description: result.error });
     } else {
-      toast({ title: 'Type created' });
+      toast({ title: t('investments.feedback.typeCreated') });
       setNewTypeName('');
     }
   };
@@ -290,9 +290,9 @@ export default function Investments() {
     if (!editTypeName.trim()) return;
     const result = await updateType(id, { name: editTypeName });
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to update', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedUpdate'), description: result.error });
     } else {
-      toast({ title: 'Type updated' });
+      toast({ title: t('investments.feedback.typeUpdated') });
       setEditingTypeId(null);
     }
   };
@@ -300,14 +300,14 @@ export default function Investments() {
   const handleDeleteType = async (id: string) => {
     const hasInvestments = investments.some(i => types.find(t => t.id === id)?.name === i.investment_type);
     if (hasInvestments) {
-      toast({ variant: 'destructive', title: 'Cannot delete', description: 'Type has existing investments' });
+      toast({ variant: 'destructive', title: t('investments.feedback.cannotDeleteType'), description: t('investments.feedback.typeHasInvestments') });
       return;
     }
     const result = await deleteType(id);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to delete', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedDelete'), description: result.error });
     } else {
-      toast({ title: 'Type deleted' });
+      toast({ title: t('investments.feedback.typeDeleted') });
     }
   };
 
@@ -316,14 +316,14 @@ export default function Investments() {
     const key = `${from}-${to}`;
     const rate = parseFloat(rateInputs[key]);
     if (isNaN(rate) || rate <= 0) {
-      toast({ variant: 'destructive', title: 'Invalid rate' });
+      toast({ variant: 'destructive', title: t('investments.feedback.invalidRate') });
       return;
     }
     const result = await upsertRate(from, to, rate, selectedMonth);
     if (result.error) {
-      toast({ variant: 'destructive', title: 'Failed to save rate', description: result.error });
+      toast({ variant: 'destructive', title: t('investments.feedback.failedSaveRate'), description: result.error });
     } else {
-      toast({ title: 'Exchange rate saved' });
+      toast({ title: t('investments.feedback.rateSaved') });
     }
   };
 
@@ -376,7 +376,7 @@ export default function Investments() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Exchange Rates - {format(selectedMonth, 'MMMM yyyy')}</DialogTitle>
+                <DialogTitle>{t('investments.exchangeRates.title', { month: format(selectedMonth, 'MMMM yyyy') })}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 {(['EUR', 'USD', 'BRL'] as Currency[]).filter(c => c !== mainCurrency).map(currency => {
@@ -384,7 +384,7 @@ export default function Investments() {
                   const { rate, isFallback } = getRate(currency, mainCurrency, selectedMonth);
                   return (
                     <div key={currency} className="flex items-center gap-2">
-                      <Label className="w-20">1 {currency} =</Label>
+                      <Label className="w-20">{t('investments.exchangeRates.oneUnit', { currency })}</Label>
                       <Input
                         type="number"
                         step="0.0001"
@@ -394,10 +394,10 @@ export default function Investments() {
                       />
                       <span className="text-sm text-muted-foreground">{mainCurrency}</span>
                       <Button size="sm" onClick={() => handleSaveRate(currency, mainCurrency)}>
-                        Save
+                        {t('investments.actions.save')}
                       </Button>
                       {isFallback && (
-                        <Badge variant="outline" className="text-amber-600">Fallback</Badge>
+                        <Badge variant="outline" className="text-amber-600">{t('investments.exchangeRates.fallback')}</Badge>
                       )}
                     </div>
                   );
@@ -411,7 +411,7 @@ export default function Investments() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Investment Types</DialogTitle>
+                <DialogTitle>{t('investments.types.title')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 {types.map(type => (
@@ -446,13 +446,13 @@ export default function Investments() {
                 ))}
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <Input
-                    placeholder="New type name"
+                    placeholder={t('investments.types.newTypePlaceholder')}
                     value={newTypeName}
                     onChange={(e) => setNewTypeName(e.target.value)}
                     className="flex-1"
                   />
                   <Button size="sm" onClick={handleCreateType}>
-                    <Plus className="h-4 w-4 mr-1" /> Add
+                    <Plus className="h-4 w-4 mr-1" /> {t('investments.actions.add')}
                   </Button>
                 </div>
               </div>
@@ -467,30 +467,30 @@ export default function Investments() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Asset</DialogTitle>
+                <DialogTitle>{t('investments.dialog.addAssetTitle')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label>Label</Label>
+                  <Label>{t('investments.form.label')}</Label>
                   <Input
                     value={newInvestment.name}
                     onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
-                    placeholder="e.g., S&P 500 ETF"
+                    placeholder={t('investments.form.labelPlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Type</Label>
+                  <Label>{t('investments.form.type')}</Label>
                   <Select 
                     value={newInvestment.investmentType} 
                     onValueChange={(value) => setNewInvestment({ ...newInvestment, investmentType: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder={t('investments.form.selectType')} />
                     </SelectTrigger>
                     <SelectContent>
                       {types.map(type => (
                         <SelectItem key={type.id} value={type.name}>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
                             <div className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
                             {type.name}
                           </div>
@@ -501,7 +501,7 @@ export default function Investments() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Currency</Label>
+                    <Label>{t('investments.form.currency')}</Label>
                     <Select 
                       value={newInvestment.currency} 
                       onValueChange={(value: Currency) => setNewInvestment({ ...newInvestment, currency: value })}
@@ -517,7 +517,7 @@ export default function Investments() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Start Month</Label>
+                    <Label>{t('investments.form.startMonth')}</Label>
                     <Input
                       type="month"
                       value={newInvestment.startMonth.slice(0, 7)}
@@ -527,7 +527,7 @@ export default function Investments() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Initial Value</Label>
+                  <Label>{t('investments.form.initialValue')}</Label>
                   <Input
                     type="number"
                     value={newInvestment.value}
@@ -535,7 +535,7 @@ export default function Investments() {
                   />
                 </div>
                 <Button className="w-full" onClick={handleCreateInvestment}>
-                  Add Asset
+                  {t('investments.actions.addAsset')}
                 </Button>
               </div>
             </DialogContent>
@@ -548,10 +548,10 @@ export default function Investments() {
         <Alert variant="default" className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-700 dark:text-amber-300">
-            Exchange rates not defined for {format(selectedMonth, 'MMMM yyyy')}. 
-            Using previous rates as fallback.{' '}
+            {t('investments.alerts.missingRates', { month: format(selectedMonth, 'MMMM yyyy') })} {format(selectedMonth, 'MMMM yyyy')}. 
+            {t('investments.alerts.usingFallback')}{' '}
             <Button variant="link" className="p-0 h-auto" onClick={() => setIsRatesDialogOpen(true)}>
-              Update rates
+              {t('investments.actions.updateRates')}
             </Button>
           </AlertDescription>
         </Alert>
@@ -562,7 +562,7 @@ export default function Investments() {
         <Alert variant="default" className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-700 dark:text-red-300">
-            {unconfirmedCount} asset(s) need value confirmation for {format(selectedMonth, 'MMMM yyyy')}.
+            {unconfirmedCount} {t('investments.alerts.unconfirmedPrefix', { count: unconfirmedCount })} {format(selectedMonth, 'MMMM yyyy')}.
           </AlertDescription>
         </Alert>
       )}
@@ -677,7 +677,7 @@ export default function Investments() {
                 return (
                   <div 
                     key={inv.id}
-                    className={`flex items-center justify-between rounded-lg border p-4 ${
+                    className={`flex flex-col gap-3 overflow-hidden rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4 ${
                       needsConfirmation ? 'border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20' : ''
                     }`}
                   >
@@ -690,12 +690,12 @@ export default function Investments() {
                         <p className="text-xs text-muted-foreground">{inv.investment_type} • {inv.currency}</p>
                         {needsConfirmation && (
                           <p className="text-xs text-red-600 dark:text-red-400">
-                            Please update value for current month
+                            {t('investments.alerts.updateCurrentMonth')}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
                       {isUpdating ? (
                         <>
                           <Input
@@ -735,7 +735,7 @@ export default function Investments() {
                           </div>
                           {needsConfirmation && (
                             <Button size="sm" variant="outline" onClick={() => confirmValue(inv.id)}>
-                              <Check className="h-4 w-4 mr-1" /> Confirm
+                              <Check className="h-4 w-4 mr-1" /> {t('investments.actions.confirm')}
                             </Button>
                           )}
                           <Button size="sm" variant="ghost" onClick={() => startUpdateValue(inv.id)}>

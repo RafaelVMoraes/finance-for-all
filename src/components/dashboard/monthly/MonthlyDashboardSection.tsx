@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, XAxis, YAxis } from "recharts";
 
 import { MonthlySummaryCards } from "@/components/dashboard/monthly/MonthlySummaryCards";
-import { MonthlyInvestmentEvolution, MonthlyViewData } from "@/components/dashboard/types";
+import { MonthlyInvestmentEvolution, MonthlyInvestmentRateRow, MonthlyViewData } from "@/components/dashboard/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ interface MonthlyDashboardSectionProps {
   chartConfig: Record<string, { label: string; color: string }>;
   formatPercent: (value: number) => string;
   calculateRatio: (value: number, total: number) => number;
+  monthlyInvestmentRates: MonthlyInvestmentRateRow[];
 }
 
 export function MonthlyDashboardSection({
@@ -37,6 +38,7 @@ export function MonthlyDashboardSection({
   chartConfig,
   formatPercent,
   calculateRatio,
+  monthlyInvestmentRates,
 }: MonthlyDashboardSectionProps) {
   const { t } = useI18n();
 
@@ -138,6 +140,40 @@ export function MonthlyDashboardSection({
               <Link to="/budget">{t("dashboard.adjustBudget")}</Link>
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("dashboard.lastThreeMonthsInvestmentRates")}</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {monthlyInvestmentRates.length === 0 ? (
+            <p className="text-muted-foreground">{t("dashboard.noInvestmentDataYet")}</p>
+          ) : (
+            <table className="w-full min-w-[32rem] text-xs">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="py-2 pr-2 text-left font-medium">{t("investments.assets.title")}</th>
+                  <th className="py-2 px-2 text-right font-medium">M-2</th>
+                  <th className="py-2 px-2 text-right font-medium">M-1</th>
+                  <th className="py-2 pl-2 text-right font-medium">M</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyInvestmentRates.map((row) => (
+                  <tr key={row.id} className="border-b last:border-b-0">
+                    <td className="py-2 pr-2">{row.name}</td>
+                    {row.monthRates.map((rate, idx) => (
+                      <td key={`${row.id}-${idx}`} className={`py-2 px-2 text-right ${rate >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {formatPercent(rate)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 
