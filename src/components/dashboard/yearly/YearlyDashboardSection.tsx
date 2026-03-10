@@ -3,6 +3,8 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, ReferenceL
 import { YearlySummaryCards } from "@/components/dashboard/yearly/YearlySummaryCards";
 import {
   InvestmentEvolutionItem,
+  InvestmentForecastItem,
+  MonthlyInvestmentRateRow,
   YearPeriodItem,
   YearlyTooltipRenderer,
   YearlyViewData,
@@ -32,6 +34,10 @@ interface YearlyDashboardSectionProps {
   
   investmentEvolution: InvestmentEvolutionItem[];
   netWorth: number;
+  yearlyInvestmentGain: number;
+  investmentGrowthByType: Array<Record<string, number | string>>;
+  investmentForecasts: InvestmentForecastItem[];
+  monthlyInvestmentRates: MonthlyInvestmentRateRow[];
 }
 
 export function YearlyDashboardSection({
@@ -48,6 +54,10 @@ export function YearlyDashboardSection({
   
   investmentEvolution,
   netWorth,
+  yearlyInvestmentGain,
+  investmentGrowthByType,
+  investmentForecasts,
+  monthlyInvestmentRates,
 }: YearlyDashboardSectionProps) {
   const { t } = useI18n();
 
@@ -80,7 +90,12 @@ export function YearlyDashboardSection({
         </div>
       </div>
 
-      <YearlySummaryCards yearlyViewData={yearlyViewData} currencySymbol={currencySymbol} netWorth={netWorth} />
+      <YearlySummaryCards
+        yearlyViewData={yearlyViewData}
+        currencySymbol={currencySymbol}
+        netWorth={netWorth}
+        yearlyInvestmentGain={yearlyInvestmentGain}
+      />
 
       <Card>
         <CardHeader>
@@ -93,7 +108,7 @@ export function YearlyDashboardSection({
             <BarChart data={yearlyViewData.chartData}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} />
-              <YAxis tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
+              <YAxis domain={["dataMin", "auto"]} tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
               <ChartTooltip content={yearlyIncomeExpenseTooltip} />
               <Legend />
               <Bar dataKey="income" fill="hsl(var(--chart-1))" />
@@ -148,7 +163,7 @@ export function YearlyDashboardSection({
               <AreaChart data={investmentEvolution}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
+                <YAxis domain={["dataMin", "auto"]} tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 <Area type="monotone" dataKey="Investments" stackId="a" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.35} />
@@ -156,6 +171,48 @@ export function YearlyDashboardSection({
                 <Area type="monotone" dataKey="Current" stackId="a" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.35} />
               </AreaChart>
             </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("dashboard.investmentsGrowthByType")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
+              <AreaChart data={investmentGrowthByType}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Area type="monotone" dataKey="Investments" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.25} />
+                <Area type="monotone" dataKey="Emergency" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.2} />
+                <Area type="monotone" dataKey="Current" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.2} />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("dashboard.netWorth")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {investmentForecasts.map((forecast) => (
+                <Card key={forecast.years}>
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-xs text-muted-foreground">{t("dashboard.forecastInYears", { years: forecast.years })}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm font-semibold">{currencySymbol}{Math.round(forecast.projectedTotal).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -242,6 +299,40 @@ export function YearlyDashboardSection({
 
       <Card>
         <CardHeader>
+          <CardTitle>{t("dashboard.lastThreeMonthsInvestmentRates")}</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {monthlyInvestmentRates.length === 0 ? (
+            <p className="text-muted-foreground">{t("dashboard.noInvestmentDataYet")}</p>
+          ) : (
+            <table className="w-full min-w-[32rem] text-xs">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="py-2 pr-2 text-left font-medium">{t("investments.assets.title")}</th>
+                  <th className="py-2 px-2 text-right font-medium">M-2</th>
+                  <th className="py-2 px-2 text-right font-medium">M-1</th>
+                  <th className="py-2 pl-2 text-right font-medium">M</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyInvestmentRates.map((row) => (
+                  <tr key={row.id} className="border-b last:border-b-0">
+                    <td className="py-2 pr-2">{row.name}</td>
+                    {row.monthRates.map((rate, idx) => (
+                      <td key={`${row.id}-${idx}`} className={`py-2 px-2 text-right ${rate >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {rate.toFixed(1)}%
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t("dashboard.yearlyExpenseMatrix")}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -285,8 +376,7 @@ export function YearlyDashboardSection({
               <tr className="bg-muted/30 font-semibold">
                 <td className="sticky left-0 z-10 bg-muted py-2 pr-2">{t("dashboard.totalInvestmentValue")}</td>
                 {investmentEvolution.map((investmentMonth, idx) => {
-                  const total = investmentMonth.Current + investmentMonth.Emergency + investmentMonth.Investments;
-                  return <td key={`investments-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{total.toFixed(0)}</td>;
+                  return <td key={`investments-${idx}`} className="py-2 px-2 text-right">{currencySymbol}{investmentMonth.total.toFixed(0)}</td>;
                 })}
               </tr>
             </tbody>

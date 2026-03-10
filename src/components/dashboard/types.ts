@@ -35,6 +35,18 @@ export interface MonthlyInvestmentEvolution {
   pctChange: number;
 }
 
+export interface MonthlyInvestmentRateRow {
+  id: string;
+  name: string;
+  currency: string;
+  monthRates: number[];
+}
+
+export interface InvestmentForecastItem {
+  years: number;
+  projectedTotal: number;
+}
+
 export interface YearlyBudgetRealityRow {
   month: string;
   actualIncome: number;
@@ -67,6 +79,7 @@ export interface InvestmentEvolutionItem {
   Investments: number;
   Emergency: number;
   Current: number;
+  total: number;
 }
 
 export interface YearlyViewData {
