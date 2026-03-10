@@ -58,7 +58,6 @@ export interface InvestmentData {
   currency: string;
   initial_amount: number;
   snapshots: { month: string; total_value: number }[];
-  monthly_contribution?: number;
 }
 
 export interface InvestmentSummary {
