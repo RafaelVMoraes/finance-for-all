@@ -26,7 +26,11 @@
     "target": "ES2021",
     "useDefineForClassFields": true
   },
-  "include": [
+    "include": [
     "src"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
