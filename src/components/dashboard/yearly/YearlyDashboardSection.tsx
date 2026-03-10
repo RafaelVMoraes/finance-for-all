@@ -198,7 +198,7 @@ export function YearlyDashboardSection({
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate font-medium">{cat.name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
-                      {currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.allowedByNow.toFixed(0)}
+                      {currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.annualBudget.toFixed(0)}
                     </span>
                   </div>
                   <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
