@@ -163,7 +163,6 @@ export function YearlyDashboardSection({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{t("dashboard.categoryBudgetProgress")}</CardTitle>
-          <p className="text-xs text-muted-foreground">{t("dashboard.categoryBudgetProgressYearlySubtitle")}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-4 rounded-sm bg-black" /> Spent
