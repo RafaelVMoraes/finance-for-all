@@ -222,7 +222,7 @@ export function parseTransactionsFromText(rawText: string): Transaction[] {
       // Continuation line — append to previous transaction description
       if (previousTransaction && line.length > 2) {
         // Skip card numbers, references, IBANs in description
-        if (!/^Cartão:/i.test(line) && !/^De:/i.test(line) && !/^Para:.*[A-Z]{2}\d{10,}/i.test(line)) {
+        if (!/^Cartão:/i.test(line) && !/^De:/i.test(line) && !/^Para:/i.test(line) && !/^Referência:/i.test(line)) {
           previousTransaction.description = `${previousTransaction.description} ${line}`.trim();
         }
       }
