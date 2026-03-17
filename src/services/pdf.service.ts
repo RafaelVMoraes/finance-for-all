@@ -1,53 +1,29 @@
-interface PdfJsPage {
-  getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
-}
+import * as pdfjsLib from 'pdfjs-dist';
 
-interface PdfJsDocument {
-  numPages: number;
-  getPage(pageNumber: number): Promise<PdfJsPage>;
-}
+// Use the bundled worker from pdfjs-dist
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
-async function extractWithPdfParse(buffer: ArrayBuffer): Promise<string> {
-  const moduleName = 'pdf-parse';
-  const mod = await import(/* @vite-ignore */ moduleName);
-  const parser = (mod.default || mod) as (dataBuffer: Uint8Array) => Promise<{ text: string }>;
-  const result = await parser(new Uint8Array(buffer));
-  return result.text || '';
-}
-
-async function extractWithPdfJs(buffer: ArrayBuffer): Promise<string> {
-  const moduleName = 'pdfjs-dist';
-  const pdfjs = await import(/* @vite-ignore */ moduleName);
-  const loadingTask = pdfjs.getDocument({ data: buffer });
-  const doc = (await loadingTask.promise) as PdfJsDocument;
+export async function extractPdfText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: buffer });
+  const doc = await loadingTask.promise;
 
   const pages: string[] = [];
   for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
     const page = await doc.getPage(pageNumber);
     const content = await page.getTextContent();
     const pageText = content.items
-      .map((item) => item.str || '')
+      .map((item) => ('str' in item ? item.str : ''))
       .join(' ')
       .trim();
-
     pages.push(pageText);
   }
 
-  return pages.join('\n');
-}
-
-export async function extractPdfText(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  let rawText = '';
-
-  try {
-    rawText = await extractWithPdfParse(buffer);
-  } catch (error) {
-    console.warn('[PDF_PARSE_PRIMARY_FAILED]', error);
-    rawText = await extractWithPdfJs(buffer);
-  }
-
-  return rawText
+  return pages
+    .join('\n')
     .replace(/\r/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]+/g, ' ')
