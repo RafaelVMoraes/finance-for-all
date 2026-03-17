@@ -181,12 +181,15 @@ function extractDate(line: string): string | null {
 function extractAmounts(line: string): string[] {
   const matches = line.match(AMOUNT_REGEX);
   if (!matches) return [];
-  // Filter out amounts that are just part of a card number or IBAN
   return matches.filter(m => {
     const cleaned = m.replace(/[€$£R\s]/g, '');
-    // Skip if it looks like a card mask fragment
-    if (/\*/.test(line.substring(line.indexOf(m) - 10, line.indexOf(m) + m.length + 10))) return false;
-    return cleaned.length > 0;
+    if (cleaned.length === 0) return false;
+    // Skip amounts that are directly part of a card mask (e.g., *6716)
+    const idx = line.indexOf(m);
+    const charBefore = idx > 0 ? line[idx - 1] : '';
+    const charAfter = idx + m.length < line.length ? line[idx + m.length] : '';
+    if (charBefore === '*' || charAfter === '*') return false;
+    return true;
   });
 }
 
