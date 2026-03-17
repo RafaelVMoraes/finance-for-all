@@ -117,7 +117,7 @@ export function parseTransactionsFromText(rawText: string): Transaction[] {
 
     const dateMatch = line.match(DATE_REGEX);
     const amountMatches = Array.from(line.matchAll(new RegExp(AMOUNT_REGEX, 'g')));
-    const amountMatch = amountMatches.at(-1);
+    const amountMatch = amountMatches.length > 0 ? amountMatches[amountMatches.length - 1] : undefined;
 
     if (!dateMatch || !amountMatch) {
       console.warn('[PDF_PARSE_SKIP]', line);
