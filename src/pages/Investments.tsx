@@ -653,7 +653,7 @@ export default function Investments() {
       </div>
 
       {/* Evolution Chart */}
-      {investments.length > 0 && chartData.some(d => (d.total as number) > 0) && (
+      {investments.length > 0 && chartData.some(d => (d['total'] as number) > 0) && (
         <Card>
           <CardHeader>
             <CardTitle>{t('investments.chart.title')}</CardTitle>

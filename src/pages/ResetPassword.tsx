@@ -45,11 +45,12 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 8) {
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
       toast({
         variant: 'destructive',
         title: t('auth.errorTitle'),
-        description: t('auth.passwordTooShort'),
+        description: passwordResult.error.errors[0].message,
       });
       return;
     }

@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
-
-// Validation schemas
-const emailSchema = z.string().trim().email('Please enter a valid email address');
-const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-  .regex(/[0-9]/, 'Password must contain a number');
+import { emailSchema, passwordSchema } from '@/lib/authValidation';
 
 interface AuthUser {
   id: string;
