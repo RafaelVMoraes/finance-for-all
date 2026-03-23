@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChartNoAxesCombined, PiggyBank, Upload } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Import from './Import';
