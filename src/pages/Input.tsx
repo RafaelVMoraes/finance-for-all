@@ -9,68 +9,51 @@ export default function Input() {
   const { t } = useI18n();
 
   return (
-    <div className="space-y-5">
-      <Card className="border-primary/40 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Upload className="h-5 w-5 text-primary" />
-            {t('input.import.title')}
-          </CardTitle>
-          <CardDescription>{t('input.import.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href="#input-import-section">{t('input.import.cta')}</a>
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="transition-colors hover:border-primary/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ChartNoAxesCombined className="h-4 w-4" />
-              {t('input.investments.title')}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="border-primary/40 shadow-sm">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Upload className="h-4 w-4 text-primary" />
+              {t('input.import.title')}
             </CardTitle>
-            <CardDescription>{t('input.investments.description')}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="outline" asChild className="w-full justify-between">
-              <Link to="/input/investments">
-                {t('input.investments.action')}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+          <CardContent className="p-4 pt-1">
+            <Button asChild size="sm" className="w-full text-xs">
+              <a href="#input-import-section">{t('input.import.cta')}</a>
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="transition-colors hover:border-primary/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <PiggyBank className="h-4 w-4" />
-              {t('input.budget.title')}
+        <Card className="border-primary/40 shadow-sm">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <ChartNoAxesCombined className="h-4 w-4 text-primary" />
+              {t('input.investments.title')}
             </CardTitle>
-            <CardDescription>{t('input.budget.description')}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="outline" asChild className="w-full justify-between">
-              <Link to="/input/budget">
-                {t('input.budget.action')}
-                <ArrowRight className="h-4 w-4" />
+          <CardContent className="p-4 pt-1">
+            <Button variant="outline" asChild size="sm" className="w-full text-xs">
+              <Link to="/input/investments">
+                {t('input.investments.action')}
               </Link>
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      <div className="space-y-1 rounded-md border border-border/70 p-3">
-        <Link to="/input/transactions" className="flex items-center justify-between rounded-md px-1 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-          <span>{t('input.links.transactions')}</span>
-          <ArrowRight className="h-4 w-4" />
+      <div className="flex gap-2">
+        <Link to="/input/budget" className="flex-1">
+          <Badge variant="outline" className="w-full justify-center gap-1.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <PiggyBank className="h-3.5 w-3.5" />
+            {t('input.budget.title')}
+          </Badge>
         </Link>
-        <Link to="/input/categories" className="flex items-center justify-between rounded-md px-1 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-          <span>{t('input.links.categories')}</span>
-          <ArrowRight className="h-4 w-4" />
+        <Link to="/input/transactions" className="flex-1">
+          <Badge variant="outline" className="w-full justify-center gap-1.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <ArrowRight className="h-3.5 w-3.5" />
+            {t('input.links.transactions')}
+          </Badge>
         </Link>
       </div>
 
