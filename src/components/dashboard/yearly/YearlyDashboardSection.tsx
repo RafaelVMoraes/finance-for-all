@@ -2,7 +2,9 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, ReferenceL
 
 import { YearlySummaryCards } from "@/components/dashboard/yearly/YearlySummaryCards";
 import {
+  InvestmentProjectionItem,
   InvestmentEvolutionItem,
+  MonthlyInvestmentGrowthItem,
   YearPeriodItem,
   YearlyTooltipRenderer,
   YearlyViewData,
@@ -31,7 +33,10 @@ interface YearlyDashboardSectionProps {
   yearlyIncomeExpenseTooltip: YearlyTooltipRenderer;
   
   investmentEvolution: InvestmentEvolutionItem[];
+  investmentGrowthData: MonthlyInvestmentGrowthItem[];
+  investmentProjections: InvestmentProjectionItem[];
   netWorth: number;
+  yearlyInvestmentGain: number;
 }
 
 export function YearlyDashboardSection({
@@ -47,9 +52,17 @@ export function YearlyDashboardSection({
   yearlyIncomeExpenseTooltip,
   
   investmentEvolution,
+  investmentGrowthData,
+  investmentProjections,
   netWorth,
+  yearlyInvestmentGain,
 }: YearlyDashboardSectionProps) {
   const { t } = useI18n();
+  const stackedTotals = investmentEvolution.map(
+    (month) => month.Current + month.Emergency + month.Investments,
+  );
+  const lowestStackedValue = stackedTotals.length > 0 ? Math.min(...stackedTotals) : 0;
+  const stackedYAxisMin = lowestStackedValue > 0 ? lowestStackedValue * 0.98 : 0;
 
   return (
     <div className="space-y-6">
@@ -80,7 +93,12 @@ export function YearlyDashboardSection({
         </div>
       </div>
 
-      <YearlySummaryCards yearlyViewData={yearlyViewData} currencySymbol={currencySymbol} netWorth={netWorth} />
+      <YearlySummaryCards
+        yearlyViewData={yearlyViewData}
+        currencySymbol={currencySymbol}
+        netWorth={netWorth}
+        yearlyInvestmentGain={yearlyInvestmentGain}
+      />
 
       <Card>
         <CardHeader>
@@ -107,6 +125,83 @@ export function YearlyDashboardSection({
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t("dashboard.categoryBudgetProgress")}</CardTitle>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-4 rounded-sm bg-black" /> Spent
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-2.5 w-4 rounded-sm border border-emerald-700"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.4) 0 2px, rgba(5, 150, 105, 0.15) 2px 5px)",
+                  }}
+                />
+                Under budget
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-4 rounded-sm border border-black bg-red-800" />
+                Over budget
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
+            ) : (
+              yearlyViewData.yearlyCategoryBudgetProgress.slice(0, 15).map((cat) => {
+                const allowedPct = cat.annualBudget > 0 ? Math.min((cat.allowedByNow / cat.annualBudget) * 100, 100) : 0;
+                const spentPct = cat.annualBudget > 0 ? Math.min((cat.spent / cat.annualBudget) * 100, 100) : 0;
+                const overspentPct = cat.annualBudget > 0 ? Math.min((Math.max(0, cat.spent - cat.allowedByNow) / cat.annualBudget) * 100, 100) : 0;
+
+                return (
+                  <div key={cat.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate font-medium">{cat.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
+                        {currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.annualBudget.toFixed(0)}
+                      </span>
+                    </div>
+                    <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="absolute left-0 top-0 h-full bg-black"
+                        style={{ width: `${spentPct}%` }}
+                      />
+                      {cat.spent <= cat.allowedByNow && allowedPct > spentPct ? (
+                        <div
+                          className="absolute top-0 h-full border border-emerald-700"
+                          style={{
+                            left: `${spentPct}%`,
+                            width: `${allowedPct - spentPct}%`,
+                            backgroundImage:
+                              "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0 3px, rgba(5, 150, 105, 0.15) 3px 7px)",
+                          }}
+                        />
+                      ) : null}
+                      {cat.spent > cat.allowedByNow && overspentPct > 0 ? (
+                        <div
+                          className="absolute top-0 h-full border border-black bg-red-800"
+                          style={{
+                            left: `${Math.min(allowedPct, 100)}%`,
+                            width: `${Math.min(overspentPct, 100 - Math.min(allowedPct, 100))}%`,
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
+                      <span>Consumed: {(cat.allowedByNow > 0 ? (cat.spent / cat.allowedByNow) * 100 : 0).toFixed(0)}%</span>
+                      <span>{t("dashboard.expected")}: {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t("dashboard.budgetVsReality")}</CardTitle>
@@ -138,7 +233,9 @@ export function YearlyDashboardSection({
             </div>
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t("dashboard.investmentsStacked", { currency: currencySymbol })}</CardTitle>
@@ -148,7 +245,12 @@ export function YearlyDashboardSection({
               <AreaChart data={investmentEvolution}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(v) => `${currencySymbol}${v}`} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[stackedYAxisMin, "auto"]}
+                  tickFormatter={(v) => `${currencySymbol}${v}`}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 <Area type="monotone" dataKey="Investments" stackId="a" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.35} />
@@ -158,87 +260,46 @@ export function YearlyDashboardSection({
             </ChartContainer>
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">{t("dashboard.categoryBudgetProgress")}</CardTitle>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm bg-black" /> Spent
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-4 rounded-sm border border-emerald-700"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.4) 0 2px, rgba(5, 150, 105, 0.15) 2px 5px)",
-                }}
-              />
-              Under budget
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm border border-black bg-red-800" />
-              Over budget
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {yearlyViewData.yearlyCategoryBudgetProgress.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
-          ) : (
-            yearlyViewData.yearlyCategoryBudgetProgress.slice(0, 15).map((cat) => {
-              const allowedPct = cat.annualBudget > 0 ? Math.min((cat.allowedByNow / cat.annualBudget) * 100, 100) : 0;
-              const spentPct = cat.annualBudget > 0 ? Math.min((cat.spent / cat.annualBudget) * 100, 100) : 0;
-              const overspentPct = cat.annualBudget > 0 ? Math.min((Math.max(0, cat.spent - cat.allowedByNow) / cat.annualBudget) * 100, 100) : 0;
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Monthly Percentage Growth of Investments</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ChartContainer config={chartConfig} className="h-[260px] w-full">
+              <AreaChart data={investmentGrowthData}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(value) => `${value.toFixed(1)}%`} tickLine={false} axisLine={false} />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area
+                  type="monotone"
+                  dataKey="growthPct"
+                  stroke="hsl(var(--chart-4))"
+                  fill="hsl(var(--chart-4))"
+                  fillOpacity={0.25}
+                />
+              </AreaChart>
+            </ChartContainer>
 
-              return (
-                <div key={cat.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 truncate font-medium">{cat.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
-                      {currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.annualBudget.toFixed(0)}
-                    </span>
-                  </div>
-                  <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
-                    {/* Black: spent within allowed */}
-                    <div
-                      className="absolute left-0 top-0 h-full bg-black"
-                      style={{ width: `${spentPct}%` }}
-                    />
-                    {/* Hatched green: underspent (allowed but not yet spent) */}
-                    {cat.spent <= cat.allowedByNow && allowedPct > spentPct ? (
-                      <div
-                        className="absolute top-0 h-full border border-emerald-700"
-                        style={{
-                          left: `${spentPct}%`,
-                          width: `${allowedPct - spentPct}%`,
-                          backgroundImage:
-                            "repeating-linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0 3px, rgba(5, 150, 105, 0.15) 3px 7px)",
-                        }}
-                      />
-                    ) : null}
-                    {/* Dark red with black border: overspent */}
-                    {cat.spent > cat.allowedByNow && overspentPct > 0 ? (
-                      <div
-                        className="absolute top-0 h-full border border-black bg-red-800"
-                        style={{
-                          left: `${Math.min(allowedPct, 100)}%`,
-                          width: `${Math.min(overspentPct, 100 - Math.min(allowedPct, 100))}%`,
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground sm:text-xs">
-                    <span>Consumed: {(cat.allowedByNow > 0 ? (cat.spent / cat.allowedByNow) * 100 : 0).toFixed(0)}%</span>
-                    <span>{t("dashboard.expected")}: {currencySymbol}{cat.allowedByNow.toFixed(0)}</span>
-                  </div>
+            <p className="text-xs text-muted-foreground">
+              Based on last 12m avg growth + monthly contributions
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {investmentProjections.map((projection) => (
+                <div key={projection.label} className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">{projection.label} estimate</p>
+                  <p className="text-base font-semibold">
+                    {currencySymbol}
+                    {Math.round(projection.value).toLocaleString()}
+                  </p>
                 </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

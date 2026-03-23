@@ -6,10 +6,20 @@ interface YearlySummaryCardsProps {
   yearlyViewData: YearlyViewData;
   currencySymbol: string;
   netWorth: number;
+  yearlyInvestmentGain: number;
 }
 
-export function YearlySummaryCards({ yearlyViewData, currencySymbol, netWorth }: YearlySummaryCardsProps) {
+export function YearlySummaryCards({
+  yearlyViewData,
+  currencySymbol,
+  netWorth,
+  yearlyInvestmentGain,
+}: YearlySummaryCardsProps) {
   const { t } = useI18n();
+  const compactNetWorth = new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(netWorth);
 
   return (
     <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -54,6 +64,11 @@ export function YearlySummaryCards({ yearlyViewData, currencySymbol, netWorth }:
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{currencySymbol}{Math.round(netWorth).toLocaleString()}</div>
+          <p className="text-xs text-muted-foreground">
+            Total {compactNetWorth} · This year: {yearlyInvestmentGain >= 0 ? "+" : "-"}
+            {currencySymbol}
+            {Math.round(Math.abs(yearlyInvestmentGain)).toLocaleString()}
+          </p>
         </CardContent>
       </Card>
     </div>
