@@ -38,36 +38,47 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.defaultCurrency.title')}</CardTitle>
-          <CardDescription>{t('profile.defaultCurrency.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="EUR">€ EUR</SelectItem>
-              <SelectItem value="USD">$ USD</SelectItem>
-              <SelectItem value="BRL">R$ BRL</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Card>
+          <CardHeader className="p-3 pb-1.5">
+            <CardTitle className="text-sm">{t('profile.defaultCurrency.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <Select value={mainCurrency} onValueChange={(v) => updateMainCurrency(v as Currency)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EUR">€ EUR</SelectItem>
+                <SelectItem value="USD">$ USD</SelectItem>
+                <SelectItem value="BRL">R$ BRL</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-3 pb-1.5">
+            <CardTitle className="text-sm">{t('profile.account.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0 space-y-1.5">
+            <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+            <LanguageSwitcher />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.yearStart.title')}</CardTitle>
-          <CardDescription>{t('profile.yearStart.description')}</CardDescription>
+        <CardHeader className="p-3 pb-1.5">
+          <CardTitle className="text-sm">{t('profile.yearStart.title')}</CardTitle>
+          <CardDescription className="text-xs">{t('profile.yearStart.description')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>{t('profile.yearStart.monthLabel')}</Label>
+        <CardContent className="grid grid-cols-2 gap-3 p-3 pt-0">
+          <div className="space-y-1">
+            <Label className="text-xs">{t('profile.yearStart.monthLabel')}</Label>
             <Select value={String(yearStartMonth)} onValueChange={onMonthChange}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -77,10 +88,10 @@ export default function Profile() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>{t('profile.yearStart.dayLabel')}</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">{t('profile.yearStart.dayLabel')}</Label>
             <Select value={String(yearStartDay)} onValueChange={onDayChange}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -95,35 +106,25 @@ export default function Profile() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.help.title')}</CardTitle>
-          <CardDescription>{t('profile.help.description')}</CardDescription>
+        <CardHeader className="p-3 pb-1.5">
+          <CardTitle className="text-sm">{t('profile.help.title')}</CardTitle>
+          <CardDescription className="text-xs">{t('profile.help.description')}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="grid grid-cols-2 gap-2 p-3 pt-0">
           {tutorialSections.map((section) => (
-            <Button key={section} variant="outline" className="w-full justify-start" onClick={() => startSectionTutorial(section)}>
+            <Button key={section} variant="outline" size="sm" className="justify-start text-xs h-8" onClick={() => startSectionTutorial(section)}>
               {t(tutorialSectionLabels[section])}
             </Button>
           ))}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.account.title')}</CardTitle>
-          <CardDescription>{t('profile.account.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
-          <div className="space-y-2">
-            <LanguageSwitcher />
-            <Button variant="outline" onClick={logout} className="w-full sm:w-auto">
-              {t('nav.logout')}
-            </Button>
-            <DeleteAccountDialog />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={logout} className="flex-1 text-xs h-8">
+          {t('nav.logout')}
+        </Button>
+        <DeleteAccountDialog />
+      </div>
     </div>
   );
 }
