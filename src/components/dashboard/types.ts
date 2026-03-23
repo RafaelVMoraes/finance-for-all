@@ -69,6 +69,17 @@ export interface InvestmentEvolutionItem {
   Current: number;
 }
 
+export interface MonthlyInvestmentGrowthItem {
+  month: string;
+  growthPct: number;
+}
+
+export interface InvestmentProjectionItem {
+  label: string;
+  months: number;
+  value: number;
+}
+
 export interface YearlyViewData {
   chartData: Array<Record<string, number | string>>;
   monthlyStats: Array<{ key: string; income: number; expenses: number }>;

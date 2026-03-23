@@ -15,7 +15,12 @@ import {
 
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MonthlyDashboardSection } from "@/components/dashboard/monthly/MonthlyDashboardSection";
-import { MonthlyInvestmentEvolution, YearlyIncomeExpenseTooltipProps } from "@/components/dashboard/types";
+import {
+  InvestmentProjectionItem,
+  MonthlyInvestmentEvolution,
+  MonthlyInvestmentGrowthItem,
+  YearlyIncomeExpenseTooltipProps,
+} from "@/components/dashboard/types";
 import { YearlyDashboardSection } from "@/components/dashboard/yearly/YearlyDashboardSection";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useDashboardViewState } from "@/hooks/useDashboardViewState";
@@ -32,6 +37,11 @@ const formatPercent = (value: number) => `${Math.round(value)}%`;
 
 const calculateRatio = (value: number, total: number) =>
   total > 0 ? (value / total) * 100 : 0;
+
+const isLinearGrowthInvestment = (investmentType: string) => {
+  const normalized = investmentType.toLowerCase();
+  return normalized.includes("current") || normalized.includes("savings");
+};
 
 /** Build exactly 4 week buckets for a given month, returning both the
  *  collapsed spending values AND the number of days in each bucket
@@ -604,6 +614,142 @@ export default function DashboardContent() {
     });
   }, [getRate, investmentSummary, settings?.main_currency, yearPeriodData]);
 
+  const yearlyInvestmentGrowth = useMemo<MonthlyInvestmentGrowthItem[]>(() => {
+    if (investmentEvolution.length < 2) return [];
+
+    return investmentEvolution.slice(1).map((month, index) => {
+      const previous = investmentEvolution[index];
+      const monthTotal = month.Investments + month.Emergency + month.Current;
+      const previousTotal =
+        previous.Investments + previous.Emergency + previous.Current;
+
+      return {
+        month: month.month,
+        growthPct:
+          previousTotal > 0 ? ((monthTotal - previousTotal) / previousTotal) * 100 : 0,
+      };
+    });
+  }, [investmentEvolution]);
+
+  const investmentProjections = useMemo<InvestmentProjectionItem[]>(() => {
+    if (!investmentSummary?.investments?.length || yearPeriodData.length < 2) return [];
+
+    const targetCurrency = settings?.main_currency || "EUR";
+    const historicalMonths = yearPeriodData.slice(-12);
+
+    const monthlyBreakdown = historicalMonths.map((period) => {
+      const pointInTime = startOfMonth(period.monthDate);
+      let compoundTotal = 0;
+      let linearTotal = 0;
+
+      investmentSummary.investments.forEach((investment) => {
+        const snapshot = investment.snapshots
+          ?.filter((snap) => snap.month <= format(pointInTime, "yyyy-MM-dd"))
+          .sort((a, b) => b.month.localeCompare(a.month))[0];
+        const value = Number(snapshot?.total_value || 0);
+        const rate = getRate(
+          investment.currency as "EUR" | "USD" | "BRL",
+          targetCurrency,
+          pointInTime,
+        ).rate;
+        const convertedValue = value * rate;
+
+        if (isLinearGrowthInvestment(investment.investment_type)) linearTotal += convertedValue;
+        else compoundTotal += convertedValue;
+      });
+
+      return {
+        compoundTotal,
+        linearTotal,
+      };
+    });
+
+    const monthlyChanges = monthlyBreakdown
+      .slice(1)
+      .map((month, index) => ({
+        compoundChange: month.compoundTotal - monthlyBreakdown[index].compoundTotal,
+        linearChange: month.linearTotal - monthlyBreakdown[index].linearTotal,
+        compoundGrowthRate:
+          monthlyBreakdown[index].compoundTotal > 0
+            ? (month.compoundTotal - monthlyBreakdown[index].compoundTotal) /
+              monthlyBreakdown[index].compoundTotal
+            : 0,
+      }));
+
+    const averageCompoundGrowthRate =
+      monthlyChanges.length > 0
+        ? monthlyChanges.reduce((sum, row) => sum + row.compoundGrowthRate, 0) /
+          monthlyChanges.length
+        : 0;
+    const averageCompoundContribution =
+      monthlyChanges.length > 0
+        ? monthlyChanges.reduce((sum, row) => sum + row.compoundChange, 0) /
+          monthlyChanges.length
+        : 0;
+    const averageLinearContribution =
+      monthlyChanges.length > 0
+        ? monthlyChanges.reduce((sum, row) => sum + row.linearChange, 0) /
+          monthlyChanges.length
+        : 0;
+
+    const latest = monthlyBreakdown[monthlyBreakdown.length - 1];
+    const currentCompoundValue = latest?.compoundTotal || 0;
+    const currentLinearValue = latest?.linearTotal || 0;
+    const rate = averageCompoundGrowthRate;
+
+    return [
+      { label: "5 years", months: 60, value: 0 },
+      { label: "10 years", months: 120, value: 0 },
+      { label: "20 years", months: 240, value: 0 },
+    ].map((projection) => {
+      const compoundFutureValue =
+        Math.abs(rate) < 1e-6
+          ? currentCompoundValue + averageCompoundContribution * projection.months
+          : currentCompoundValue * (1 + rate) ** projection.months +
+            averageCompoundContribution *
+              (((1 + rate) ** projection.months - 1) / rate);
+      const linearFutureValue =
+        currentLinearValue + averageLinearContribution * projection.months;
+
+      return {
+        ...projection,
+        value: Math.max(0, compoundFutureValue + linearFutureValue),
+      };
+    });
+  }, [getRate, investmentSummary, settings?.main_currency, yearPeriodData]);
+
+  const investmentTotals = useMemo(() => {
+    if (!investmentSummary?.investments?.length) {
+      return { netWorth: 0, yearlyGain: 0 };
+    }
+
+    const targetCurrency = settings?.main_currency || "EUR";
+    const now = today;
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+
+    const getValueAtDate = (pointInTime: Date) =>
+      investmentSummary.investments.reduce((sum, investment) => {
+        const snapshot = investment.snapshots
+          ?.filter((snap) => snap.month <= format(pointInTime, "yyyy-MM-dd"))
+          .sort((a, b) => b.month.localeCompare(a.month))[0];
+        const rawValue = Number(snapshot?.total_value || 0);
+        const rate = getRate(
+          investment.currency as "EUR" | "USD" | "BRL",
+          targetCurrency,
+          pointInTime,
+        ).rate;
+        return sum + rawValue * rate;
+      }, 0);
+
+    const netWorth = getValueAtDate(now);
+    const startOfYearValue = getValueAtDate(yearStart);
+
+    return {
+      netWorth,
+      yearlyGain: netWorth - startOfYearValue,
+    };
+  }, [getRate, investmentSummary, settings?.main_currency, today]);
+
   const loading =
     (view === "monthly"
       ? monthlyLoading
@@ -719,7 +865,10 @@ export default function DashboardContent() {
           yearlyIncomeExpenseTooltip={yearlyIncomeExpenseTooltip}
           
           investmentEvolution={investmentEvolution}
-          netWorth={investmentSummary?.total_value || 0}
+          investmentGrowthData={yearlyInvestmentGrowth}
+          investmentProjections={investmentProjections}
+          netWorth={investmentTotals.netWorth}
+          yearlyInvestmentGain={investmentTotals.yearlyGain}
         />
       )}
     </div>
