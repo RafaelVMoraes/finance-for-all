@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChartNoAxesCombined, PiggyBank, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Import from './Import';
 import { useI18n } from '@/i18n/I18nProvider';
+import { useInputPageStats } from '@/hooks/useInputPageStats';
 
 export default function Input() {
   const { t } = useI18n();
+  const { lastImportDate, pendingAssets } = useInputPageStats();
 
   return (
     <div className="space-y-4">
@@ -18,6 +20,11 @@ export default function Input() {
               <Upload className="h-4 w-4 text-primary" />
               {t('input.import.title')}
             </CardTitle>
+            {lastImportDate && (
+              <p className="text-[0.65rem] text-muted-foreground">
+                {t('input.import.lastImport') ?? 'Last import'}: {lastImportDate}
+              </p>
+            )}
           </CardHeader>
           <CardContent className="p-4 pt-1">
             <Button asChild size="sm" className="w-full text-xs">
@@ -32,6 +39,11 @@ export default function Input() {
               <ChartNoAxesCombined className="h-4 w-4 text-primary" />
               {t('input.investments.title')}
             </CardTitle>
+            {pendingAssets !== null && pendingAssets > 0 && (
+              <p className="text-[0.65rem] text-muted-foreground">
+                {pendingAssets} {t('input.investments.pending') ?? 'to update'}
+              </p>
+            )}
           </CardHeader>
           <CardContent className="p-4 pt-1">
             <Button variant="outline" asChild size="sm" className="w-full text-xs">
