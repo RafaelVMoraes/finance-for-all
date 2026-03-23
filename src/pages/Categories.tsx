@@ -267,7 +267,7 @@ export default function Categories() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-2">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/budget">
+            <Link to="/input">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

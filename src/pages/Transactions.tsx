@@ -151,7 +151,7 @@ export default function Transactions() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={incompleteCount > 0 ? 'destructive' : 'default'} className="h-10 px-3 text-sm">{completionRate}% Complete</Badge>
           <Button className="h-10" onClick={() => setShowAddModal(true)}><Plus className="mr-2 h-4 w-4" />{t('transactions.add')}</Button>
-          <Button variant="outline" className="h-10" asChild><Link to="/import">{t('transactions.import')}</Link></Button>
+          <Button variant="outline" className="h-10" asChild><Link to="/input">{t('transactions.import')}</Link></Button>
         </div>
       </div>
 

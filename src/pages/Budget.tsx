@@ -127,7 +127,7 @@ export default function Budget() {
           asChild
           className="h-10 shrink-0"
         >
-          <Link to="/categories">
+          <Link to="/input/categories">
             <Pencil className="mr-2 h-4 w-4" />
             {t("budget.editCategories")}
           </Link>
@@ -417,7 +417,7 @@ export default function Budget() {
               {t("budget.empty.createCategoriesFirst")}
             </p>
             <Button className="mt-4" asChild>
-              <Link to="/categories">{t("budget.empty.createCategories")}</Link>
+              <Link to="/input/categories">{t("budget.empty.createCategories")}</Link>
             </Button>
           </CardContent>
         </Card>

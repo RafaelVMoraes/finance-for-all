@@ -7,18 +7,21 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { InputSubpageShell } from "@/components/layout/InputSubpageShell";
 import { TutorialProvider } from "@/contexts/TutorialContext";
 import { TutorialStepManager } from "@/components/tutorial/TutorialStepManager";
 import { PwaStatus } from "@/components/PwaStatus";
 import { I18nProvider, useI18n } from "@/i18n/I18nProvider";
 
 const Auth = lazy(() => import("./pages/Auth"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+const View = lazy(() => import("./pages/View"));
+const Input = lazy(() => import("./pages/Input"));
 const Transactions = lazy(() => import("./pages/Transactions"));
 const Categories = lazy(() => import("./pages/Categories"));
 const Budget = lazy(() => import("./pages/Budget"));
 const Investments = lazy(() => import("./pages/Investments"));
-const Import = lazy(() => import("./pages/Import"));
+const Analyze = lazy(() => import("./pages/Analyze"));
+const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -54,57 +57,43 @@ const AppContent = () => {
             <TutorialProvider>
               <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">{t('common.loading')}</div>}>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/" element={<Navigate to="/view" replace />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+
                   <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Dashboard /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/view"
+                    element={<ProtectedRoute><MainLayout><View /></MainLayout></ProtectedRoute>}
                   />
                   <Route
-                    path="/transactions"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Transactions /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/input"
+                    element={<ProtectedRoute><MainLayout><Input /></MainLayout></ProtectedRoute>}
                   />
                   <Route
-                    path="/categories"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Categories /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/input/transactions"
+                    element={<ProtectedRoute><MainLayout><InputSubpageShell><Transactions /></InputSubpageShell></MainLayout></ProtectedRoute>}
                   />
                   <Route
-                    path="/budget"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Budget /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/input/categories"
+                    element={<ProtectedRoute><MainLayout><InputSubpageShell><Categories /></InputSubpageShell></MainLayout></ProtectedRoute>}
                   />
                   <Route
-                    path="/investments"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Investments /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/input/budget"
+                    element={<ProtectedRoute><MainLayout><InputSubpageShell><Budget /></InputSubpageShell></MainLayout></ProtectedRoute>}
                   />
                   <Route
-                    path="/import"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><Import /></MainLayout>
-                      </ProtectedRoute>
-                    }
+                    path="/input/investments"
+                    element={<ProtectedRoute><MainLayout><InputSubpageShell><Investments /></InputSubpageShell></MainLayout></ProtectedRoute>}
                   />
+                  <Route
+                    path="/analyze"
+                    element={<ProtectedRoute><MainLayout><Analyze /></MainLayout></ProtectedRoute>}
+                  />
+                  <Route
+                    path="/profile"
+                    element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>}
+                  />
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

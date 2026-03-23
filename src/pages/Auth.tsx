@@ -120,7 +120,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/view');
     }
   }, [user, navigate]);
 
@@ -203,7 +203,7 @@ export default function Auth() {
           : t('auth.redirecting'),
       });
       if (action === 'login') {
-        navigate('/dashboard');
+        navigate('/view');
       }
     }
 

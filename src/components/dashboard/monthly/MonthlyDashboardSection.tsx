@@ -135,7 +135,7 @@ export function MonthlyDashboardSection({
           )}
           <div className="pt-2">
             <Button asChild variant="outline">
-              <Link to="/budget">{t("dashboard.adjustBudget")}</Link>
+              <Link to="/input/budget">{t("dashboard.adjustBudget")}</Link>
             </Button>
           </div>
         </CardContent>

@@ -69,7 +69,7 @@ export default function ResetPassword() {
         title: t('auth.passwordResetSuccess'),
         description: t('auth.passwordResetSuccessDescription'),
       });
-      navigate('/dashboard');
+      navigate('/view');
     }
     setLoading(false);
   };

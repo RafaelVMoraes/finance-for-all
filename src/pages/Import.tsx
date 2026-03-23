@@ -834,7 +834,7 @@ export default function Import() {
             <p className="mb-6 text-muted-foreground">{importResult.imported} transactions have been imported successfully</p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={resetImport}>Import More</Button>
-              <Button asChild><a href="/transactions">View Transactions</a></Button>
+              <Button asChild><a href="/input/transactions">View Transactions</a></Button>
             </div>
           </CardContent>
         </Card>
