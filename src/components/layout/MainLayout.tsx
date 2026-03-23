@@ -34,7 +34,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="mx-auto grid h-16 max-w-3xl grid-cols-4 px-2 sm:h-[4.25rem] sm:px-3">
+        <div className="mx-auto grid h-12 max-w-3xl grid-cols-4 px-2 sm:h-14 sm:px-3">
           {navItems.map((item) => {
             const active = isActive(item.path);
             const Icon = item.icon;
@@ -43,19 +43,19 @@ export function MainLayout({ children }: MainLayoutProps) {
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 text-center"
+                className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-center"
               >
                 <span
                   className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-full transition-colors',
+                    'flex h-6 w-6 items-center justify-center rounded-full transition-colors',
                     active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
                 <span
                   className={cn(
-                    'truncate text-[0.7rem] font-medium sm:text-xs',
+                    'truncate text-[0.6rem] font-medium leading-tight sm:text-[0.65rem]',
                     active ? 'text-primary' : 'text-muted-foreground',
                   )}
                 >
