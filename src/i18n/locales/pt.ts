@@ -16,6 +16,10 @@ export const pt: TranslationTree = {
     pt: 'Português',
   },
   nav: {
+    view: 'Visão',
+    input: 'Entrada',
+    analyze: 'Analisar',
+    profile: 'Perfil',
     dashboard: 'Painel',
     transactions: 'Transações',
     budget: 'Orçamento',
@@ -41,7 +45,7 @@ export const pt: TranslationTree = {
     welcomeBack: 'Bem-vindo de volta!',
     accountCreated: 'Conta criada!',
     confirmEmail: 'Confira seu e-mail para confirmar sua conta.',
-    redirecting: 'Redirecionando para o painel...',
+    redirecting: 'Redirecionando para sua visão...',
     forgotPassword: 'Esqueceu a senha?',
     sendResetLink: 'Enviar link',
     resetEmailSent: 'E-mail enviado',
@@ -374,6 +378,57 @@ export const pt: TranslationTree = {
     categoriesUsed: '{{used}}/{{total}} categorias usadas',
     distribution: 'Distribuição',
     even: 'Igual',
+  },
+
+  months: {
+    0: 'Janeiro', 1: 'Fevereiro', 2: 'Março', 3: 'Abril', 4: 'Maio', 5: 'Junho',
+    6: 'Julho', 7: 'Agosto', 8: 'Setembro', 9: 'Outubro', 10: 'Novembro', 11: 'Dezembro',
+  },
+  input: {
+    backToInput: 'Voltar para Entrada',
+    import: {
+      title: 'Importe seus dados',
+      description: 'Envie arquivos Excel, CSV, PDF ou TXT para adicionar transações rapidamente.',
+      cta: 'Importar arquivo',
+    },
+    investments: {
+      title: 'Investimentos',
+      description: 'Atualize valores mensais e moedas.',
+      action: 'Atualizar investimentos',
+    },
+    budget: {
+      title: 'Orçamento',
+      description: 'Defina metas de categoria para o mês.',
+      action: 'Configurar orçamento',
+    },
+    links: {
+      transactions: 'Transações',
+      categories: 'Categorias',
+    },
+  },
+  analyze: {
+    title: 'Insights avançados',
+    description: 'A análise financeira com IA estará disponível em breve.',
+  },
+  profile: {
+    defaultCurrency: {
+      title: 'Moeda padrão',
+      description: 'Defina sua moeda principal para cálculos e conversões.',
+    },
+    yearStart: {
+      title: 'Início do ano',
+      description: 'Defina o mês e o dia padrão para as visualizações anuais.',
+      monthLabel: 'Mês inicial',
+      dayLabel: 'Dia inicial',
+    },
+    help: {
+      title: 'Tutoriais e ajuda',
+      description: 'Reinicie tutoriais a qualquer momento.',
+    },
+    account: {
+      title: 'Conta',
+      description: 'Gerencie seu login e sessão.',
+    },
   },
   dashboard: {
     budgetAlerts: 'Alertas de orçamento',

@@ -16,6 +16,10 @@ export const en: TranslationTree = {
     pt: 'Portuguese',
   },
   nav: {
+    view: 'View',
+    input: 'Input',
+    analyze: 'Analyze',
+    profile: 'Profile',
     dashboard: 'Dashboard',
     transactions: 'Transactions',
     budget: 'Budget',
@@ -41,7 +45,7 @@ export const en: TranslationTree = {
     welcomeBack: 'Welcome back!',
     accountCreated: 'Account created!',
     confirmEmail: 'Please check your email to confirm your account.',
-    redirecting: 'Redirecting to dashboard...',
+    redirecting: 'Redirecting to your view...',
     forgotPassword: 'Forgot password?',
     sendResetLink: 'Send Reset Link',
     resetEmailSent: 'Reset email sent',
@@ -374,6 +378,57 @@ export const en: TranslationTree = {
     categoriesUsed: '{{used}}/{{total}} categories used',
     distribution: 'Distribution',
     even: 'Even',
+  },
+
+  months: {
+    0: 'January', 1: 'February', 2: 'March', 3: 'April', 4: 'May', 5: 'June',
+    6: 'July', 7: 'August', 8: 'September', 9: 'October', 10: 'November', 11: 'December',
+  },
+  input: {
+    backToInput: 'Back to Input',
+    import: {
+      title: 'Import your data',
+      description: 'Upload Excel, CSV, PDF, or TXT files to add transactions quickly.',
+      cta: 'Import file',
+    },
+    investments: {
+      title: 'Investments',
+      description: 'Update monthly values and currencies.',
+      action: 'Update investments',
+    },
+    budget: {
+      title: 'Budget',
+      description: 'Set category targets for the month.',
+      action: 'Configure budget',
+    },
+    links: {
+      transactions: 'Transactions',
+      categories: 'Categories',
+    },
+  },
+  analyze: {
+    title: 'Advanced Insights',
+    description: 'AI-powered financial analysis is coming soon.',
+  },
+  profile: {
+    defaultCurrency: {
+      title: 'Default currency',
+      description: 'Set your primary currency for calculations and conversions.',
+    },
+    yearStart: {
+      title: 'Year start',
+      description: 'Define the default start month and day for annual views.',
+      monthLabel: 'Start month',
+      dayLabel: 'Start day',
+    },
+    help: {
+      title: 'Tutorials & Help',
+      description: 'Replay tutorials anytime.',
+    },
+    account: {
+      title: 'Account',
+      description: 'Manage your login and session.',
+    },
   },
   dashboard: {
     budgetAlerts: 'Budget Alerts',

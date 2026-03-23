@@ -4,6 +4,10 @@ export const fr: TranslationTree = {
   common: { appName: 'FinTrack', loading: 'Chargement...', save: 'Enregistrer', cancel: 'Annuler', delete: 'Supprimer', close: 'Fermer' },
   language: { label: 'Langue', en: 'Anglais', fr: 'Français', pt: 'Portugais' },
   nav: {
+    view: 'Vue',
+    input: 'Saisie',
+    analyze: 'Analyser',
+    profile: 'Profil',
     dashboard: 'Tableau de bord',
     transactions: 'Transactions',
     budget: 'Budget',
@@ -29,7 +33,7 @@ export const fr: TranslationTree = {
     welcomeBack: 'Bon retour !',
     accountCreated: 'Compte créé !',
     confirmEmail: 'Veuillez vérifier votre e-mail pour confirmer votre compte.',
-    redirecting: 'Redirection vers le tableau de bord...',
+    redirecting: 'Redirection vers votre vue...',
     forgotPassword: 'Mot de passe oublié ?',
     sendResetLink: 'Envoyer le lien',
     resetEmailSent: 'E-mail envoyé',
@@ -360,6 +364,57 @@ export const fr: TranslationTree = {
     categoriesUsed: '{{used}}/{{total}} catégories utilisées',
     distribution: 'Répartition',
     even: 'Égale',
+  },
+
+  months: {
+    0: 'Janvier', 1: 'Février', 2: 'Mars', 3: 'Avril', 4: 'Mai', 5: 'Juin',
+    6: 'Juillet', 7: 'Août', 8: 'Septembre', 9: 'Octobre', 10: 'Novembre', 11: 'Décembre',
+  },
+  input: {
+    backToInput: 'Retour à Saisie',
+    import: {
+      title: 'Importer vos données',
+      description: 'Téléversez des fichiers Excel, CSV, PDF ou TXT pour ajouter rapidement vos transactions.',
+      cta: 'Importer un fichier',
+    },
+    investments: {
+      title: 'Investissements',
+      description: 'Mettez à jour les valeurs mensuelles et les devises.',
+      action: 'Mettre à jour les investissements',
+    },
+    budget: {
+      title: 'Budget',
+      description: 'Définissez les objectifs de catégorie pour le mois.',
+      action: 'Configurer le budget',
+    },
+    links: {
+      transactions: 'Transactions',
+      categories: 'Catégories',
+    },
+  },
+  analyze: {
+    title: 'Insights avancés',
+    description: "L'analyse financière propulsée par l'IA arrive bientôt.",
+  },
+  profile: {
+    defaultCurrency: {
+      title: 'Devise par défaut',
+      description: 'Définissez votre devise principale pour les calculs et conversions.',
+    },
+    yearStart: {
+      title: 'Début de l’année',
+      description: 'Définissez le mois et le jour de départ par défaut pour les vues annuelles.',
+      monthLabel: 'Mois de départ',
+      dayLabel: 'Jour de départ',
+    },
+    help: {
+      title: 'Tutoriels et aide',
+      description: 'Relancez les tutoriels à tout moment.',
+    },
+    account: {
+      title: 'Compte',
+      description: 'Gérez votre connexion et votre session.',
+    },
   },
   dashboard: {
     budgetAlerts: 'Alertes budget',

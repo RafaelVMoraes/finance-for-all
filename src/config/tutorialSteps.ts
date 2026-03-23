@@ -9,16 +9,16 @@ export const tutorialSectionLabels: Record<TutorialSection, string> = {
 };
 
 export const onboardingSteps: TutorialStepConfig[] = [
-  { id: 'dashboard-view-toggle', section: 'dashboard', route: '/dashboard', selector: '[data-tutorial="dashboard-view-tabs"]', title: 'tutorial.steps.dashboard-view-toggle.title', description: 'tutorial.steps.dashboard-view-toggle.description' },
-  { id: 'dashboard-key-metrics', section: 'dashboard', route: '/dashboard', selector: '[data-tutorial="dashboard-key-metrics"]', title: 'tutorial.steps.dashboard-key-metrics.title', description: 'tutorial.steps.dashboard-key-metrics.description' },
-  { id: 'transaction-filters', section: 'transactions', route: '/transactions', selector: '[data-tutorial="transactions-filters"]', title: 'tutorial.steps.transaction-filters.title', description: 'tutorial.steps.transaction-filters.description' },
-  { id: 'budget-overview', section: 'budget', route: '/budget', selector: '[data-tutorial="budget-overview-cards"]', title: 'tutorial.steps.budget-overview.title', description: 'tutorial.steps.budget-overview.description' },
-  { id: 'budget-category-edit-link', section: 'budget', route: '/budget', selector: '[data-tutorial="budget-edit-categories-link"]', title: 'tutorial.steps.budget-category-edit-link.title', description: 'tutorial.steps.budget-category-edit-link.description' },
-  { id: 'investment-main-currency', section: 'investment', route: '/investments', selector: '[data-tutorial="investments-main-currency"]', title: 'tutorial.steps.investment-main-currency.title', description: 'tutorial.steps.investment-main-currency.description' },
-  { id: 'investment-types-and-assets', section: 'investment', route: '/investments', selector: '[data-tutorial="investments-types-assets"]', title: 'tutorial.steps.investment-types-and-assets.title', description: 'tutorial.steps.investment-types-and-assets.description' },
-  { id: 'import-source-template', section: 'import', route: '/import', selector: '[data-tutorial="import-source-template"]', title: 'tutorial.steps.import-source-template.title', description: 'tutorial.steps.import-source-template.description' },
-  { id: 'import-mapping', section: 'import', route: '/import', selector: '[data-tutorial="import-mapping-rules"]', title: 'tutorial.steps.import-mapping.title', description: 'tutorial.steps.import-mapping.description' },
-  { id: 'import-history', section: 'import', route: '/import', selector: '[data-tutorial="import-history"]', title: 'tutorial.steps.import-history.title', description: 'tutorial.steps.import-history.description' },
+  { id: 'dashboard-view-toggle', section: 'dashboard', route: '/view', selector: '[data-tutorial="dashboard-view-tabs"]', title: 'tutorial.steps.dashboard-view-toggle.title', description: 'tutorial.steps.dashboard-view-toggle.description' },
+  { id: 'dashboard-key-metrics', section: 'dashboard', route: '/view', selector: '[data-tutorial="dashboard-key-metrics"]', title: 'tutorial.steps.dashboard-key-metrics.title', description: 'tutorial.steps.dashboard-key-metrics.description' },
+  { id: 'transaction-filters', section: 'transactions', route: '/input/transactions', selector: '[data-tutorial="transactions-filters"]', title: 'tutorial.steps.transaction-filters.title', description: 'tutorial.steps.transaction-filters.description' },
+  { id: 'budget-overview', section: 'budget', route: '/input/budget', selector: '[data-tutorial="budget-overview-cards"]', title: 'tutorial.steps.budget-overview.title', description: 'tutorial.steps.budget-overview.description' },
+  { id: 'budget-category-edit-link', section: 'budget', route: '/input/budget', selector: '[data-tutorial="budget-edit-categories-link"]', title: 'tutorial.steps.budget-category-edit-link.title', description: 'tutorial.steps.budget-category-edit-link.description' },
+  { id: 'investment-main-currency', section: 'investment', route: '/input/investments', selector: '[data-tutorial="investments-main-currency"]', title: 'tutorial.steps.investment-main-currency.title', description: 'tutorial.steps.investment-main-currency.description' },
+  { id: 'investment-types-and-assets', section: 'investment', route: '/input/investments', selector: '[data-tutorial="investments-types-assets"]', title: 'tutorial.steps.investment-types-and-assets.title', description: 'tutorial.steps.investment-types-and-assets.description' },
+  { id: 'import-source-template', section: 'import', route: '/input', selector: '[data-tutorial="import-source-template"]', title: 'tutorial.steps.import-source-template.title', description: 'tutorial.steps.import-source-template.description' },
+  { id: 'import-mapping', section: 'import', route: '/input', selector: '[data-tutorial="import-mapping-rules"]', title: 'tutorial.steps.import-mapping.title', description: 'tutorial.steps.import-mapping.description' },
+  { id: 'import-history', section: 'import', route: '/input', selector: '[data-tutorial="import-history"]', title: 'tutorial.steps.import-history.title', description: 'tutorial.steps.import-history.description' },
 ];
 
 export const sectionTutorialSteps: Record<TutorialSection, TutorialStepConfig[]> = {
