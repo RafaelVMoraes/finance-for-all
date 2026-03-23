@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n/I18nProvider';
+import { passwordSchema } from '@/lib/authValidation';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -44,11 +45,12 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 8) {
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
       toast({
         variant: 'destructive',
         title: t('auth.errorTitle'),
-        description: t('auth.passwordTooShort'),
+        description: passwordResult.error.errors[0].message,
       });
       return;
     }
