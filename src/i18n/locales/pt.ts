@@ -390,11 +390,13 @@ export const pt: TranslationTree = {
       title: 'Importe seus dados',
       description: 'Envie arquivos Excel, CSV, PDF ou TXT para adicionar transações rapidamente.',
       cta: 'Importar arquivo',
+      lastImport: 'Último import',
     },
     investments: {
       title: 'Investimentos',
       description: 'Atualize valores mensais e moedas.',
       action: 'Atualizar investimentos',
+      pending: 'para atualizar'
     },
     budget: {
       title: 'Orçamento',
