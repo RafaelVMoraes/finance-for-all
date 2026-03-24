@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useUserSettings, Currency } from '@/hooks/useUserSettings';
@@ -11,6 +12,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useTutorial } from '@/contexts/TutorialContext';
 import { tutorialSectionLabels } from '@/config/tutorialSteps';
 import { TutorialSection } from '@/types/tutorial';
+import { Smartphone } from 'lucide-react';
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
 const YEAR_START_DAY_KEY = 'fintrack_year_start_day';
@@ -116,6 +118,26 @@ export default function Profile() {
               {t(tutorialSectionLabels[section])}
             </Button>
           ))}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="justify-start text-xs h-8 col-span-2">
+                <Smartphone className="mr-1 h-3.5 w-3.5" />
+                {t('nav.installOnIphone')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-base">{t('installApp.title')}</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">{t('installApp.description')}</p>
+              <ol className="list-decimal space-y-1.5 pl-5 text-sm">
+                <li>{t('installApp.steps.safari')}</li>
+                <li>{t('installApp.steps.share')}</li>
+                <li>{t('installApp.steps.addToHome')}</li>
+                <li>{t('installApp.steps.webApp')}</li>
+              </ol>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 
