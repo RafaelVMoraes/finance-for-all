@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useUserSettings, Currency } from '@/hooks/useUserSettings';
@@ -11,6 +12,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useTutorial } from '@/contexts/TutorialContext';
 import { tutorialSectionLabels } from '@/config/tutorialSteps';
 import { TutorialSection } from '@/types/tutorial';
+import { Smartphone } from 'lucide-react';
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
 const YEAR_START_DAY_KEY = 'fintrack_year_start_day';
