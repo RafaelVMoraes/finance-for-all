@@ -397,7 +397,7 @@ export const pt: TranslationTree = {
       description: 'Atualize valores mensais e moedas.',
       action: 'Atualizar investimentos',
       pending: 'para atualizar'
-    },
+    ,
     budget: {
       title: 'Orçamento',
       description: 'Defina metas de categoria para o mês.',
