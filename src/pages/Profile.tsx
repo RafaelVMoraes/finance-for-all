@@ -36,12 +36,21 @@ export default function Profile() {
     const parsed = Number(value);
     setYearStartMonth(parsed);
     localStorage.setItem(YEAR_START_MONTH_KEY, String(parsed));
+    window.dispatchEvent(new Event('fintrack-settings-changed'));
   };
 
   const onDayChange = (value: string) => {
     const parsed = Number(value);
     setYearStartDay(parsed);
     localStorage.setItem(YEAR_START_DAY_KEY, String(parsed));
+    window.dispatchEvent(new Event('fintrack-settings-changed'));
+  };
+
+  const onCycleStartDayChange = (value: string) => {
+    const parsed = Math.min(28, Math.max(1, Number(value)));
+    setCycleStartDay(parsed);
+    localStorage.setItem(CYCLE_START_DAY_KEY, String(parsed));
+    window.dispatchEvent(new Event('fintrack-settings-changed'));
   };
 
   const onCycleStartDayChange = (value: string) => {

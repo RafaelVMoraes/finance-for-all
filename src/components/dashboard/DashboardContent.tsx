@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addMonths,
   addWeeks,
@@ -170,17 +170,19 @@ export default function DashboardContent() {
     setSelectedYear,
     yearStartMonth,
     setYearStartMonth,
+    cycleStartDay,
     aggregation,
     setAggregation,
-    commentDraft,
     yearlyStartMonth,
-    handleCommentChange,
-  } = useDashboardViewState({
-    today,
-    selectedMonth,
-    monthlyComment: monthlySettings?.comment,
-    onUpdateMonthlyComment: updateMonthlyComment,
-  });
+  } = useDashboardViewState({ today });
+  const safeCycleStartDay = normalizeCycleStartDay(cycleStartDay);
+  const fiscalYearStartMonth = yearStartMonth + 1;
+  const {
+    monthlySettings,
+    budgets,
+    loading: budgetsLoading,
+    updateMonthlyComment,
+  } = useBudgets({ month: monthDate, cycleStartDay: safeCycleStartDay, fiscalYearStartMonth });
   const {
     data: monthlySummary,
     loading: monthlyLoading,
