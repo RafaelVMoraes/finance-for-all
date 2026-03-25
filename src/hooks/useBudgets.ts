@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { startOfMonth, format } from 'date-fns';
+import { format } from 'date-fns';
+import { getFinancialPeriod, getFinancialPeriodBounds, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
 import { logClientError } from '@/lib/logger';
 
 export interface Budget {
@@ -32,6 +33,8 @@ export interface MonthlySettings {
 
 interface UseBudgetsOptions {
   month?: Date;
+  cycleStartDay?: number;
+  fiscalYearStartMonth?: number;
 }
 
 const BUDGET_COLUMNS = `
@@ -67,7 +70,16 @@ export function useBudgets(options?: UseBudgetsOptions) {
   const { user } = useAuthContext();
   
   const targetMonth = options?.month ?? new Date();
-  const monthStr = format(startOfMonth(targetMonth), 'yyyy-MM-dd');
+  const cycleStartDay = normalizeCycleStartDay(options?.cycleStartDay);
+  const fiscalYearStartMonth = normalizeFiscalYearStartMonth(options?.fiscalYearStartMonth);
+  const targetPeriod = getFinancialPeriod(targetMonth, cycleStartDay, fiscalYearStartMonth);
+  const { start: periodStart } = getFinancialPeriodBounds(
+    targetPeriod.year,
+    targetPeriod.month,
+    cycleStartDay,
+    fiscalYearStartMonth,
+  );
+  const monthStr = format(periodStart, 'yyyy-MM-dd');
 
   const fetchBudgets = useCallback(async () => {
     if (!user) return;

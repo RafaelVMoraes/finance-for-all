@@ -24,6 +24,8 @@ interface YearlyDashboardSectionProps {
   yearlyViewData: YearlyViewData;
   yearPeriodData: YearPeriodItem[];
   yearlyStartMonth: string;
+  fiscalYearBoundsLabel: string;
+  cycleStartDay: number;
   minMonth: string;
   onYearWindowChange: (month: string) => void;
   aggregation: "month" | "quarter";
@@ -43,6 +45,8 @@ export function YearlyDashboardSection({
   yearlyViewData,
   yearPeriodData,
   yearlyStartMonth,
+  fiscalYearBoundsLabel,
+  cycleStartDay,
   minMonth,
   onYearWindowChange,
   aggregation,
@@ -67,6 +71,8 @@ export function YearlyDashboardSection({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+        <p className="text-sm text-muted-foreground">{t("dashboard.fiscalYearRange", { range: fiscalYearBoundsLabel })}</p>
+        {cycleStartDay !== 1 ? <p className="text-xs text-muted-foreground">{t("dashboard.financialCycleDay", { day: cycleStartDay })}</p> : null}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">{t("dashboard.yearWindowStart")}</p>

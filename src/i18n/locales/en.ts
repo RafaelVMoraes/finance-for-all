@@ -423,6 +423,10 @@ export const en: TranslationTree = {
       monthLabel: 'Start month',
       dayLabel: 'Start day',
     },
+    cycleStartDay: {
+      label: 'Monthly cut-off day',
+      description: 'Set the day your financial month starts. If you receive your salary on the 25th, set this to 26.',
+    },
     help: {
       title: 'Tutorials & Help',
       description: 'Replay tutorials anytime.',
@@ -464,6 +468,8 @@ export const en: TranslationTree = {
     yearElapsed: 'year elapsed',
     adjustBudget: 'Adjust Budget',
     monthlyNotesPlaceholder: 'Write your thoughts, concerns, or goals for this month...',
+    fiscalYearRange: 'Fiscal year: {{range}}',
+    financialCycleDay: 'Monthly cycle starts on day {{day}}',
     yearWindowStart: 'Year window start',
     aggregation: 'Aggregation',
     total: 'Total',
