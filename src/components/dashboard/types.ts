@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 export interface CategoryProgressItem {
   id: string;
   name: string;
+  color?: string;
   spent: number;
   budget: number;
   percent: number;
@@ -26,7 +27,10 @@ export interface MonthlyViewData {
   remainingBudget: number;
   categoryProgress: CategoryProgressItem[];
   weeklyData: WeeklyDataItem[];
-  alerts: CategoryProgressItem[];
+  monthlyCategoryBudgetProgress: YearlyCategoryProgress[];
+  expenseHeatmap: ExpenseHeatmapDay[];
+  topExpenses: TopExpenseItem[];
+  monthlyInvestmentGrowthByCategory: MonthlyInvestmentGrowthByCategoryItem[];
 }
 
 export interface MonthlyInvestmentEvolution {
@@ -64,14 +68,40 @@ export interface YearPeriodItem {
 
 export interface InvestmentEvolutionItem {
   month: string;
-  Investments: number;
-  Emergency: number;
-  Current: number;
+  Investments: number | null;
+  Emergency: number | null;
+  Current: number | null;
 }
 
 export interface MonthlyInvestmentGrowthItem {
   month: string;
-  growthPct: number;
+  growthPct: number | null;
+  cumulativePct?: number | null;
+  monthPct?: number | null;
+}
+
+export interface TopExpenseItem {
+  id: string;
+  name: string;
+  amount: number;
+  categoryName: string;
+  categoryColor: string;
+}
+
+export interface ExpenseHeatmapDay {
+  date: string;
+  label: string;
+  total: number;
+  variableTotal: number;
+  hasTransactions: boolean;
+  hasFixedOnly: boolean;
+  categories: Array<{ name: string; amount: number; color: string; type: string }>;
+}
+
+export interface MonthlyInvestmentGrowthByCategoryItem {
+  month: string;
+  hasData: boolean;
+  [category: string]: string | number | boolean | null;
 }
 
 export interface InvestmentProjectionItem {

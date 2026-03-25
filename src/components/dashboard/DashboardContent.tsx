@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addMonths,
   addWeeks,
@@ -16,7 +16,6 @@ import {
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MonthlyDashboardSection } from "@/components/dashboard/monthly/MonthlyDashboardSection";
 import {
-  InvestmentProjectionItem,
   MonthlyInvestmentEvolution,
   MonthlyInvestmentGrowthItem,
   YearlyIncomeExpenseTooltipProps,
@@ -32,9 +31,11 @@ import {
 import { useExchangeRates } from "@/hooks/useExchangeRates";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useI18n } from "@/i18n/I18nProvider";
-import { APP_START_DATE_STRING } from "@/constants/app";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getFinancialPeriod,
+  getFinancialPeriodBounds,
   getFinancialPeriodLabel,
   getFinancialPeriodsInYear,
   normalizeCycleStartDay,
@@ -47,11 +48,6 @@ const calculateRatio = (value: number, total: number) =>
 const nextMonthDate = (financialYear: number, financialMonth: number, fiscalYearStartMonth: number) => {
   const calendarYear = financialMonth >= fiscalYearStartMonth ? financialYear : financialYear + 1;
   return new Date(calendarYear, financialMonth - 1, 1);
-};
-
-const isLinearGrowthInvestment = (investmentType: string) => {
-  const normalized = investmentType.toLowerCase();
-  return normalized.includes("current") || normalized.includes("savings");
 };
 
 /** Build exactly 4 week buckets for a given month, returning both the
@@ -138,50 +134,31 @@ const collapseValues = (
   return [...values.slice(0, values.length - (extra + 1)), collapsed];
 };
 
-/** Get percentage background style – white (0%) to dark green (100%+) */
-const getPctBgStyle = (pct: number) => {
-  const clamped = Math.min(Math.max(pct, 0), 150);
-  const intensity = clamped / 150; // 0..1
-  // From white to dark green via opacity
-  return { backgroundColor: `rgba(22, 163, 74, ${intensity * 0.55})` };
-};
-
 export default function DashboardContent() {
   const { t, locale } = useI18n();
+  const { user } = useAuthContext();
   const today = useMemo(() => new Date(), []);
   const [selectedMonth, setSelectedMonth] = useState(format(today, "yyyy-MM"));
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
-  const persistedCycleStartDay = normalizeCycleStartDay(Number(localStorage.getItem("fintrack_cycle_start_day") ?? 1));
-  const fiscalYearStartMonth = Number(localStorage.getItem("fintrack_year_start_month") ?? 0) + 1;
 
   const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
-  const safeCycleStartDay = persistedCycleStartDay;
-  const {
-    monthlySettings,
-    budgets,
-    loading: budgetsLoading,
-    updateMonthlyComment,
-  } = useBudgets({ month: monthDate, cycleStartDay: safeCycleStartDay, fiscalYearStartMonth });
   const {
     view,
     setView,
     selectedYear,
-    setSelectedYear,
     yearStartMonth,
-    setYearStartMonth,
     cycleStartDay,
     aggregation,
     setAggregation,
-    yearlyStartMonth,
   } = useDashboardViewState({ today });
   const safeCycleStartDay = normalizeCycleStartDay(cycleStartDay);
   const fiscalYearStartMonth = yearStartMonth + 1;
+  const [monthlyTransactions, setMonthlyTransactions] = useState<any[]>([]);
   const {
     monthlySettings,
     budgets,
     loading: budgetsLoading,
-    updateMonthlyComment,
   } = useBudgets({ month: monthDate, cycleStartDay: safeCycleStartDay, fiscalYearStartMonth });
   const {
     data: monthlySummary,
@@ -216,6 +193,26 @@ export default function DashboardContent() {
     const synthetic = nextMonthDate(nextYear, normalizedMonth, fiscalYearStartMonth);
     setSelectedMonth(format(synthetic, 'yyyy-MM'));
   }, [selectedFinancialPeriod, fiscalYearStartMonth]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!user) return;
+      const { start, end } = getFinancialPeriodBounds(
+        selectedFinancialPeriod.year,
+        selectedFinancialPeriod.month,
+        safeCycleStartDay,
+        fiscalYearStartMonth,
+      );
+      const { data } = await supabase
+        .from("transactions")
+        .select("id,amount,payment_date,original_label,edited_label,categories(id,name,color,type)")
+        .eq("user_id", user.id)
+        .gte("payment_date", format(start, "yyyy-MM-dd"))
+        .lte("payment_date", format(end, "yyyy-MM-dd"));
+      setMonthlyTransactions(data || []);
+    };
+    run();
+  }, [user, selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
 
 
   const getBudgetAmount = useCallback(
@@ -274,6 +271,18 @@ export default function DashboardContent() {
       .filter((c) => c.budget > 0)
       .sort((a, b) => b.percent - a.percent);
 
+    const monthlyCategoryBudgetProgress = categoryProgress.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      spent: cat.spent,
+      annualBudget: cat.budget,
+      consumedPct: cat.percent,
+      allowedByNow: cat.budget,
+      spentWithinAllowed: Math.min(cat.spent, cat.budget),
+      overspent: Math.max(0, cat.spent - cat.budget),
+      elapsedRatio: 1,
+    }));
+
     const weeklySpending = monthlySummary.weekly_spending || [];
     const fourWeekBuckets = buildFourWeekBuckets(monthDate);
     const totalDays = fourWeekBuckets.reduce((s, b) => s + b.days, 0) || 1;
@@ -325,6 +334,75 @@ export default function DashboardContent() {
       };
     });
 
+    const byDay = new Map<string, { total: number; variableTotal: number; fixedOnly: boolean; categories: Map<string, { amount: number; color: string; type: string }> }>();
+    monthlyTransactions.forEach((tx) => {
+      const day = tx.payment_date;
+      const amount = Number(tx.amount || 0);
+      const categoryType = tx.categories?.type || "variable";
+      const existing = byDay.get(day) || {
+        total: 0,
+        variableTotal: 0,
+        fixedOnly: true,
+        categories: new Map<string, { amount: number; color: string; type: string }>(),
+      };
+      existing.total += amount;
+      if (categoryType !== "fixed" && categoryType !== "income") {
+        existing.variableTotal += amount;
+        existing.fixedOnly = false;
+      }
+      const categoryName = tx.categories?.name || t("dashboard.uncategorized");
+      const bucket = existing.categories.get(categoryName) || {
+        amount: 0,
+        color: tx.categories?.color || "#94a3b8",
+        type: categoryType,
+      };
+      bucket.amount += amount;
+      existing.categories.set(categoryName, bucket);
+      byDay.set(day, existing);
+    });
+
+    const { start, end } = getFinancialPeriodBounds(
+      selectedFinancialPeriod.year,
+      selectedFinancialPeriod.month,
+      safeCycleStartDay,
+      fiscalYearStartMonth,
+    );
+    const expenseHeatmap = [];
+    let dayCursor = new Date(start);
+    while (dayCursor <= end) {
+      const key = format(dayCursor, "yyyy-MM-dd");
+      const found = byDay.get(key);
+      expenseHeatmap.push({
+        date: key,
+        label: format(dayCursor, "dd MMM yyyy"),
+        total: found?.total || 0,
+        variableTotal: found?.variableTotal || 0,
+        hasTransactions: Boolean(found),
+        hasFixedOnly: Boolean(found && found.fixedOnly),
+        categories: found
+          ? Array.from(found.categories.entries()).map(([name, value]) => ({
+              name,
+              amount: value.amount,
+              color: value.color,
+              type: value.type,
+            }))
+          : [],
+      });
+      dayCursor.setDate(dayCursor.getDate() + 1);
+    }
+
+    const topExpenses = monthlyTransactions
+      .filter((tx) => tx.categories?.type !== "income")
+      .map((tx) => ({
+        id: tx.id,
+        name: tx.edited_label || tx.original_label,
+        amount: Number(tx.amount || 0),
+        categoryName: tx.categories?.name || t("dashboard.uncategorized"),
+        categoryColor: tx.categories?.color || "#94a3b8",
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+
     return {
       actualIncome,
       expectedIncome,
@@ -339,9 +417,12 @@ export default function DashboardContent() {
       incompleteCount: monthlySummary.incomplete_count,
       categoryProgress,
       weeklyData,
-      alerts: categoryProgress.filter((c) => c.percent >= 85).slice(0, 3),
+      monthlyCategoryBudgetProgress,
+      expenseHeatmap,
+      topExpenses,
+      monthlyInvestmentGrowthByCategory,
     };
-  }, [monthlySummary, monthlySettings, budgets, monthDate, t, getBudgetAmount]);
+  }, [monthlySummary, monthlySettings, budgets, monthDate, t, getBudgetAmount, monthlyTransactions, selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth, monthlyInvestmentGrowthByCategory]);
 
   const monthlyInvestmentEvolution = useMemo<MonthlyInvestmentEvolution>(() => {
     if (!investmentSummary?.investments)
@@ -375,6 +456,54 @@ export default function DashboardContent() {
 
     return { current, lastMonth, pctChange };
   }, [getRate, investmentSummary, monthDate, settings?.main_currency]);
+
+  const monthlyInvestmentGrowthByCategory = useMemo(() => {
+    if (!investmentSummary?.investments?.length) return [];
+    const targetCurrency = settings?.main_currency || "EUR";
+    const months = Array.from({ length: 6 }, (_, idx) => startOfMonth(addMonths(today, -(5 - idx))));
+    const categories = Array.from(new Set(investmentSummary.investments.map((inv) => inv.investment_type)));
+
+    return months.map((monthPoint, idx) => {
+      const prev = idx > 0 ? months[idx - 1] : null;
+      const row: Record<string, string | number | boolean | null> = {
+        month: format(monthPoint, "MMM"),
+        hasData: false,
+      };
+      let totalGrowth = 0;
+      const growthByCategory = new Map<string, number>();
+
+      categories.forEach((category) => {
+        const nowValue = investmentSummary.investments
+          .filter((inv) => inv.investment_type === category)
+          .reduce((sum, inv) => {
+            const snapshot = inv.snapshots?.find((snap) => snap.month.startsWith(format(monthPoint, "yyyy-MM")));
+            if (snapshot) row.hasData = true;
+            const rate = getRate(inv.currency as "EUR" | "USD" | "BRL", targetCurrency, monthPoint).rate;
+            return sum + Number(snapshot?.total_value || 0) * rate;
+          }, 0);
+
+        const prevValue = prev
+          ? investmentSummary.investments
+              .filter((inv) => inv.investment_type === category)
+              .reduce((sum, inv) => {
+                const snapshot = inv.snapshots?.find((snap) => snap.month.startsWith(format(prev, "yyyy-MM")));
+                const rate = getRate(inv.currency as "EUR" | "USD" | "BRL", targetCurrency, prev).rate;
+                return sum + Number(snapshot?.total_value || 0) * rate;
+              }, 0)
+          : 0;
+
+        const growth = idx === 0 ? 0 : nowValue - prevValue;
+        growthByCategory.set(category, growth);
+        totalGrowth += growth;
+      });
+
+      categories.forEach((category) => {
+        if (!row.hasData || idx === 0 || totalGrowth === 0) row[category] = null;
+        else row[category] = (100 * (growthByCategory.get(category) || 0)) / totalGrowth;
+      });
+      return row;
+    });
+  }, [getRate, investmentSummary, settings?.main_currency, today]);
 
   const yearPeriodData = useMemo(() => {
     const currentYearMonths = yearlySummary?.monthly_data || [];
@@ -613,16 +742,21 @@ export default function DashboardContent() {
       const monthDatePoint = startOfMonth(period.monthDate);
       const row = {
         month: period.monthLabel,
-        Investments: 0,
-        Emergency: 0,
-        Current: 0,
+        Investments: null as number | null,
+        Emergency: null as number | null,
+        Current: null as number | null,
       };
+      let hasData = false;
+      let investments = 0;
+      let emergency = 0;
+      let current = 0;
 
       investmentSummary.investments.forEach((inv) => {
-        const snapshot = inv.snapshots
-          ?.filter((snap) => snap.month <= format(monthDatePoint, "yyyy-MM-dd"))
-          .sort((a, b) => b.month.localeCompare(a.month))[0];
+        const snapshot = inv.snapshots?.find((snap) =>
+          snap.month.startsWith(format(monthDatePoint, "yyyy-MM")),
+        );
         const rawValue = Number(snapshot?.total_value || 0);
+        if (snapshot) hasData = true;
         const rate = getRate(
           inv.currency as "EUR" | "USD" | "BRL",
           targetCurrency,
@@ -630,11 +764,16 @@ export default function DashboardContent() {
         ).rate;
         const converted = rawValue * rate;
 
-        if (inv.investment_type === "Investments") row.Investments += converted;
+        if (inv.investment_type === "Investments") investments += converted;
         else if (inv.investment_type === "Emergency savings")
-          row.Emergency += converted;
-        else row.Current += converted;
+          emergency += converted;
+        else current += converted;
       });
+      if (hasData) {
+        row.Investments = investments;
+        row.Emergency = emergency;
+        row.Current = current;
+      }
 
       return row;
     });
@@ -645,104 +784,43 @@ export default function DashboardContent() {
 
     return investmentEvolution.slice(1).map((month, index) => {
       const previous = investmentEvolution[index];
+      if (
+        month.Investments === null ||
+        month.Emergency === null ||
+        month.Current === null ||
+        previous.Investments === null ||
+        previous.Emergency === null ||
+        previous.Current === null
+      ) {
+        return { month: month.month, growthPct: null, cumulativePct: null, monthPct: null };
+      }
       const monthTotal = month.Investments + month.Emergency + month.Current;
-      const previousTotal =
-        previous.Investments + previous.Emergency + previous.Current;
+      const previousTotal = previous.Investments + previous.Emergency + previous.Current;
+      const monthPct = previousTotal > 0 ? ((monthTotal - previousTotal) / previousTotal) * 100 : 0;
+      const cumulativePct = index === 0 ? monthPct : (monthPct + (investmentEvolution.slice(1, index + 1).reduce((sum, _, idx2) => {
+        const prevItem = investmentEvolution[idx2];
+        const currItem = investmentEvolution[idx2 + 1];
+        if (
+          prevItem.Investments === null ||
+          prevItem.Emergency === null ||
+          prevItem.Current === null ||
+          currItem.Investments === null ||
+          currItem.Emergency === null ||
+          currItem.Current === null
+        ) return sum;
+        const prevTotal = prevItem.Investments + prevItem.Emergency + prevItem.Current;
+        const currTotal = currItem.Investments + currItem.Emergency + currItem.Current;
+        return sum + (prevTotal > 0 ? ((currTotal - prevTotal) / prevTotal) * 100 : 0);
+      }, 0)));
 
       return {
         month: month.month,
-        growthPct:
-          previousTotal > 0 ? ((monthTotal - previousTotal) / previousTotal) * 100 : 0,
+        growthPct: cumulativePct,
+        cumulativePct,
+        monthPct,
       };
     });
   }, [investmentEvolution]);
-
-  const investmentProjections = useMemo<InvestmentProjectionItem[]>(() => {
-    if (!investmentSummary?.investments?.length || yearPeriodData.length < 2) return [];
-
-    const targetCurrency = settings?.main_currency || "EUR";
-    const historicalMonths = yearPeriodData.slice(-12);
-
-    const monthlyBreakdown = historicalMonths.map((period) => {
-      const pointInTime = startOfMonth(period.monthDate);
-      let compoundTotal = 0;
-      let linearTotal = 0;
-
-      investmentSummary.investments.forEach((investment) => {
-        const snapshot = investment.snapshots
-          ?.filter((snap) => snap.month <= format(pointInTime, "yyyy-MM-dd"))
-          .sort((a, b) => b.month.localeCompare(a.month))[0];
-        const value = Number(snapshot?.total_value || 0);
-        const rate = getRate(
-          investment.currency as "EUR" | "USD" | "BRL",
-          targetCurrency,
-          pointInTime,
-        ).rate;
-        const convertedValue = value * rate;
-
-        if (isLinearGrowthInvestment(investment.investment_type)) linearTotal += convertedValue;
-        else compoundTotal += convertedValue;
-      });
-
-      return {
-        compoundTotal,
-        linearTotal,
-      };
-    });
-
-    const monthlyChanges = monthlyBreakdown
-      .slice(1)
-      .map((month, index) => ({
-        compoundChange: month.compoundTotal - monthlyBreakdown[index].compoundTotal,
-        linearChange: month.linearTotal - monthlyBreakdown[index].linearTotal,
-        compoundGrowthRate:
-          monthlyBreakdown[index].compoundTotal > 0
-            ? (month.compoundTotal - monthlyBreakdown[index].compoundTotal) /
-              monthlyBreakdown[index].compoundTotal
-            : 0,
-      }));
-
-    const averageCompoundGrowthRate =
-      monthlyChanges.length > 0
-        ? monthlyChanges.reduce((sum, row) => sum + row.compoundGrowthRate, 0) /
-          monthlyChanges.length
-        : 0;
-    const averageCompoundContribution =
-      monthlyChanges.length > 0
-        ? monthlyChanges.reduce((sum, row) => sum + row.compoundChange, 0) /
-          monthlyChanges.length
-        : 0;
-    const averageLinearContribution =
-      monthlyChanges.length > 0
-        ? monthlyChanges.reduce((sum, row) => sum + row.linearChange, 0) /
-          monthlyChanges.length
-        : 0;
-
-    const latest = monthlyBreakdown[monthlyBreakdown.length - 1];
-    const currentCompoundValue = latest?.compoundTotal || 0;
-    const currentLinearValue = latest?.linearTotal || 0;
-    const rate = averageCompoundGrowthRate;
-
-    return [
-      { label: "5 years", months: 60, value: 0 },
-      { label: "10 years", months: 120, value: 0 },
-      { label: "20 years", months: 240, value: 0 },
-    ].map((projection) => {
-      const compoundFutureValue =
-        Math.abs(rate) < 1e-6
-          ? currentCompoundValue + averageCompoundContribution * projection.months
-          : currentCompoundValue * (1 + rate) ** projection.months +
-            averageCompoundContribution *
-              (((1 + rate) ** projection.months - 1) / rate);
-      const linearFutureValue =
-        currentLinearValue + averageLinearContribution * projection.months;
-
-      return {
-        ...projection,
-        value: Math.max(0, compoundFutureValue + linearFutureValue),
-      };
-    });
-  }, [getRate, investmentSummary, settings?.main_currency, yearPeriodData]);
 
   const investmentTotals = useMemo(() => {
     if (!investmentSummary?.investments?.length) {
@@ -864,8 +942,6 @@ export default function DashboardContent() {
           monthlyViewData={monthlyViewData}
           monthlyInvestmentEvolution={monthlyInvestmentEvolution}
           currencySymbol={currencySymbol}
-          commentDraft={commentDraft}
-          onCommentChange={handleCommentChange}
           chartConfig={chartConfig}
           formatPercent={formatPercent}
           calculateRatio={calculateRatio}
@@ -876,16 +952,8 @@ export default function DashboardContent() {
         <YearlyDashboardSection
           yearlyViewData={yearlyViewData}
           yearPeriodData={yearPeriodData}
-          yearlyStartMonth={yearlyStartMonth}
           fiscalYearBoundsLabel={`${format(new Date(selectedYear - 1, fiscalYearStartMonth - 1, 1), "MMM yyyy")} – ${format(new Date(selectedYear, fiscalYearStartMonth - 2, 1), "MMM yyyy")}`}
           cycleStartDay={safeCycleStartDay}
-          minMonth={APP_START_DATE_STRING.slice(0, 7)}
-          onYearWindowChange={(value) => {
-            const [year, month] = value.split("-");
-            if (!year || !month) return;
-            setSelectedYear(Number(year));
-            setYearStartMonth(Number(month) - 1);
-          }}
           aggregation={aggregation}
           onAggregationChange={setAggregation}
           currencySymbol={currencySymbol}
@@ -894,7 +962,6 @@ export default function DashboardContent() {
           
           investmentEvolution={investmentEvolution}
           investmentGrowthData={yearlyInvestmentGrowth}
-          investmentProjections={investmentProjections}
           netWorth={investmentTotals.netWorth}
           yearlyInvestmentGain={investmentTotals.yearlyGain}
         />
