@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, XAxis, YAxis } from "recharts";
 
@@ -12,9 +12,9 @@ import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/i18n/I18nProvider";
 
 interface MonthlyDashboardSectionProps {
-  selectedMonth: string;
-  minMonth: string;
-  onMonthChange: (month: string) => void;
+  periodLabel: string;
+  onPreviousPeriod: () => void;
+  onNextPeriod: () => void;
   monthlyViewData: MonthlyViewData;
   monthlyInvestmentEvolution: MonthlyInvestmentEvolution;
   currencySymbol: string;
@@ -26,9 +26,9 @@ interface MonthlyDashboardSectionProps {
 }
 
 export function MonthlyDashboardSection({
-  selectedMonth,
-  minMonth,
-  onMonthChange,
+  periodLabel,
+  onPreviousPeriod,
+  onNextPeriod,
   monthlyViewData,
   monthlyInvestmentEvolution,
   currencySymbol,
@@ -43,13 +43,9 @@ export function MonthlyDashboardSection({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="month"
-          min={minMonth}
-          value={selectedMonth}
-          onChange={(e) => onMonthChange(e.target.value)}
-          className="w-full max-w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm sm:w-auto"
-        />
+        <Button variant="outline" size="sm" onClick={onPreviousPeriod}><ChevronLeft className="h-4 w-4" /></Button>
+        <Badge variant="secondary">{periodLabel}</Badge>
+        <Button variant="outline" size="sm" onClick={onNextPeriod}><ChevronRight className="h-4 w-4" /></Button>
         <Badge variant="outline">{t("dashboard.analyzeMonthlyPerformance")}</Badge>
       </div>
 
@@ -115,45 +111,9 @@ export function MonthlyDashboardSection({
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.categoryBudgetProgress")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {monthlyViewData.categoryProgress.length === 0 ? (
-            <p className="text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
-          ) : (
-            monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (
-              <div key={cat.id} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>{cat.name}</span>
-                  <span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.budget.toFixed(0)}</span>
-                </div>
-                <Progress value={Math.min(cat.percent, 100)} />
-              </div>
-            ))
-          )}
-          <div className="pt-2">
-            <Button asChild variant="outline">
-              <Link to="/input/budget">{t("dashboard.adjustBudget")}</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <Card><CardHeader><CardTitle>{t("dashboard.categoryBudgetProgress")}</CardTitle></CardHeader><CardContent className="space-y-3">{monthlyViewData.categoryProgress.length === 0 ? <p className="text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p> : monthlyViewData.categoryProgress.slice(0, 12).map((cat) => (<div key={cat.id} className="space-y-1"><div className="flex justify-between text-sm"><span>{cat.name}</span><span>{currencySymbol}{cat.spent.toFixed(0)} / {currencySymbol}{cat.budget.toFixed(0)}</span></div><Progress value={Math.min(cat.percent, 100)} /></div>))}<div className="pt-2"><Button asChild variant="outline"><Link to="/input/budget">{t("dashboard.adjustBudget")}</Link></Button></div></CardContent></Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground">{t("dashboard.monthlyNotes")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <textarea
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder={t("dashboard.monthlyNotesPlaceholder")}
-            value={commentDraft}
-            onChange={(e) => onCommentChange(e.target.value)}
-          />
-        </CardContent>
-      </Card>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t("dashboard.monthlyNotes")}</CardTitle></CardHeader><CardContent><textarea className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring" placeholder={t("dashboard.monthlyNotesPlaceholder")} value={commentDraft} onChange={(e) => onCommentChange(e.target.value)} /></CardContent></Card>
     </div>
   );
 }

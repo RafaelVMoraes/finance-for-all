@@ -4,6 +4,7 @@ export type YearAggregation = "month" | "quarter";
 
 const YEAR_START_MONTH_KEY = "fintrack_year_start_month";
 const SELECTED_YEAR_KEY = "fintrack_selected_year";
+const CYCLE_START_DAY_KEY = "fintrack_cycle_start_day";
 
 interface UseDashboardViewStateParams {
   today: Date;
@@ -27,6 +28,11 @@ export function useDashboardViewState({
     const saved = localStorage.getItem(YEAR_START_MONTH_KEY);
     return saved !== null ? Number(saved) : 0;
   });
+  const [cycleStartDay, setCycleStartDay] = useState(() => {
+    const saved = localStorage.getItem(CYCLE_START_DAY_KEY);
+    const parsed = saved !== null ? Number(saved) : 1;
+    return Math.min(28, Math.max(1, Number.isFinite(parsed) ? parsed : 1));
+  });
   const [aggregation, setAggregation] = useState<YearAggregation>("month");
   const [commentDraft, setCommentDraft] = useState("");
   const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,6 +44,10 @@ export function useDashboardViewState({
   useEffect(() => {
     localStorage.setItem(SELECTED_YEAR_KEY, String(selectedYear));
   }, [selectedYear]);
+
+  useEffect(() => {
+    localStorage.setItem(CYCLE_START_DAY_KEY, String(cycleStartDay));
+  }, [cycleStartDay]);
 
   useEffect(() => {
     setCommentDraft(monthlyComment || "");
@@ -66,6 +76,8 @@ export function useDashboardViewState({
     setSelectedYear,
     yearStartMonth,
     setYearStartMonth,
+    cycleStartDay,
+    setCycleStartDay,
     aggregation,
     setAggregation,
     commentDraft,

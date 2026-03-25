@@ -16,16 +16,20 @@ import { useI18n } from "@/i18n/I18nProvider";
 export default function Budget() {
   const { t } = useI18n();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const cycleStartDay = Math.min(28, Math.max(1, Number(localStorage.getItem("fintrack_cycle_start_day") ?? 1)));
+  const fiscalYearStartMonth = Number(localStorage.getItem("fintrack_year_start_month") ?? 0) + 1;
 
   const { budgets, loading: budgetsLoading } = useBudgets({
     month: selectedMonth,
+    cycleStartDay,
+    fiscalYearStartMonth,
   });
   const { activeCategories, loading: categoriesLoading } = useCategories();
   const {
     categorySpent,
     actualIncome,
     loading: summaryLoading,
-  } = useBudgetMonthlySummary(selectedMonth);
+  } = useBudgetMonthlySummary(selectedMonth, cycleStartDay, fiscalYearStartMonth);
   const { currencySymbol } = useUserSettings();
 
   // Calculate categories by type

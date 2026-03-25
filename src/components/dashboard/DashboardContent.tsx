@@ -33,10 +33,21 @@ import { useExchangeRates } from "@/hooks/useExchangeRates";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useI18n } from "@/i18n/I18nProvider";
 import { APP_START_DATE_STRING } from "@/constants/app";
+import {
+  getFinancialPeriod,
+  getFinancialPeriodLabel,
+  getFinancialPeriodsInYear,
+  normalizeCycleStartDay,
+} from "@/lib/financialPeriod";
 const formatPercent = (value: number) => `${Math.round(value)}%`;
 
 const calculateRatio = (value: number, total: number) =>
   total > 0 ? (value / total) * 100 : 0;
+
+const nextMonthDate = (financialYear: number, financialMonth: number, fiscalYearStartMonth: number) => {
+  const calendarYear = financialMonth >= fiscalYearStartMonth ? financialYear : financialYear + 1;
+  return new Date(calendarYear, financialMonth - 1, 1);
+};
 
 const isLinearGrowthInvestment = (investmentType: string) => {
   const normalized = investmentType.toLowerCase();
@@ -136,22 +147,22 @@ const getPctBgStyle = (pct: number) => {
 };
 
 export default function DashboardContent() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const today = useMemo(() => new Date(), []);
   const [selectedMonth, setSelectedMonth] = useState(format(today, "yyyy-MM"));
-  const monthDate = useMemo(
-    () => parseISO(`${selectedMonth}-01`),
-    [selectedMonth],
-  );
+  const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
+  const persistedCycleStartDay = normalizeCycleStartDay(Number(localStorage.getItem("fintrack_cycle_start_day") ?? 1));
+  const fiscalYearStartMonth = Number(localStorage.getItem("fintrack_year_start_month") ?? 0) + 1;
 
   const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
+  const safeCycleStartDay = persistedCycleStartDay;
   const {
     monthlySettings,
     budgets,
     loading: budgetsLoading,
     updateMonthlyComment,
-  } = useBudgets({ month: monthDate });
+  } = useBudgets({ month: monthDate, cycleStartDay: safeCycleStartDay, fiscalYearStartMonth });
   const {
     view,
     setView,
@@ -174,18 +185,35 @@ export default function DashboardContent() {
     data: monthlySummary,
     loading: monthlyLoading,
     error: monthlyError,
-  } = useMonthlySummary(monthDate);
+  } = useMonthlySummary(monthDate, safeCycleStartDay, fiscalYearStartMonth);
   const {
     data: yearlySummary,
     loading: yearlyLoading,
     error: yearlyError,
-  } = useYearlySummary(selectedYear);
+  } = useYearlySummary(selectedYear, safeCycleStartDay, fiscalYearStartMonth);
   const {
     data: yearlySummaryNext,
     loading: yearlyLoadingNext,
     error: yearlyErrorNext,
-  } = useYearlySummary(selectedYear + 1);
+  } = useYearlySummary(selectedYear + 1, safeCycleStartDay, fiscalYearStartMonth);
   const { data: investmentSummary } = useInvestmentSummary();
+
+  const selectedFinancialPeriod = useMemo(
+    () => getFinancialPeriod(monthDate, safeCycleStartDay, fiscalYearStartMonth),
+    [monthDate, safeCycleStartDay, fiscalYearStartMonth],
+  );
+  const monthlyPeriodLabel = useMemo(
+    () => `${getFinancialPeriodLabel(selectedFinancialPeriod.year, selectedFinancialPeriod.month, safeCycleStartDay, fiscalYearStartMonth, locale)} ${selectedFinancialPeriod.year}`,
+    [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth, locale],
+  );
+  const stepFinancialPeriod = useCallback((delta: number) => {
+    const next = selectedFinancialPeriod.month + delta;
+    const normalizedMonth = ((next - 1 + 1200) % 12) + 1;
+    const yearShift = Math.floor((next - 1) / 12);
+    const nextYear = selectedFinancialPeriod.year + yearShift;
+    const synthetic = nextMonthDate(nextYear, normalizedMonth, fiscalYearStartMonth);
+    setSelectedMonth(format(synthetic, 'yyyy-MM'));
+  }, [selectedFinancialPeriod, fiscalYearStartMonth]);
 
 
   const getBudgetAmount = useCallback(
@@ -350,20 +378,16 @@ export default function DashboardContent() {
     const currentYearMonths = yearlySummary?.monthly_data || [];
     const nextYearMonths = yearlySummaryNext?.monthly_data || [];
     const merged = [...currentYearMonths, ...nextYearMonths];
-    const mergedMap = new Map(
-      merged.map((m) => [format(parseISO(m.month_date), "yyyy-MM"), m]),
-    );
+    const mergedMap = new Map(merged.map((m) => [m.month_date, m]));
+    const periods = getFinancialPeriodsInYear(selectedYear, safeCycleStartDay, fiscalYearStartMonth);
 
-    const startDate = new Date(selectedYear, yearStartMonth, 1);
-    return Array.from({ length: 12 }).map((_, idx) => {
-      const monthDatePoint = addMonths(startDate, idx);
-      const key = format(monthDatePoint, "yyyy-MM");
-      const found = mergedMap.get(key);
-
+    return periods.map((period, idx) => {
+      const found = mergedMap.get(format(period.start, 'yyyy-MM-dd'));
+      const key = `${period.year}-${String(period.month).padStart(2, '0')}`;
       return {
         key,
-        monthDate: monthDatePoint,
-        monthLabel: format(monthDatePoint, "MMM"),
+        monthDate: period.start,
+        monthLabel: getFinancialPeriodLabel(period.year, period.month, safeCycleStartDay, fiscalYearStartMonth, locale),
         quarterLabel: `Q${Math.floor(idx / 3) + 1}`,
         income: Number(found?.income || 0),
         fixed: Number(found?.fixed_expenses || 0),
@@ -371,7 +395,7 @@ export default function DashboardContent() {
         savings: Number(found?.savings || 0),
       };
     });
-  }, [selectedYear, yearStartMonth, yearlySummary, yearlySummaryNext]);
+  }, [selectedYear, yearlySummary, yearlySummaryNext, safeCycleStartDay, fiscalYearStartMonth, locale]);
 
   const yearlyViewData = useMemo(() => {
     const expectedIncome = Number(monthlySettings?.expected_income || 0);
@@ -832,9 +856,9 @@ export default function DashboardContent() {
 
       {view === "monthly" && monthlyViewData && (
         <MonthlyDashboardSection
-          selectedMonth={selectedMonth}
-          minMonth={APP_START_DATE_STRING.slice(0, 7)}
-          onMonthChange={setSelectedMonth}
+          periodLabel={monthlyPeriodLabel}
+          onPreviousPeriod={() => stepFinancialPeriod(-1)}
+          onNextPeriod={() => stepFinancialPeriod(1)}
           monthlyViewData={monthlyViewData}
           monthlyInvestmentEvolution={monthlyInvestmentEvolution}
           currencySymbol={currencySymbol}
@@ -851,6 +875,8 @@ export default function DashboardContent() {
           yearlyViewData={yearlyViewData}
           yearPeriodData={yearPeriodData}
           yearlyStartMonth={yearlyStartMonth}
+          fiscalYearBoundsLabel={`${format(new Date(selectedYear - 1, fiscalYearStartMonth - 1, 1), "MMM yyyy")} – ${format(new Date(selectedYear, fiscalYearStartMonth - 2, 1), "MMM yyyy")}`}
+          cycleStartDay={safeCycleStartDay}
           minMonth={APP_START_DATE_STRING.slice(0, 7)}
           onYearWindowChange={(value) => {
             const [year, month] = value.split("-");
