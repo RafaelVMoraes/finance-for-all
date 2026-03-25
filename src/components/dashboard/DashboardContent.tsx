@@ -46,10 +46,7 @@ const formatPercent = (value: number) => `${Math.round(value)}%`;
 const calculateRatio = (value: number, total: number) =>
   total > 0 ? (value / total) * 100 : 0;
 
-const nextMonthDate = (financialYear: number, financialMonth: number, fiscalYearStartMonth: number) => {
-  const calendarYear = financialMonth >= fiscalYearStartMonth ? financialYear : financialYear + 1;
-  return new Date(calendarYear, financialMonth - 1, 1);
-};
+const normalizeExpenseAmount = (amount: number) => Math.abs(amount);
 
 /** Build exactly 4 week buckets for a given month, returning both the
  *  collapsed spending values AND the number of days in each bucket
@@ -187,13 +184,15 @@ export default function DashboardContent() {
     [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth, locale],
   );
   const stepFinancialPeriod = useCallback((delta: number) => {
-    const next = selectedFinancialPeriod.month + delta;
-    const normalizedMonth = ((next - 1 + 1200) % 12) + 1;
-    const yearShift = Math.floor((next - 1) / 12);
-    const nextYear = selectedFinancialPeriod.year + yearShift;
-    const synthetic = nextMonthDate(nextYear, normalizedMonth, fiscalYearStartMonth);
-    setSelectedMonth(format(synthetic, 'yyyy-MM'));
-  }, [selectedFinancialPeriod, fiscalYearStartMonth]);
+    const { start } = getFinancialPeriodBounds(
+      selectedFinancialPeriod.year,
+      selectedFinancialPeriod.month,
+      safeCycleStartDay,
+      fiscalYearStartMonth,
+    );
+    const next = addMonths(start, delta);
+    setSelectedMonth(format(next, "yyyy-MM"));
+  }, [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
 
   useEffect(() => {
     const run = async () => {
@@ -386,7 +385,9 @@ export default function DashboardContent() {
     const byDay = new Map<string, { total: number; variableTotal: number; fixedOnly: boolean; categories: Map<string, { amount: number; color: string; type: string }> }>();
     monthlyTransactions.forEach((tx) => {
       const day = tx.payment_date;
-      const amount = Number(tx.amount || 0);
+      const amount = tx.categories?.type === "income"
+        ? Number(tx.amount || 0)
+        : normalizeExpenseAmount(Number(tx.amount || 0));
       const categoryType = tx.categories?.type || "variable";
       const existing = byDay.get(day) || {
         total: 0,
@@ -445,7 +446,7 @@ export default function DashboardContent() {
       .map((tx) => ({
         id: tx.id,
         name: tx.edited_label || tx.original_label,
-        amount: Number(tx.amount || 0),
+        amount: normalizeExpenseAmount(Number(tx.amount || 0)),
         categoryName: tx.categories?.name || t("dashboard.uncategorized"),
         categoryColor: tx.categories?.color || "#94a3b8",
       }))
@@ -588,10 +589,11 @@ export default function DashboardContent() {
         type: cm.type,
         values: Array(12).fill(0),
       };
-      // Use substring to avoid timezone issues with parseISO on date-only strings
+      // Match against the exact financial-period start date so cut-off months align correctly.
       const idx = cm.month_date
         ? yearPeriodData.findIndex(
-            (period) => period.key === cm.month_date.substring(0, 7),
+            (period) =>
+              format(period.monthDate, "yyyy-MM-dd") === cm.month_date,
           )
         : -1;
       if (idx >= 0) bucket.values[idx] += Number(cm.spent || 0);
