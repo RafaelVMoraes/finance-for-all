@@ -43,6 +43,11 @@ interface TxRow {
   categories: { id: string; name: string; color: string; type: 'fixed' | 'variable' | 'income' } | null;
 }
 
+const normalizeTransactionAmount = (amount: number, categoryType?: 'fixed' | 'variable' | 'income') => {
+  if (categoryType === 'income') return amount;
+  return Math.abs(amount);
+};
+
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 60000;
 const getCacheKey = (userId: string, type: string, params: string) => `${userId}:${type}:${params}`;
@@ -60,8 +65,8 @@ const aggregateMonthlySummary = (transactions: TxRow[], periodStart: Date): Mont
   let incompleteCount = 0;
 
   transactions.forEach((tx) => {
-    const amount = Number(tx.amount || 0);
     const categoryType = tx.categories?.type;
+    const amount = normalizeTransactionAmount(Number(tx.amount || 0), categoryType);
     if (!categoryType || !tx.category_id || !tx.categories) {
       incompleteCount += 1;
       return;
@@ -202,7 +207,7 @@ export function useYearlySummary(
         const key = `${period.year}-${String(period.month).padStart(2, '0')}`;
         const idx = periodIndex.get(key);
         if (idx === undefined) return;
-        const amount = Number(tx.amount || 0);
+        const amount = normalizeTransactionAmount(Number(tx.amount || 0), tx.categories.type);
         if (tx.categories.type === 'income') monthlyData[idx].income += amount;
         else if (tx.categories.type === 'fixed') monthlyData[idx].fixed_expenses += amount;
         else monthlyData[idx].variable_expenses += amount;
