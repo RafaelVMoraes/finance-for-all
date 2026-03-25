@@ -17,6 +17,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MonthlyDashboardSection } from "@/components/dashboard/monthly/MonthlyDashboardSection";
 import {
   MonthlyInvestmentEvolution,
+  MonthlyInvestmentGrowthByCategoryItem,
   MonthlyInvestmentGrowthItem,
   YearlyIncomeExpenseTooltipProps,
 } from "@/components/dashboard/types";
