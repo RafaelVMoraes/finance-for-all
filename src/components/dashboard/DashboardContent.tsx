@@ -151,9 +151,18 @@ export default function DashboardContent() {
   const today = useMemo(() => new Date(), []);
   const [selectedMonth, setSelectedMonth] = useState(format(today, "yyyy-MM"));
   const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
+  const persistedCycleStartDay = normalizeCycleStartDay(Number(localStorage.getItem("fintrack_cycle_start_day") ?? 1));
+  const fiscalYearStartMonth = Number(localStorage.getItem("fintrack_year_start_month") ?? 0) + 1;
 
   const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
+  const safeCycleStartDay = persistedCycleStartDay;
+  const {
+    monthlySettings,
+    budgets,
+    loading: budgetsLoading,
+    updateMonthlyComment,
+  } = useBudgets({ month: monthDate, cycleStartDay: safeCycleStartDay, fiscalYearStartMonth });
   const {
     view,
     setView,
@@ -190,21 +199,6 @@ export default function DashboardContent() {
     error: yearlyErrorNext,
   } = useYearlySummary(selectedYear + 1, safeCycleStartDay, fiscalYearStartMonth);
   const { data: investmentSummary } = useInvestmentSummary();
-
-  const [commentDraft, setCommentDraft] = useState("");
-  const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setCommentDraft(monthlySettings?.comment || "");
-  }, [monthlySettings?.comment, selectedMonth]);
-
-  const handleCommentChange = useCallback((value: string) => {
-    setCommentDraft(value);
-    if (commentTimerRef.current) clearTimeout(commentTimerRef.current);
-    commentTimerRef.current = setTimeout(() => {
-      updateMonthlyComment(value);
-    }, 1000);
-  }, [updateMonthlyComment]);
 
   const selectedFinancialPeriod = useMemo(
     () => getFinancialPeriod(monthDate, safeCycleStartDay, fiscalYearStartMonth),

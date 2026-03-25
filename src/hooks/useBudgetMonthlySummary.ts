@@ -54,7 +54,7 @@ export function useBudgetMonthlySummary(month: Date, cycleStartDay = 1, fiscalYe
     const spentMap: Record<string, number> = {};
     let income = 0;
     ((data || []) as TxRow[]).forEach((row) => {
-      const amount = Math.abs(Number(row.amount || 0));
+      const amount = Number(row.amount || 0);
       if (row.categories?.type === 'income') {
         income += amount;
         return;

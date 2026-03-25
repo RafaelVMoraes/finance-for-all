@@ -3,6 +3,7 @@ import { format, startOfWeek } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
+  FinancialPeriod,
   getFinancialPeriod,
   getFinancialPeriodBounds,
   getFinancialPeriodsInYear,
@@ -51,7 +52,7 @@ const getCachedData = <T,>(key: string): T | null => {
 };
 const setCachedData = <T,>(key: string, data: T): void => { cache.set(key, { data, timestamp: Date.now() }); };
 
-const aggregateMonthlySummary = (transactions: TxRow[]): MonthlySummary => {
+const aggregateMonthlySummary = (transactions: TxRow[], periodStart: Date): MonthlySummary => {
   const byCategory = new Map<string, CategorySpending>();
   const byWeek = new Map<string, number>();
   let totalIncome = 0;
@@ -59,8 +60,7 @@ const aggregateMonthlySummary = (transactions: TxRow[]): MonthlySummary => {
   let incompleteCount = 0;
 
   transactions.forEach((tx) => {
-    const rawAmount = Number(tx.amount || 0);
-    const amount = Math.abs(rawAmount);
+    const amount = Number(tx.amount || 0);
     const categoryType = tx.categories?.type;
     if (!categoryType || !tx.category_id || !tx.categories) {
       incompleteCount += 1;
@@ -133,7 +133,7 @@ export function useMonthlySummary(
         .lte('payment_date', endStr);
       if (txError) throw txError;
 
-      const summary = aggregateMonthlySummary((txData || []) as TxRow[]);
+      const summary = aggregateMonthlySummary((txData || []) as TxRow[], start);
       if (requestId !== requestIdRef.current) return;
       setCachedData(cacheKey, summary);
       setData(summary);
@@ -202,8 +202,7 @@ export function useYearlySummary(
         const key = `${period.year}-${String(period.month).padStart(2, '0')}`;
         const idx = periodIndex.get(key);
         if (idx === undefined) return;
-        const rawAmount = Number(tx.amount || 0);
-        const amount = Math.abs(rawAmount);
+        const amount = Number(tx.amount || 0);
         if (tx.categories.type === 'income') monthlyData[idx].income += amount;
         else if (tx.categories.type === 'fixed') monthlyData[idx].fixed_expenses += amount;
         else monthlyData[idx].variable_expenses += amount;

@@ -40,6 +40,10 @@ export function useDashboardViewState({ today }: UseDashboardViewStateParams) {
     localStorage.setItem(CYCLE_START_DAY_KEY, String(cycleStartDay));
   }, [cycleStartDay]);
 
+  useEffect(() => {
+    setCommentDraft(monthlyComment || "");
+  }, [monthlyComment, selectedMonth]);
+
 
   useEffect(() => {
     const syncFromStorage = () => {
