@@ -1,26 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format, startOfMonth } from 'date-fns';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { logClientError } from '@/lib/logger';
+import { getFinancialPeriod, getFinancialPeriodBounds, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
 
-interface MonthlyCategorySummaryRow {
-  category_id: string;
-  total_amount: number;
+interface TxRow {
+  amount: number;
+  category_id: string | null;
+  categories: { type: 'fixed' | 'variable' | 'income' } | null;
 }
 
-interface MonthlyTotalsRow {
-  total_income: number;
-}
-
-export function useBudgetMonthlySummary(month: Date) {
+export function useBudgetMonthlySummary(month: Date, cycleStartDay = 1, fiscalYearStartMonth = 1) {
   const [categorySpent, setCategorySpent] = useState<Record<string, number>>({});
   const [actualIncome, setActualIncome] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthContext();
   const requestIdRef = useRef(0);
 
-  const monthStr = useMemo(() => format(startOfMonth(month), 'yyyy-MM-dd'), [month]);
+  const safeDay = normalizeCycleStartDay(cycleStartDay);
+  const safeFiscal = normalizeFiscalYearStartMonth(fiscalYearStartMonth);
+  const period = getFinancialPeriod(month, safeDay, safeFiscal);
+  const { start, end } = getFinancialPeriodBounds(period.year, period.month, safeDay, safeFiscal);
+  const periodStart = format(start, 'yyyy-MM-dd');
+  const periodEnd = format(end, 'yyyy-MM-dd');
 
   const fetchSummary = useCallback(async () => {
     if (!user) {
@@ -31,44 +34,38 @@ export function useBudgetMonthlySummary(month: Date) {
     const requestId = ++requestIdRef.current;
     setLoading(true);
 
-    const [{ data: categoryData, error: categoryError }, { data: totalsData, error: totalsError }] = await Promise.all([
-      supabase
-        .from('monthly_category_summary')
-        .select('category_id, total_amount')
-        .eq('user_id', user.id)
-        .eq('month', monthStr),
-      supabase
-        .from('monthly_totals')
-        .select('total_income')
-        .eq('user_id', user.id)
-        .eq('month', monthStr)
-        .maybeSingle(),
-    ]);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('amount,category_id,categories(type)')
+      .eq('user_id', user.id)
+      .gte('payment_date', periodStart)
+      .lte('payment_date', periodEnd);
 
-    if (requestId !== requestIdRef.current) {
+    if (requestId !== requestIdRef.current) return;
+
+    if (error) {
+      logClientError('[BUDGET_MONTH_SUMMARY_TX_ERR]', error);
+      setCategorySpent({});
+      setActualIncome(0);
+      setLoading(false);
       return;
     }
 
-    if (categoryError) {
-      logClientError('[MONTHLY_CATEGORY_SUMMARY_ERR]', categoryError);
-      setCategorySpent({});
-    } else {
-      const spentMap = (categoryData as MonthlyCategorySummaryRow[] | null)?.reduce<Record<string, number>>((acc, row) => {
-        acc[row.category_id] = row.total_amount;
-        return acc;
-      }, {}) ?? {};
-      setCategorySpent(spentMap);
-    }
+    const spentMap: Record<string, number> = {};
+    let income = 0;
+    ((data || []) as TxRow[]).forEach((row) => {
+      const amount = Number(row.amount || 0);
+      if (row.categories?.type === 'income') {
+        income += amount;
+        return;
+      }
+      if (row.category_id) spentMap[row.category_id] = (spentMap[row.category_id] || 0) + amount;
+    });
 
-    if (totalsError) {
-      logClientError('[MONTHLY_TOTALS_ERR]', totalsError);
-      setActualIncome(0);
-    } else {
-      setActualIncome((totalsData as MonthlyTotalsRow | null)?.total_income ?? 0);
-    }
-
+    setCategorySpent(spentMap);
+    setActualIncome(income);
     setLoading(false);
-  }, [monthStr, user]);
+  }, [periodEnd, periodStart, user]);
 
   useEffect(() => {
     fetchSummary();
