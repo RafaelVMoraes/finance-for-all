@@ -214,6 +214,54 @@ export default function DashboardContent() {
     run();
   }, [user, selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
 
+  const monthlyInvestmentGrowthByCategory = useMemo<MonthlyInvestmentGrowthByCategoryItem[]>(() => {
+    if (!investmentSummary?.investments?.length) return [];
+    const targetCurrency = settings?.main_currency || "EUR";
+    const months = Array.from({ length: 6 }, (_, idx) => startOfMonth(addMonths(today, -(5 - idx))));
+    const categories = Array.from(new Set(investmentSummary.investments.map((inv) => inv.investment_type)));
+
+    return months.map((monthPoint, idx) => {
+      const prev = idx > 0 ? months[idx - 1] : null;
+      const row: MonthlyInvestmentGrowthByCategoryItem = {
+        month: format(monthPoint, "MMM"),
+        hasData: false,
+      };
+      let totalGrowth = 0;
+      const growthByCategory = new Map<string, number>();
+
+      categories.forEach((category) => {
+        const nowValue = investmentSummary.investments
+          .filter((inv) => inv.investment_type === category)
+          .reduce((sum, inv) => {
+            const snapshot = inv.snapshots?.find((snap) => snap.month.startsWith(format(monthPoint, "yyyy-MM")));
+            if (snapshot) row.hasData = true;
+            const rate = getRate(inv.currency as "EUR" | "USD" | "BRL", targetCurrency, monthPoint).rate;
+            return sum + Number(snapshot?.total_value || 0) * rate;
+          }, 0);
+
+        const prevValue = prev
+          ? investmentSummary.investments
+              .filter((inv) => inv.investment_type === category)
+              .reduce((sum, inv) => {
+                const snapshot = inv.snapshots?.find((snap) => snap.month.startsWith(format(prev, "yyyy-MM")));
+                const rate = getRate(inv.currency as "EUR" | "USD" | "BRL", targetCurrency, prev).rate;
+                return sum + Number(snapshot?.total_value || 0) * rate;
+              }, 0)
+          : 0;
+
+        const growth = idx === 0 ? 0 : nowValue - prevValue;
+        growthByCategory.set(category, growth);
+        totalGrowth += growth;
+      });
+
+      categories.forEach((category) => {
+        if (!row.hasData || idx === 0 || totalGrowth === 0) row[category] = null;
+        else row[category] = (100 * (growthByCategory.get(category) || 0)) / totalGrowth;
+      });
+      return row;
+    });
+  }, [getRate, investmentSummary, settings?.main_currency, today]);
+
 
   const getBudgetAmount = useCallback(
     (categoryId: string) =>

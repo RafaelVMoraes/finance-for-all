@@ -53,11 +53,6 @@ export default function Profile() {
     window.dispatchEvent(new Event('fintrack-settings-changed'));
   };
 
-  const onCycleStartDayChange = (value: string) => {
-    const parsed = Math.min(28, Math.max(1, Number(value)));
-    setCycleStartDay(parsed);
-    localStorage.setItem(CYCLE_START_DAY_KEY, String(parsed));
-  };
 
   return (
     <div className="space-y-3">
