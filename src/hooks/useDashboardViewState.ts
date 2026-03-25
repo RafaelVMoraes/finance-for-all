@@ -41,11 +41,6 @@ export function useDashboardViewState({ today }: UseDashboardViewStateParams) {
   }, [cycleStartDay]);
 
   useEffect(() => {
-    setCommentDraft(monthlyComment || "");
-  }, [monthlyComment, selectedMonth]);
-
-
-  useEffect(() => {
     const syncFromStorage = () => {
       const monthRaw = Number(localStorage.getItem(YEAR_START_MONTH_KEY) ?? 0);
       const cycleRaw = Number(localStorage.getItem(CYCLE_START_DAY_KEY) ?? 1);
