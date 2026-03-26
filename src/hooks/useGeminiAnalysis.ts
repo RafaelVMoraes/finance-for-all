@@ -40,15 +40,16 @@ const buildContext = async (
   financialPeriod: PeriodInput,
   userSettings: GeminiUserSettings,
 ): Promise<FinancialContext> => {
+  const settings = userSettings as any;
   if (analysisType === 'monthly_review') {
-    return buildMonthlyReviewContext(financialPeriod, userSettings);
+    return buildMonthlyReviewContext(financialPeriod, settings);
   }
 
   if (analysisType === 'investment_review') {
-    return buildInvestmentReviewContext(financialPeriod, userSettings);
+    return buildInvestmentReviewContext(financialPeriod, settings);
   }
 
-  return buildBudgetOptimizationContext(financialPeriod, userSettings);
+  return buildBudgetOptimizationContext(settings);
 };
 
 const buildPrompt = (analysisType: AnalysisType, context: FinancialContext): string => {
