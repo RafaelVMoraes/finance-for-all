@@ -25,6 +25,10 @@ describe("financialPeriod", () => {
   });
 
   it("returns expected period bounds", () => {
+    const calendarBounds = getFinancialPeriodBounds(2025, 1, 1, 1);
+    expect(calendarBounds.start.toISOString().slice(0, 10)).toBe("2025-01-01");
+    expect(calendarBounds.end.toISOString().slice(0, 10)).toBe("2025-01-31");
+
     const { start, end } = getFinancialPeriodBounds(2025, 1, 26, 1);
     expect(start.toISOString().slice(0, 10)).toBe("2024-12-26");
     expect(end.toISOString().slice(0, 10)).toBe("2025-01-25");
