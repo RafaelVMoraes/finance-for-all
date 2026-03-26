@@ -15,13 +15,6 @@ const clampFiscalStartMonth = (month: number) => {
   return Math.min(12, Math.max(1, Math.trunc(month)));
 };
 
-const toFinancialMonthLabel = (baseYear: number, baseMonth: number, cycleStartDay: number) => {
-  const startYear = baseMonth === 1 ? baseYear - 1 : baseYear;
-  const startMonth = baseMonth === 1 ? 12 : baseMonth - 1;
-  const startDate = new Date(startYear, startMonth - 1, cycleStartDay);
-  return addMonths(startDate, 1);
-};
-
 export function getFinancialPeriod(
   date: Date,
   cycleStartDay: number,
@@ -32,11 +25,10 @@ export function getFinancialPeriod(
 
   const baseYear = date.getFullYear();
   const baseMonth = date.getMonth() + 1;
-  const monthAnchor = date.getDate() >= safeDay ? { y: baseYear, m: baseMonth } : baseMonth === 1 ? { y: baseYear - 1, m: 12 } : { y: baseYear, m: baseMonth - 1 };
-
-  const labeledMonthDate = toFinancialMonthLabel(monthAnchor.y, monthAnchor.m, safeDay);
-  const month = labeledMonthDate.getMonth() + 1;
-  const calendarYear = labeledMonthDate.getFullYear();
+  const shouldRollToNextMonth = safeDay > 1 && date.getDate() >= safeDay;
+  const monthDate = addMonths(new Date(baseYear, baseMonth - 1, 1), shouldRollToNextMonth ? 1 : 0);
+  const month = monthDate.getMonth() + 1;
+  const calendarYear = monthDate.getFullYear();
 
   const year = month >= safeFiscalStart ? calendarYear : calendarYear - 1;
 
@@ -54,10 +46,14 @@ export function getFinancialPeriodBounds(
   const safeMonth = Math.min(12, Math.max(1, Math.trunc(month)));
 
   const calendarYear = safeMonth >= safeFiscalStart ? year : year + 1;
-  const periodStart = new Date(calendarYear, safeMonth - 1, safeDay);
-  const start = addMonths(periodStart, -1);
-  const end = new Date(periodStart);
-  end.setDate(end.getDate() - 1);
+  const start =
+    safeDay === 1
+      ? new Date(calendarYear, safeMonth - 1, 1)
+      : new Date(calendarYear, safeMonth - 2, safeDay);
+  const end =
+    safeDay === 1
+      ? new Date(calendarYear, safeMonth, 0)
+      : new Date(calendarYear, safeMonth - 1, safeDay - 1);
 
   return { start, end };
 }
