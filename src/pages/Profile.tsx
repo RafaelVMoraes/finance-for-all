@@ -16,7 +16,6 @@ import { Smartphone } from 'lucide-react';
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
 const YEAR_START_DAY_KEY = 'fintrack_year_start_day'; // legacy (unused) - kept only for migration cleanup
-const CYCLE_START_DAY_KEY = 'fintrack_cycle_start_day';
 
 const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budget', 'investment', 'import'];
 
@@ -26,16 +25,15 @@ export default function Profile() {
   const { user, logout } = useAuthContext();
   const { startSectionTutorial } = useTutorial();
   const [yearStartMonth, setYearStartMonth] = useState(() => Number(localStorage.getItem(YEAR_START_MONTH_KEY) ?? 0));
-  const [cycleStartDay, setCycleStartDay] = useState(() => {
-    const saved = Number(localStorage.getItem(CYCLE_START_DAY_KEY) ?? 1);
-    return Math.min(28, Math.max(1, Number.isFinite(saved) ? saved : 1));
-  });
 
   useEffect(() => {
-    // `fintrack_year_start_day` is obsolete: cycleStartDay now fully drives period cutoffs.
     // Clean up legacy state so it can't ever desync user expectations.
     if (localStorage.getItem(YEAR_START_DAY_KEY) !== null) {
       localStorage.removeItem(YEAR_START_DAY_KEY);
+      window.dispatchEvent(new Event('fintrack-settings-changed'));
+    }
+    if (localStorage.getItem('fintrack_cycle_start_day') !== null) {
+      localStorage.removeItem('fintrack_cycle_start_day');
       window.dispatchEvent(new Event('fintrack-settings-changed'));
     }
   }, []);
@@ -46,14 +44,6 @@ export default function Profile() {
     localStorage.setItem(YEAR_START_MONTH_KEY, String(parsed));
     window.dispatchEvent(new Event('fintrack-settings-changed'));
   };
-
-  const onCycleStartDayChange = (value: string) => {
-    const parsed = Math.min(28, Math.max(1, Number(value)));
-    setCycleStartDay(parsed);
-    localStorage.setItem(CYCLE_START_DAY_KEY, String(parsed));
-    window.dispatchEvent(new Event('fintrack-settings-changed'));
-  };
-
 
   return (
     <div className="space-y-3">
@@ -105,22 +95,6 @@ export default function Profile() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs">{t('profile.cycleStartDay.label')}</Label>
-            <Select value={String(cycleStartDay)} onValueChange={onCycleStartDayChange}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 28 }, (_, index) => {
-                  const day = index + 1;
-                  return <SelectItem key={day} value={String(day)}>{day}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{t('profile.cycleStartDay.description')}</p>
           </div>
         </CardContent>
       </Card>

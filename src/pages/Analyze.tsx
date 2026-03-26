@@ -26,7 +26,7 @@ import { useGeminiAnalysis } from '@/hooks/useGeminiAnalysis';
 import { useI18n } from '@/i18n/I18nProvider';
 import { GeminiError } from '@/lib/gemini';
 import { CategoryStabilityResult } from '@/lib/analytics';
-import { getFinancialPeriod, getFinancialPeriodLabel, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
+import { getFinancialPeriod, getFinancialPeriodLabel, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
 import type { AnalysisResult } from '@/types/analysis';
 import {
   Tooltip,
@@ -327,20 +327,18 @@ export default function Analyze() {
   const queryClient = useQueryClient();
   const { settings, mainCurrency } = useUserSettings();
 
-  const cycleStartDay = normalizeCycleStartDay(Number(localStorage.getItem('fintrack_cycle_start_day') ?? 1));
   const fiscalYearStartMonth = normalizeFiscalYearStartMonth(
     Number(localStorage.getItem('fintrack_year_start_month') ?? 0) + 1,
   );
 
   const currentPeriod = useMemo(
-    () => getFinancialPeriod(new Date(), cycleStartDay, fiscalYearStartMonth),
-    [cycleStartDay, fiscalYearStartMonth],
+    () => getFinancialPeriod(new Date(), 1, fiscalYearStartMonth),
+    [fiscalYearStartMonth],
   );
 
   const { momentum, stability, forecast, optimization, isLoading, error, lastUpdated, guardData } = useAnalytics(currentPeriod, {
     ...settings,
     mainCurrency,
-    cycleStartDay,
     fiscalYearStartMonth,
   });
   const [apiBannerDismissed, setApiBannerDismissed] = useState(
@@ -365,7 +363,7 @@ export default function Analyze() {
   const periodLabel = getFinancialPeriodLabel(
     currentPeriod.year,
     currentPeriod.month,
-    cycleStartDay,
+    1,
     fiscalYearStartMonth,
     locale,
   );

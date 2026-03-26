@@ -26,7 +26,6 @@ interface YearlyDashboardSectionProps {
   yearlyViewData: YearlyViewData;
   yearPeriodData: YearPeriodItem[];
   fiscalYearBoundsLabel: string;
-  cycleStartDay: number;
   aggregation: "month" | "quarter";
   onAggregationChange: (value: "month" | "quarter") => void;
   currencySymbol: string;
@@ -52,7 +51,6 @@ export function YearlyDashboardSection({
   yearlyViewData,
   yearPeriodData,
   fiscalYearBoundsLabel,
-  cycleStartDay,
   aggregation,
   onAggregationChange,
   currencySymbol,
@@ -91,7 +89,6 @@ export function YearlyDashboardSection({
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
         <p className="text-sm text-muted-foreground">{t("dashboard.fiscalYearRange", { range: fiscalYearBoundsLabel })}</p>
-        {cycleStartDay !== 1 ? <p className="text-xs text-muted-foreground">{t("dashboard.financialCycleDay", { day: cycleStartDay })}</p> : null}
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">{t("dashboard.aggregation")}</p>
           <Select value={aggregation} onValueChange={(v) => onAggregationChange(v as "month" | "quarter") }>
