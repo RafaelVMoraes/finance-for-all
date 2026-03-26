@@ -1,4 +1,4 @@
-import { format, subDays } from 'date-fns';
+import { format, startOfMonth, subDays } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Currency } from '@/hooks/useUserSettings';
@@ -81,7 +81,15 @@ interface InvestmentRow {
   id: string;
 }
 
+interface ExchangeRateRow {
+  month: string;
+  from_currency: Currency;
+  to_currency: Currency;
+  rate: number;
+}
+
 const DEFAULT_MAIN_CURRENCY: Currency = 'EUR';
+const ANALYTICS_SOURCE_CURRENCY: Currency = DEFAULT_MAIN_CURRENCY;
 
 const resolveMainCurrency = (userSettings: AnalyticsUserSettings): Currency => {
   return (userSettings.mainCurrency || userSettings.main_currency || DEFAULT_MAIN_CURRENCY) as Currency;
@@ -95,8 +103,53 @@ const resolveFiscalYearStartMonth = (userSettings: AnalyticsUserSettings): numbe
 
 const toDateKey = (date: Date): string => format(date, 'yyyy-MM-dd');
 
-const convertAmountToMainCurrency = (amount: number, _month: string, _mainCurrency: Currency): number => {
-  return amount;
+const toMonthAnchor = (monthOrDate: string): Date => {
+  const parsed = new Date(
+    monthOrDate.length === 7
+      ? `${monthOrDate}-01T00:00:00`
+      : `${monthOrDate.slice(0, 10)}T00:00:00`,
+  );
+
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const getExchangeRate = (
+  rates: ExchangeRateRow[],
+  fromCurrency: Currency,
+  toCurrency: Currency,
+  month: Date,
+): { rate: number; isFallback: boolean; isMissing: boolean } => {
+  if (fromCurrency === toCurrency) return { rate: 1, isFallback: false, isMissing: false };
+
+  const monthStr = format(startOfMonth(month), 'yyyy-MM-dd');
+
+  const exact = rates.find(
+    (rate) =>
+      rate.month === monthStr &&
+      rate.from_currency === fromCurrency &&
+      rate.to_currency === toCurrency,
+  );
+  if (exact) return { rate: exact.rate, isFallback: false, isMissing: false };
+
+  const inverseExact = rates.find(
+    (rate) =>
+      rate.month === monthStr &&
+      rate.from_currency === toCurrency &&
+      rate.to_currency === fromCurrency,
+  );
+  if (inverseExact) return { rate: 1 / inverseExact.rate, isFallback: false, isMissing: false };
+
+  const fallback = rates.find(
+    (rate) => rate.from_currency === fromCurrency && rate.to_currency === toCurrency,
+  );
+  if (fallback) return { rate: fallback.rate, isFallback: true, isMissing: false };
+
+  const inverseFallback = rates.find(
+    (rate) => rate.from_currency === toCurrency && rate.to_currency === fromCurrency,
+  );
+  if (inverseFallback) return { rate: 1 / inverseFallback.rate, isFallback: true, isMissing: false };
+
+  return { rate: 1, isFallback: true, isMissing: true };
 };
 
 export function useAnalytics(
@@ -133,7 +186,7 @@ export function useAnalytics(
       const txStart = toDateKey(lookbackStart);
       const txEnd = toDateKey(periodBounds.end);
 
-      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult, investmentsResult] = await Promise.all([
+      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult, investmentsResult, exchangeRatesResult] = await Promise.all([
         supabase
           .from('transactions')
           .select('payment_date,amount,categories(name,type)')
@@ -160,6 +213,11 @@ export function useAnalytics(
           .select('id')
           .eq('user_id', user.id)
           .order('id', { ascending: true }),
+        supabase
+          .from('exchange_rates')
+          .select('month,from_currency,to_currency,rate')
+          .eq('user_id', user.id)
+          .order('month', { ascending: false }),
       ]);
 
       if (txResult.error) throw txResult.error;
@@ -167,6 +225,7 @@ export function useAnalytics(
       if (monthlyCategorySummaryResult.error) throw monthlyCategorySummaryResult.error;
       if (budgetResult.error) throw budgetResult.error;
       if (investmentsResult.error) throw investmentsResult.error;
+      if (exchangeRatesResult.error) throw exchangeRatesResult.error;
 
       const investmentRows = (investmentsResult.data || []) as InvestmentRow[];
       const investmentIds = investmentRows.map((investment) => investment.id);
@@ -185,12 +244,42 @@ export function useAnalytics(
       const monthlyCategoryRows = (monthlyCategorySummaryResult.data || []) as MonthlyCategorySummaryRow[];
       const budgetRows = (budgetResult.data || []) as BudgetRow[];
       const investmentSnapshotRows = (investmentSnapshotsResult.data || []) as InvestmentSnapshotRow[];
+      const exchangeRates = (exchangeRatesResult.data || []) as ExchangeRateRow[];
+
+      const fallbackMonths = new Set<string>();
+      const missingRateMonths = new Set<string>();
+
+      const convertAmountToMainCurrency = (amount: number, monthOrDate: string): number => {
+        const numericAmount = Number(amount || 0);
+        if (numericAmount === 0 || !Number.isFinite(numericAmount)) return 0;
+
+        const monthDate = toMonthAnchor(monthOrDate);
+        const rateResolution = getExchangeRate(
+          exchangeRates,
+          ANALYTICS_SOURCE_CURRENCY,
+          mainCurrency,
+          monthDate,
+        );
+
+        const monthKey = format(startOfMonth(monthDate), 'yyyy-MM');
+
+        if (rateResolution.isMissing) {
+          missingRateMonths.add(monthKey);
+          return numericAmount;
+        }
+
+        if (rateResolution.isFallback) {
+          fallbackMonths.add(monthKey);
+        }
+
+        return numericAmount * rateResolution.rate;
+      };
 
       const dailyExpenses: DailyExpense[] = txRows
         .filter((tx) => tx.categories?.type !== 'income')
         .map((tx) => ({
           date: tx.payment_date,
-          amount: convertAmountToMainCurrency(Math.abs(Number(tx.amount || 0)), tx.payment_date, mainCurrency),
+          amount: convertAmountToMainCurrency(Math.abs(Number(tx.amount || 0)), tx.payment_date),
           category: tx.categories?.name || 'Uncategorized',
           is_fixed: tx.categories?.type === 'fixed',
         }));
@@ -199,11 +288,11 @@ export function useAnalytics(
         period_label: snapshot.month,
         year: new Date(`${snapshot.month}T00:00:00`).getFullYear(),
         month: new Date(`${snapshot.month}T00:00:00`).getMonth() + 1,
-        total_income: convertAmountToMainCurrency(Number(snapshot.total_income || 0), snapshot.month, mainCurrency),
-        total_expenses: convertAmountToMainCurrency(Math.abs(Number(snapshot.total_expenses || 0)), snapshot.month, mainCurrency),
+        total_income: convertAmountToMainCurrency(Number(snapshot.total_income || 0), snapshot.month),
+        total_expenses: convertAmountToMainCurrency(Math.abs(Number(snapshot.total_expenses || 0)), snapshot.month),
         savings:
-          convertAmountToMainCurrency(Number(snapshot.total_income || 0), snapshot.month, mainCurrency) -
-          convertAmountToMainCurrency(Math.abs(Number(snapshot.total_expenses || 0)), snapshot.month, mainCurrency),
+          convertAmountToMainCurrency(Number(snapshot.total_income || 0), snapshot.month) -
+          convertAmountToMainCurrency(Math.abs(Number(snapshot.total_expenses || 0)), snapshot.month),
       }));
 
       const categorySnapshots = monthlyCategoryRows
@@ -217,7 +306,6 @@ export function useAnalytics(
             actual: convertAmountToMainCurrency(
               Math.abs(Number(snapshot.total_amount || 0)),
               snapshot.month,
-              mainCurrency,
             ),
             budget: null,
           };
@@ -227,11 +315,23 @@ export function useAnalytics(
         .filter((budget) => budget.categories?.type !== 'income')
         .map((budget) => ({
           name: budget.categories?.name || 'Uncategorized',
-          budget: convertAmountToMainCurrency(Number(budget.expected_amount || 0), txEnd, mainCurrency),
+          budget: convertAmountToMainCurrency(Number(budget.expected_amount || 0), txEnd),
           is_fixed: budget.categories?.type === 'fixed',
         }));
 
       const analysisErrors: string[] = [];
+
+      if (fallbackMonths.size > 0) {
+        const months = [...fallbackMonths].sort().join(', ');
+        analysisErrors.push(`exchangeRateFallbackUsed: historical fallback rates applied for ${months}`);
+      }
+
+      if (missingRateMonths.size > 0) {
+        const months = [...missingRateMonths].sort().join(', ');
+        analysisErrors.push(
+          `exchangeRateMissing: no rate found for ${ANALYTICS_SOURCE_CURRENCY}->${mainCurrency} in ${months}; defaulted to unconverted values`,
+        );
+      }
 
       const runSafely = <T>(label: string, task: () => T): T | null => {
         try {
