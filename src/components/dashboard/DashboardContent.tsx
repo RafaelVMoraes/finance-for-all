@@ -977,7 +977,7 @@ export default function DashboardContent() {
     <div className="space-y-6">
       <DashboardHeader view={view} onViewChange={setView} />
 
-      {view === "monthly" && monthlyViewData && (
+      {view === "monthly" && monthlyViewData && 
         <MonthlyDashboardSection
           periodLabel={monthlyPeriodLabel}
           fiscalYearLabel={fiscalYearLabel}
