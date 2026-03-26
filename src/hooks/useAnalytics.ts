@@ -77,6 +77,10 @@ interface InvestmentSnapshotRow {
   month: string;
 }
 
+interface InvestmentRow {
+  id: string;
+}
+
 const DEFAULT_MAIN_CURRENCY: Currency = 'EUR';
 
 const resolveMainCurrency = (userSettings: AnalyticsUserSettings): Currency => {
@@ -129,7 +133,7 @@ export function useAnalytics(
       const txStart = toDateKey(lookbackStart);
       const txEnd = toDateKey(periodBounds.end);
 
-      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult, investmentSnapshotsResult] = await Promise.all([
+      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult, investmentsResult] = await Promise.all([
         supabase
           .from('transactions')
           .select('payment_date,amount,categories(name,type)')
@@ -152,16 +156,28 @@ export function useAnalytics(
           .select('expected_amount,categories(name,type)')
           .eq('user_id', user.id),
         supabase
-          .from('investment_snapshots')
-          .select('month')
+          .from('investments')
+          .select('id')
           .eq('user_id', user.id)
-          .order('month', { ascending: true }),
+          .order('id', { ascending: true }),
       ]);
 
       if (txResult.error) throw txResult.error;
       if (monthlyTotalsResult.error) throw monthlyTotalsResult.error;
       if (monthlyCategorySummaryResult.error) throw monthlyCategorySummaryResult.error;
       if (budgetResult.error) throw budgetResult.error;
+      if (investmentsResult.error) throw investmentsResult.error;
+
+      const investmentRows = (investmentsResult.data || []) as InvestmentRow[];
+      const investmentIds = investmentRows.map((investment) => investment.id);
+      const investmentSnapshotsResult = investmentIds.length
+        ? await supabase
+            .from('investment_snapshots')
+            .select('month')
+            .in('investment_id', investmentIds)
+            .order('month', { ascending: true })
+        : { data: [], error: null };
+
       if (investmentSnapshotsResult.error) throw investmentSnapshotsResult.error;
 
       const txRows = (txResult.data || []) as TxRow[];
