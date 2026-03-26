@@ -193,6 +193,58 @@ function extractAmounts(line: string): string[] {
   });
 }
 
+function hasExplicitNegativeSign(amountToken: string): boolean {
+  const token = amountToken.trim();
+  return token.includes('-') || (token.includes('(') && token.includes(')'));
+}
+
+function hasExplicitPositiveSign(amountToken: string): boolean {
+  return amountToken.trim().includes('+');
+}
+
+const INCOME_KEYWORDS_REGEX = /dep[oó]sito|deposit|transfer(ê|e)ncia recebida|pagamento recebido|received|income|salary|virement|abono|ingreso|n[óo]mina|remunera(?:ção|cao)|sal[áa]rio|cr[eé]dito/i;
+
+function classifyTransactionAmount(line: string, amounts: string[]): number {
+  const firstAmount = normalizeAmount(amounts[0]);
+  if (Number.isNaN(firstAmount)) return Number.NaN;
+
+  if (hasExplicitNegativeSign(amounts[0])) {
+    return -Math.abs(firstAmount);
+  }
+
+  if (hasExplicitPositiveSign(amounts[0])) {
+    return Math.abs(firstAmount);
+  }
+
+  // Typical bank export layout: description | debit | credit | balance
+  if (amounts.length >= 3) {
+    const debitAmount = normalizeAmount(amounts[0]);
+    const creditAmount = normalizeAmount(amounts[1]);
+
+    if (!Number.isNaN(debitAmount) && hasExplicitNegativeSign(amounts[0])) {
+      return -Math.abs(debitAmount);
+    }
+    if (!Number.isNaN(creditAmount) && hasExplicitNegativeSign(amounts[1])) {
+      return -Math.abs(creditAmount);
+    }
+
+    if (!Number.isNaN(creditAmount) && creditAmount > 0 && (Number.isNaN(debitAmount) || debitAmount === 0)) {
+      return Math.abs(creditAmount);
+    }
+
+    if (!Number.isNaN(debitAmount) && debitAmount > 0) {
+      return -Math.abs(debitAmount);
+    }
+  }
+
+  // Ambiguous single/dual-amount rows (e.g., amount + balance): use keywords fallback
+  if (INCOME_KEYWORDS_REGEX.test(line)) {
+    return Math.abs(firstAmount);
+  }
+
+  return -Math.abs(firstAmount);
+}
+
 // ── Main parser ─────────────────────────────────────────────────────────────
 
 export function isTransactionLine(line: string): boolean {
@@ -263,32 +315,7 @@ export function parseTransactionsFromText(rawText: string): Transaction[] {
     }
     description = description.replace(/[€$£]/g, '').replace(/\s+/g, ' ').trim();
 
-    // Determine sign: in Revolut, "Valores descontados" = expense (negative)
-    // If amount is positive and it appears in the debit column context, negate it
-    // Heuristic: if there's a second amount (credit column) and first is debit,
-    // mark first as negative. But with extracted text, column positions aren't reliable.
-    // So we keep the amount as-is and let the user handle sign in the import review.
-
-    const current: Transaction = { date, description, amount: -Math.abs(amount) };
-
-    // Check if there's a credit amount too (second amount before balance)
-    if (amounts.length >= 3) {
-      // 3 amounts: debit, credit, balance
-      const debit = normalizeAmount(amounts[0]);
-      const credit = normalizeAmount(amounts[1]);
-      if (!Number.isNaN(credit) && credit > 0 && (Number.isNaN(debit) || debit === 0)) {
-        current.amount = Math.abs(credit);
-      } else if (!Number.isNaN(debit) && debit > 0) {
-        current.amount = -Math.abs(debit);
-      }
-    } else if (amounts.length === 2) {
-      // Could be: debit + balance, or credit + balance
-      // If description suggests income/deposit, make positive
-      const incomeKeywords = /depósito|transferência recebida|pagamento recebido|received|deposit|income|salary|virement/i;
-      if (incomeKeywords.test(line)) {
-        current.amount = Math.abs(amount);
-      }
-    }
+    const current: Transaction = { date, description, amount: classifyTransactionAmount(line, amounts) };
 
     parsed.push(current);
     previousTransaction = current;

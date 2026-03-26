@@ -54,4 +54,34 @@ describe('parseTransactionsFromText', () => {
     expect(txns[2].amount).toBe(90); // received = positive
     expect(txns[3].amount).toBe(-100); // transfer out = negative
   });
+
+  it('keeps debit rows negative when row has debit + balance columns', () => {
+    const text = `
+15/01/2026 Grocery Store €45.90 €1,240.10
+    `;
+
+    const txns = parseTransactionsFromText(text);
+    expect(txns).toHaveLength(1);
+    expect(txns[0].amount).toBe(-45.9);
+  });
+
+  it('marks credit rows positive when row has credit + balance columns', () => {
+    const text = `
+16/01/2026 Salary Deposit €2,000.00 €3,240.10
+    `;
+
+    const txns = parseTransactionsFromText(text);
+    expect(txns).toHaveLength(1);
+    expect(txns[0].amount).toBe(2000);
+  });
+
+  it('uses multilingual income keywords as fallback for mixed-language rows', () => {
+    const text = `
+17/01/2026 Virement depósito recibido €350.00
+    `;
+
+    const txns = parseTransactionsFromText(text);
+    expect(txns).toHaveLength(1);
+    expect(txns[0].amount).toBe(350);
+  });
 });
