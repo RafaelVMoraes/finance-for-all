@@ -2,7 +2,7 @@ import { Calendar, Target } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n/I18nProvider";
-import { DashboardView } from "@/hooks/useDashboardViewState";
+import { DashboardView  from "@/hooks/useDashboardViewState";
 
 interface DashboardHeaderProps {
   view: DashboardView;
