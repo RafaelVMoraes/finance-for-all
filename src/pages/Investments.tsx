@@ -750,7 +750,7 @@ export default function Investments() {
                 const snapshot = getValueForMonth(inv.id, currentMonthStr);
                 const previousValue = getPreviousValue(inv.id);
                 const currentValue = snapshot?.total_value ?? previousValue;
-                const isConfirmed = (snapshot as any)?.confirmed ?? false;
+                const isConfirmed = snapshot?.confirmed ?? false;
                 const needsConfirmation = isCurrentMonth && !isConfirmed;
                 const isUpdating = updatingValueId === inv.id;
                 const convertedValue = convertToMainCurrency(currentValue, inv.currency as Currency);
