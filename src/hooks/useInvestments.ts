@@ -22,6 +22,7 @@ export interface InvestmentSnapshot {
   investment_id: string;
   month: string;
   total_value: number;
+  confirmed: boolean;
   created_at: string;
 }
 
@@ -44,6 +45,7 @@ const SNAPSHOT_COLUMNS = `
   investment_id,
   month,
   total_value,
+  confirmed,
   created_at
 `;
 
@@ -155,13 +157,19 @@ export function useInvestments() {
     return {};
   }, []);
 
-  const addSnapshot = useCallback(async (investmentId: string, month: string, totalValue: number) => {
+  const addSnapshot = useCallback(async (
+    investmentId: string,
+    month: string,
+    totalValue: number,
+    confirmed: boolean = true
+  ) => {
     const { data, error } = await supabase
       .from('investment_snapshots')
       .upsert({
         investment_id: investmentId,
         month,
-        total_value: totalValue
+        total_value: totalValue,
+        confirmed,
       }, {
         onConflict: 'investment_id,month'
       })
