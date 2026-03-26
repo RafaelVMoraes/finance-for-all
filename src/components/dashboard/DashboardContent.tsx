@@ -206,7 +206,13 @@ export default function DashboardContent() {
     if (!investmentSummary?.investments?.length) return [];
     const targetCurrency = settings?.main_currency || "EUR";
     const months = Array.from({ length: 6 }, (_, idx) => startOfMonth(addMonths(today, -(5 - idx))));
-    const categories = Array.from(new Set(investmentSummary.investments.map((inv) => inv.investment_type)));
+    const categories = Array.from(
+      new Set<string>(
+        investmentSummary.investments
+          .map((inv) => inv.investment_type)
+          .filter((category): category is string => typeof category === "string"),
+      ),
+    );
 
     return months.map((monthPoint, idx) => {
       const prev = idx > 0 ? months[idx - 1] : null;
