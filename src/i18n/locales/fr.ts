@@ -409,7 +409,7 @@ export const fr: TranslationTree = {
       loading: 'Gemini is analysing your data…',
       loading_note: 'This usually takes 5–15 seconds.',
       no_api_key:
-        'Gemini API key not configured. Deep analysis is unavailable. Add VITE_GEMINI_API_KEY to your environment to enable this feature.',
+        'Gemini API key not configured. Deep analysis is unavailable. Add GEMINI_API_KEY to your environment to enable this feature.',
       regenerate: 'Regenerate',
       copy: 'Copy analysis',
       copied: '✓ Copied',
@@ -437,7 +437,7 @@ export const fr: TranslationTree = {
       },
       error: {
         title: 'Analysis failed',
-        no_key: 'Gemini API key is not configured. Add VITE_GEMINI_API_KEY to your environment.',
+        no_key: 'Gemini API key is not configured. Add GEMINI_API_KEY to your environment.',
         network: 'Could not reach Gemini. Check your connection and try again.',
         rate_limit: 'Too many requests. Please wait a moment before trying again.',
         empty: 'Gemini returned an empty response. Try regenerating.',

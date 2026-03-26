@@ -344,7 +344,7 @@ export default function Analyze() {
   const [apiBannerDismissed, setApiBannerDismissed] = useState(
     sessionStorage.getItem('analyze.deep.apiBannerDismissed') === 'true',
   );
-  const apiKeyMissing = !import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKeyMissing = !import.meta.env.GEMINI_API_KEY;
 
   const analysisUserSettings = useMemo(
     () =>

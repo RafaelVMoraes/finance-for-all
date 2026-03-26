@@ -98,10 +98,10 @@ export function useGeminiAnalysis(
   }, [cachedPeriodKey, currentPeriodKey]);
 
   const trigger = useCallback(async () => {
-    if (!import.meta.env.VITE_GEMINI_API_KEY) {
+    if (!import.meta.env.GEMINI_API_KEY) {
       setError(
         new GeminiError(
-          'Gemini API key is not configured. Add VITE_GEMINI_API_KEY to your environment.',
+          'Gemini API key is not configured. Add GEMINI_API_KEY to your environment.',
           'API_KEY_MISSING',
         ),
       );
