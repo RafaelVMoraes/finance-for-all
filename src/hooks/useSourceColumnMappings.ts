@@ -3,14 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ColumnMapping } from '@/lib/columnDetection';
 
+type SaveMappingResult = {
+  success: boolean;
+  error: string | null;
+};
+
 export function useSourceColumnMappings() {
   const { user } = useAuthContext();
 
   const getMapping = useCallback(async (sourceId: string): Promise<ColumnMapping | null> => {
     if (!user) return null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('import_source_column_mappings')
       .select('date_column, label_column, value_column, category_column')
       .eq('source_id', sourceId)
@@ -27,11 +31,12 @@ export function useSourceColumnMappings() {
     };
   }, [user]);
 
-  const saveMapping = useCallback(async (sourceId: string, mapping: ColumnMapping) => {
-    if (!user || !mapping.date || !mapping.label || !mapping.value) return;
+  const saveMapping = useCallback(async (sourceId: string, mapping: ColumnMapping): Promise<SaveMappingResult> => {
+    if (!user || !mapping.date || !mapping.label || !mapping.value) {
+      return { success: false, error: 'Missing required mapping fields or user session.' };
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    const { error } = await supabase
       .from('import_source_column_mappings')
       .upsert({
         source_id: sourceId,
@@ -41,6 +46,12 @@ export function useSourceColumnMappings() {
         value_column: mapping.value,
         category_column: mapping.category || null,
       }, { onConflict: 'source_id' });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
   }, [user]);
 
   return { getMapping, saveMapping };

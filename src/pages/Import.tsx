@@ -331,8 +331,16 @@ export default function Import() {
     if (!pendingFile) return;
     
     if (saveForSource && selectedSourceId) {
-      await saveMapping(selectedSourceId, mapping);
-      toast({ title: 'Column mapping saved', description: 'Will be used automatically for future imports from this source.' });
+      const saveResult = await saveMapping(selectedSourceId, mapping);
+      if (saveResult.success) {
+        toast({ title: 'Column mapping saved', description: 'Will be used automatically for future imports from this source.' });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to save column mapping',
+          description: saveResult.error ?? 'Could not persist mapping for this source.',
+        });
+      }
     }
     
     await processFileWithMapping(pendingFile, mapping, hasHeaders);
