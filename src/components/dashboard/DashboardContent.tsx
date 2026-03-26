@@ -34,9 +34,6 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  FinancialPeriod,
-  getFinancialPeriod,
-  getFinancialPeriodBounds,
   getFinancialPeriodLabel,
   getFinancialPeriodsInYear,
 } from "@/lib/financialPeriod";
@@ -146,31 +143,19 @@ export default function DashboardContent() {
     setAggregation,
   } = useDashboardViewState({ today });
   const fiscalYearStartMonth = yearStartMonth + 1;
-  const [selectedFinancialPeriod, setSelectedFinancialPeriod] = useState<FinancialPeriod>(() =>
-    getFinancialPeriod(today, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth),
-  );
-  const selectedPeriodBounds = useMemo(
-    () =>
-      getFinancialPeriodBounds(
-        selectedFinancialPeriod.year,
-        selectedFinancialPeriod.month,
-        DEFAULT_CYCLE_START_DAY,
-        fiscalYearStartMonth,
-      ),
-    [selectedFinancialPeriod, fiscalYearStartMonth],
-  );
-  const monthDate = useMemo(() => selectedPeriodBounds.start, [selectedPeriodBounds]);
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(() => startOfMonth(today));
+  const monthDate = useMemo(() => startOfMonth(selectedMonthDate), [selectedMonthDate]);
   const [monthlyTransactions, setMonthlyTransactions] = useState<any[]>([]);
   const {
     monthlySettings,
     budgets,
     loading: budgetsLoading,
-  } = useBudgets({ month: monthDate, fiscalYearStartMonth });
+  } = useBudgets({ month: monthDate, fiscalYearStartMonth: 1 });
   const {
     data: monthlySummary,
     loading: monthlyLoading,
     error: monthlyError,
-  } = useMonthlySummary(monthDate, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
+  } = useMonthlySummary(monthDate, DEFAULT_CYCLE_START_DAY, 1);
   const {
     data: yearlySummary,
     loading: yearlyLoading,
@@ -183,56 +168,21 @@ export default function DashboardContent() {
   } = useYearlySummary(selectedYear + 1, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
   const { data: investmentSummary } = useInvestmentSummary();
 
-  useEffect(() => {
-    setSelectedFinancialPeriod((current) => {
-      const { start } = getFinancialPeriodBounds(
-        current.year,
-        current.month,
-        DEFAULT_CYCLE_START_DAY,
-        fiscalYearStartMonth,
-      );
-      return getFinancialPeriod(start, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
-    });
-  }, [fiscalYearStartMonth]);
-
   const monthlyPeriodLabel = useMemo(
-    () =>
-      getFinancialPeriodLabel(
-        selectedFinancialPeriod.year,
-        selectedFinancialPeriod.month,
-        DEFAULT_CYCLE_START_DAY,
-        fiscalYearStartMonth,
-        locale,
-      ),
-    [selectedFinancialPeriod.year, selectedFinancialPeriod.month, fiscalYearStartMonth, locale],
+    () => format(monthDate, locale === "pt" ? "MMMM yyyy" : "MMMM yyyy"),
+    [monthDate, locale],
   );
 
-  const fiscalYearLabel = useMemo(() => `FY${selectedFinancialPeriod.year}`, [selectedFinancialPeriod.year]);
+  const fiscalYearLabel = useMemo(() => `FY${monthDate.getFullYear()}`, [monthDate]);
   const stepFinancialPeriod = useCallback((delta: number) => {
-    setSelectedFinancialPeriod((current) => {
-      const { start } = getFinancialPeriodBounds(
-        current.year,
-        current.month,
-        DEFAULT_CYCLE_START_DAY,
-        fiscalYearStartMonth,
-      );
-
-      // Step by exactly one financial period (one fiscal-month bucket per click)
-      // by moving from the current period start to the same cutoff in the next/prev month.
-      const nextAnchor = addMonths(start, delta);
-      return getFinancialPeriod(nextAnchor, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
-    });
-  }, [fiscalYearStartMonth]);
+    setSelectedMonthDate((current) => startOfMonth(addMonths(current, delta)));
+  }, []);
 
   useEffect(() => {
     const run = async () => {
       if (!user) return;
-      const { start, end } = getFinancialPeriodBounds(
-        selectedFinancialPeriod.year,
-        selectedFinancialPeriod.month,
-        DEFAULT_CYCLE_START_DAY,
-        fiscalYearStartMonth,
-      );
+      const start = startOfMonth(monthDate);
+      const end = endOfMonth(monthDate);
       const { data } = await supabase
         .from("transactions")
         .select("id,amount,payment_date,original_label,edited_label,categories(id,name,color,type)")
@@ -250,7 +200,7 @@ export default function DashboardContent() {
       );
     };
     run();
-  }, [user, selectedFinancialPeriod, fiscalYearStartMonth]);
+  }, [user, monthDate]);
 
   const monthlyInvestmentGrowthByCategory = useMemo<MonthlyInvestmentGrowthByCategoryItem[]>(() => {
     if (!investmentSummary?.investments?.length) return [];
@@ -447,12 +397,8 @@ export default function DashboardContent() {
       byDay.set(day, existing);
     });
 
-    const { start, end } = getFinancialPeriodBounds(
-      selectedFinancialPeriod.year,
-      selectedFinancialPeriod.month,
-      DEFAULT_CYCLE_START_DAY,
-      fiscalYearStartMonth,
-    );
+    const start = startOfMonth(monthDate);
+    const end = endOfMonth(monthDate);
     const expenseHeatmap = [];
     let dayCursor = new Date(start);
     while (dayCursor <= end) {
@@ -508,7 +454,7 @@ export default function DashboardContent() {
       topExpenses,
       monthlyInvestmentGrowthByCategory,
     };
-  }, [monthlySummary, monthlySettings, budgets, monthDate, t, getBudgetAmount, monthlyTransactions, selectedFinancialPeriod, fiscalYearStartMonth, monthlyInvestmentGrowthByCategory]);
+  }, [monthlySummary, monthlySettings, budgets, monthDate, t, getBudgetAmount, monthlyTransactions, monthlyInvestmentGrowthByCategory]);
 
   const monthlyInvestmentEvolution = useMemo<MonthlyInvestmentEvolution>(() => {
     if (!investmentSummary?.investments)
@@ -994,7 +940,7 @@ export default function DashboardContent() {
         <YearlyDashboardSection
           yearlyViewData={yearlyViewData}
           yearPeriodData={yearPeriodData}
-          fiscalYearBoundsLabel={`${format(new Date(selectedYear - 1, fiscalYearStartMonth - 1, 1), "MMM yyyy")} – ${format(new Date(selectedYear, fiscalYearStartMonth - 2, 1), "MMM yyyy")}`}
+          fiscalYearBoundsLabel={`${format(startOfMonth(yearPeriodData[0].monthDate), "MMM yyyy")} – ${format(endOfMonth(yearPeriodData[yearPeriodData.length - 1].monthDate), "MMM yyyy")}`}
           aggregation={aggregation}
           onAggregationChange={setAggregation}
           currencySymbol={currencySymbol}
