@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '@/i18n/I18nProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ import { TutorialSection } from '@/types/tutorial';
 import { Smartphone } from 'lucide-react';
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
-const YEAR_START_DAY_KEY = 'fintrack_year_start_day';
+const YEAR_START_DAY_KEY = 'fintrack_year_start_day'; // legacy (unused) - kept only for migration cleanup
 const CYCLE_START_DAY_KEY = 'fintrack_cycle_start_day';
 
 const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budget', 'investment', 'import'];
@@ -26,23 +26,24 @@ export default function Profile() {
   const { user, logout } = useAuthContext();
   const { startSectionTutorial } = useTutorial();
   const [yearStartMonth, setYearStartMonth] = useState(() => Number(localStorage.getItem(YEAR_START_MONTH_KEY) ?? 0));
-  const [yearStartDay, setYearStartDay] = useState(() => Number(localStorage.getItem(YEAR_START_DAY_KEY) ?? 1));
   const [cycleStartDay, setCycleStartDay] = useState(() => {
     const saved = Number(localStorage.getItem(CYCLE_START_DAY_KEY) ?? 1);
     return Math.min(28, Math.max(1, Number.isFinite(saved) ? saved : 1));
   });
 
+  useEffect(() => {
+    // `fintrack_year_start_day` is obsolete: cycleStartDay now fully drives period cutoffs.
+    // Clean up legacy state so it can't ever desync user expectations.
+    if (localStorage.getItem(YEAR_START_DAY_KEY) !== null) {
+      localStorage.removeItem(YEAR_START_DAY_KEY);
+      window.dispatchEvent(new Event('fintrack-settings-changed'));
+    }
+  }, []);
+
   const onMonthChange = (value: string) => {
     const parsed = Number(value);
     setYearStartMonth(parsed);
     localStorage.setItem(YEAR_START_MONTH_KEY, String(parsed));
-    window.dispatchEvent(new Event('fintrack-settings-changed'));
-  };
-
-  const onDayChange = (value: string) => {
-    const parsed = Number(value);
-    setYearStartDay(parsed);
-    localStorage.setItem(YEAR_START_DAY_KEY, String(parsed));
     window.dispatchEvent(new Event('fintrack-settings-changed'));
   };
 
@@ -91,7 +92,7 @@ export default function Profile() {
           <CardTitle className="text-sm">{t('profile.yearStart.title')}</CardTitle>
           <CardDescription className="text-xs">{t('profile.yearStart.description')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 p-3 pt-0">
+        <CardContent className="space-y-3 p-3 pt-0">
           <div className="space-y-1">
             <Label className="text-xs">{t('profile.yearStart.monthLabel')}</Label>
             <Select value={String(yearStartMonth)} onValueChange={onMonthChange}>
@@ -105,21 +106,8 @@ export default function Profile() {
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-1">
-            <Label className="text-xs">{t('profile.yearStart.dayLabel')}</Label>
-            <Select value={String(yearStartDay)} onValueChange={onDayChange}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 31 }, (_, index) => {
-                  const day = index + 1;
-                  return <SelectItem key={day} value={String(day)}>{day}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 col-span-2">
             <Label className="text-xs">{t('profile.cycleStartDay.label')}</Label>
             <Select value={String(cycleStartDay)} onValueChange={onCycleStartDayChange}>
               <SelectTrigger className="h-8 text-xs">

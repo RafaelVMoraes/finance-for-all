@@ -12,6 +12,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 
 interface MonthlyDashboardSectionProps {
   periodLabel: string;
+  fiscalYearLabel?: string;
   onPreviousPeriod: () => void;
   onNextPeriod: () => void;
   monthlyViewData: MonthlyViewData;
@@ -26,6 +27,7 @@ const compactNumber = (value: number) => Math.round(value).toString();
 
 export function MonthlyDashboardSection({
   periodLabel,
+  fiscalYearLabel,
   onPreviousPeriod,
   onNextPeriod,
   monthlyViewData,
@@ -48,6 +50,7 @@ export function MonthlyDashboardSection({
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={onPreviousPeriod}><ChevronLeft className="h-4 w-4" /></Button>
         <Badge variant="secondary">{periodLabel}</Badge>
+        {fiscalYearLabel ? <Badge variant="outline">{fiscalYearLabel}</Badge> : null}
         <Button variant="outline" size="sm" onClick={onNextPeriod}><ChevronRight className="h-4 w-4" /></Button>
         <Badge variant="outline">{t("dashboard.analyzeMonthlyPerformance")}</Badge>
       </div>

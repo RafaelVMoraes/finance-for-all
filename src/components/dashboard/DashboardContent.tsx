@@ -198,22 +198,33 @@ export default function DashboardContent() {
   }, [safeCycleStartDay, fiscalYearStartMonth]);
 
   const monthlyPeriodLabel = useMemo(
-    () => `${getFinancialPeriodLabel(selectedFinancialPeriod.year, selectedFinancialPeriod.month, safeCycleStartDay, fiscalYearStartMonth, locale)} ${selectedFinancialPeriod.year}`,
-    [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth, locale],
+    () =>
+      getFinancialPeriodLabel(
+        selectedFinancialPeriod.year,
+        selectedFinancialPeriod.month,
+        safeCycleStartDay,
+        fiscalYearStartMonth,
+        locale,
+      ),
+    [selectedFinancialPeriod.year, selectedFinancialPeriod.month, safeCycleStartDay, fiscalYearStartMonth, locale],
   );
+
+  const fiscalYearLabel = useMemo(() => `FY${selectedFinancialPeriod.year}`, [selectedFinancialPeriod.year]);
   const stepFinancialPeriod = useCallback((delta: number) => {
-    const { start, end } = getFinancialPeriodBounds(
-      selectedFinancialPeriod.year,
-      selectedFinancialPeriod.month,
-      safeCycleStartDay,
-      fiscalYearStartMonth,
-    );
-    const probe = delta > 0 ? new Date(end) : new Date(start);
-    probe.setDate(probe.getDate() + (delta > 0 ? 1 : -1));
-    setSelectedFinancialPeriod(
-      getFinancialPeriod(probe, safeCycleStartDay, fiscalYearStartMonth),
-    );
-  }, [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
+    setSelectedFinancialPeriod((current) => {
+      const { start } = getFinancialPeriodBounds(
+        current.year,
+        current.month,
+        safeCycleStartDay,
+        fiscalYearStartMonth,
+      );
+
+      // Step by exactly one financial period (one fiscal-month bucket per click)
+      // by moving from the current period start to the same cutoff in the next/prev month.
+      const nextAnchor = addMonths(start, delta);
+      return getFinancialPeriod(nextAnchor, safeCycleStartDay, fiscalYearStartMonth);
+    });
+  }, [safeCycleStartDay, fiscalYearStartMonth]);
 
   useEffect(() => {
     const run = async () => {
@@ -969,6 +980,7 @@ export default function DashboardContent() {
       {view === "monthly" && monthlyViewData && (
         <MonthlyDashboardSection
           periodLabel={monthlyPeriodLabel}
+          fiscalYearLabel={fiscalYearLabel}
           onPreviousPeriod={() => stepFinancialPeriod(-1)}
           onNextPeriod={() => stepFinancialPeriod(1)}
           monthlyViewData={monthlyViewData}
