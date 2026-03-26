@@ -1,21 +1,423 @@
-import { BrainCircuit } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  Activity,
+  AlertCircle,
+  Lightbulb,
+  RefreshCw,
+  Target,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
+import { useMemo } from 'react';
+import type { ElementType } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { useI18n } from '@/i18n/I18nProvider';
+import { CategoryStabilityResult } from '@/lib/analytics';
+import { getFinancialPeriod, getFinancialPeriodLabel, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
+
+const formatMoney = (value: number, currency: string) =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+
+const formatPercent = (value: number) => `${Math.round(value)}%`;
+
+const getStatusBadgeClass = (status: 'green' | 'red' | 'blue' | 'yellow' | 'gray') => {
+  if (status === 'green') return 'bg-green-100 text-green-800 border-green-200';
+  if (status === 'red') return 'bg-red-100 text-red-800 border-red-200';
+  if (status === 'blue') return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (status === 'yellow') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  return 'bg-muted text-muted-foreground border-muted';
+};
+
+const InsightUnavailableCard = ({ title, icon: Icon, message }: { title: string; icon: ElementType; message: string }) => (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-base">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        {title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="flex min-h-52 items-center justify-center">
+      <div className="text-center text-sm text-muted-foreground">
+        <RefreshCw className="mx-auto mb-2 h-5 w-5" />
+        {message}
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const CardRow = ({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) => (
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-muted-foreground">{label}</span>
+    <span className={emphasize ? 'font-semibold' : ''}>{value}</span>
+  </div>
+);
 
 export default function Analyze() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const queryClient = useQueryClient();
+  const { settings, mainCurrency } = useUserSettings();
+
+  const cycleStartDay = normalizeCycleStartDay(Number(localStorage.getItem('fintrack_cycle_start_day') ?? 1));
+  const fiscalYearStartMonth = normalizeFiscalYearStartMonth(
+    Number(localStorage.getItem('fintrack_year_start_month') ?? 0) + 1,
+  );
+
+  const currentPeriod = useMemo(
+    () => getFinancialPeriod(new Date(), cycleStartDay, fiscalYearStartMonth),
+    [cycleStartDay, fiscalYearStartMonth],
+  );
+
+  const { momentum, stability, forecast, optimization, isLoading, error, lastUpdated } = useAnalytics(currentPeriod, {
+    ...settings,
+    mainCurrency,
+    cycleStartDay,
+    fiscalYearStartMonth,
+  });
+
+  const periodLabel = getFinancialPeriodLabel(
+    currentPeriod.year,
+    currentPeriod.month,
+    cycleStartDay,
+    fiscalYearStartMonth,
+    locale,
+  );
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['analytics'] });
+  };
+
+  const topVolatileCategories: CategoryStabilityResult[] = stability?.by_category.slice(0, 3) || [];
+  const topOptimizationRows = optimization?.results.slice(0, 4) || [];
+  const topOpportunity = optimization?.results[0] || null;
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <Card className="w-full max-w-md border-dashed">
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <div className="rounded-full bg-primary/10 p-3 text-primary">
-            <BrainCircuit className="h-7 w-7" />
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">{t('analyze.title')}</h1>
+            <p className="text-xs text-muted-foreground">
+              {lastUpdated
+                ? t('analyze.last_updated', {
+                    time: formatDistanceToNow(lastUpdated, { addSuffix: true }),
+                  })
+                : t('analyze.last_updated_never')}
+            </p>
           </div>
-          <h1 className="text-2xl font-semibold">{t('analyze.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('analyze.description')}</p>
-        </CardContent>
-      </Card>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{periodLabel}</Badge>
+            <Button size="icon" variant="ghost" onClick={refresh} aria-label={t('analyze.refresh')}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50/50">
+          <CardContent className="flex items-start gap-2 p-4 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </CardContent>
+        </Card>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">{t('analyze.automatic_insights.title')}</h2>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-4 w-2/3" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-8 w-1/2" />
+                  <Skeleton className="h-6 w-1/3" />
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {momentum ? (
+              <Card>
+                <CardHeader className="space-y-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    {momentum.status === 'decelerating' ? (
+                      <TrendingDown className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <TrendingUp className={`h-4 w-4 ${momentum.status === 'accelerating' ? 'text-red-600' : 'text-green-600'}`} />
+                    )}
+                    {t('analyze.momentum.title')}
+                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-2xl font-bold">{formatMoney(momentum.ma_7day, mainCurrency)}</div>
+                    <Badge
+                      className={getStatusBadgeClass(
+                        momentum.status === 'accelerating'
+                          ? 'red'
+                          : momentum.status === 'decelerating'
+                            ? 'blue'
+                            : 'green',
+                      )}
+                    >
+                      {t(`analyze.momentum.${momentum.status}`)}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <CardRow label={t('analyze.momentum.rows.ma7')} value={formatMoney(momentum.ma_7day, mainCurrency)} />
+                  <CardRow label={t('analyze.momentum.rows.ma30')} value={formatMoney(momentum.ma_30day, mainCurrency)} />
+                  <CardRow label={t('analyze.momentum.rows.ratio')} value={momentum.ratio.toFixed(2)} />
+
+                  <p className="pt-2 text-sm italic text-muted-foreground">
+                    {momentum.status === 'accelerating'
+                      ? t('analyze.momentum.insights.accelerating', {
+                          acceleration_pct: Math.abs(momentum.acceleration_pct).toFixed(1),
+                        })
+                      : momentum.status === 'decelerating'
+                        ? t('analyze.momentum.insights.decelerating', {
+                            acceleration_pct: Math.abs(momentum.acceleration_pct).toFixed(1),
+                          })
+                        : t('analyze.momentum.insights.normal')}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <InsightUnavailableCard
+                title={t('analyze.momentum.title')}
+                icon={TrendingUp}
+                message={t('analyze.could_not_calculate')}
+              />
+            )}
+
+            {stability ? (
+              <Card>
+                <CardHeader className="space-y-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Activity className="h-4 w-4 text-primary" />
+                    {t('analyze.stability.title')}
+                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-2xl font-bold">{formatPercent(stability.overall_cv * 100)}</div>
+                    <Badge
+                      className={getStatusBadgeClass(
+                        stability.overall_stability === 'stable'
+                          ? 'green'
+                          : stability.overall_stability === 'moderate'
+                            ? 'yellow'
+                            : 'red',
+                      )}
+                    >
+                      {t(`analyze.stability.status.${stability.overall_stability}`)}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    {topVolatileCategories.map((category) => (
+                      <div key={category.category} className="flex items-center justify-between gap-2 text-sm">
+                        <span>{category.category}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{formatPercent(category.cv * 100)}</span>
+                          <Badge className={`${getStatusBadgeClass(category.stability === 'stable' ? 'green' : category.stability === 'moderate' ? 'yellow' : 'red')} px-2 py-0 text-[10px]`}>
+                            {t(`analyze.stability.status.${category.stability}`)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="pt-2 text-sm italic text-muted-foreground">
+                    {stability.most_volatile_category
+                      ? t('analyze.stability.insights.most_volatile', {
+                          category: stability.most_volatile_category,
+                        })
+                      : t('analyze.stability.insights.all_stable')}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <InsightUnavailableCard
+                title={t('analyze.stability.title')}
+                icon={Activity}
+                message={t('analyze.could_not_calculate')}
+              />
+            )}
+
+            {forecast ? (
+              <Card>
+                <CardHeader className="space-y-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Target className="h-4 w-4 text-primary" />
+                    {t('analyze.forecast.title')}
+                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-2xl font-bold">{formatMoney(forecast.projected_total, mainCurrency)}</div>
+                    <div className="flex items-center gap-1">
+                      <Badge className={getStatusBadgeClass(forecast.will_exceed_budget === null ? 'gray' : forecast.will_exceed_budget ? 'red' : 'green')}>
+                        {forecast.will_exceed_budget === null
+                          ? t('analyze.forecast.status.no_budget')
+                          : forecast.will_exceed_budget
+                            ? t('analyze.forecast.status.over_budget')
+                            : t('analyze.forecast.status.within_budget')}
+                      </Badge>
+                      {forecast.low_confidence && (
+                        <Badge className={getStatusBadgeClass('yellow')}>{t('analyze.forecast.status.early_estimate')}</Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <CardRow label={t('analyze.forecast.rows.spent_so_far')} value={formatMoney(forecast.current_expenses, mainCurrency)} />
+                  <CardRow label={t('analyze.forecast.rows.fixed_expenses')} value={formatMoney(forecast.fixed_expenses_total, mainCurrency)} />
+                  <CardRow label={t('analyze.forecast.rows.projected_total')} value={formatMoney(forecast.projected_total, mainCurrency)} emphasize />
+
+                  {forecast.budget_total !== null && (
+                    <>
+                      <CardRow label={t('analyze.forecast.rows.budget')} value={formatMoney(forecast.budget_total, mainCurrency)} />
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{t('analyze.forecast.rows.projected_difference')}</span>
+                        <span className={forecast.projected_vs_budget && forecast.projected_vs_budget > 0 ? 'text-red-600' : 'text-green-600'}>
+                          {`${forecast.projected_vs_budget && forecast.projected_vs_budget > 0 ? '+' : '−'}${formatMoney(Math.abs(forecast.projected_vs_budget || 0), mainCurrency)}`}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <Progress
+                    value={Math.min(
+                      100,
+                      (forecast.current_expenses / (forecast.budget_total || forecast.projected_total || 1)) * 100,
+                    )}
+                    className={`h-2 ${forecast.will_exceed_budget === null ? '[&>div]:bg-muted-foreground' : forecast.will_exceed_budget ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
+                  />
+
+                  <p className="pt-2 text-sm italic text-muted-foreground">
+                    {`${
+                      forecast.will_exceed_budget === true
+                        ? t('analyze.forecast.insights.over_budget', {
+                            excess_amount: formatMoney(forecast.excess_amount || 0, mainCurrency),
+                          })
+                        : forecast.will_exceed_budget === false
+                          ? t('analyze.forecast.insights.within_budget', {
+                              projected_vs_budget: formatMoney(Math.abs(forecast.projected_vs_budget || 0), mainCurrency),
+                            })
+                          : t('analyze.forecast.insights.no_budget', {
+                              current_expenses: formatMoney(forecast.current_expenses, mainCurrency),
+                            })
+                    }${
+                      forecast.low_confidence
+                        ? t('analyze.forecast.insights.low_confidence_append', {
+                            days_passed: forecast.days_passed,
+                          })
+                        : ''
+                    }`}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <InsightUnavailableCard
+                title={t('analyze.forecast.title')}
+                icon={Target}
+                message={t('analyze.could_not_calculate')}
+              />
+            )}
+
+            {optimization ? (
+              <Card>
+                <CardHeader className="space-y-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Lightbulb className="h-4 w-4 text-yellow-500" />
+                    {t('analyze.optimization.title')}
+                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-2xl font-bold">{formatMoney(optimization.total_potential_saving, mainCurrency)}</div>
+                      <div className="text-xs text-muted-foreground">{t('analyze.optimization.potential_monthly_saving')}</div>
+                    </div>
+                    <Badge
+                      className={getStatusBadgeClass(
+                        optimization.results.some((item) => item.recommendation === 'set_budget')
+                          ? 'blue'
+                          : optimization.total_potential_saving > 0
+                            ? 'yellow'
+                            : 'green',
+                      )}
+                    >
+                      {optimization.results.some((item) => item.recommendation === 'set_budget')
+                        ? t('analyze.optimization.status.budgets_missing')
+                        : optimization.total_potential_saving > 0
+                          ? t('analyze.optimization.status.opportunities_found')
+                          : t('analyze.optimization.status.well_optimized')}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    {topOptimizationRows.map((item) => (
+                      <div key={item.category} className="space-y-1 rounded-md border p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">{item.category}</span>
+                          <Badge className={`${getStatusBadgeClass(item.recommendation === 'set_budget' ? 'blue' : item.recommendation === 'increase_budget' ? 'red' : item.recommendation === 'reduce_budget' ? 'gray' : 'green')} px-2 py-0 text-[10px]`}>
+                            {t(`analyze.optimization.recommendation.${item.recommendation}`)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatMoney(item.avg_actual, mainCurrency)} · {t('analyze.optimization.avg_over_months', { months: optimization.months_of_history })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="pt-2 text-sm italic text-muted-foreground">
+                    {optimization.top_opportunity
+                      ? t('analyze.optimization.insights.top_opportunity', {
+                          top_opportunity: optimization.top_opportunity,
+                          potential_saving: formatMoney(topOpportunity?.potential_saving || 0, mainCurrency),
+                        })
+                      : optimization.results.some((item) => item.recommendation === 'set_budget')
+                        ? t('analyze.optimization.insights.only_missing_budgets', {
+                            count: optimization.results.filter((item) => item.recommendation === 'set_budget').length,
+                          })
+                        : t('analyze.optimization.insights.all_on_track')}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <InsightUnavailableCard
+                title={t('analyze.optimization.title')}
+                icon={Lightbulb}
+                message={t('analyze.could_not_calculate')}
+              />
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">{t('analyze.deep_analysis.title')}</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('analyze.deep_analysis.title')}</CardTitle>
+            <CardDescription>{t('analyze.deep_analysis.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{t('analyze.deep_analysis.coming_soon')}</p>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

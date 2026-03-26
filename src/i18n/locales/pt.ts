@@ -409,8 +409,90 @@ export const pt: TranslationTree = {
     },
   },
   analyze: {
-    title: 'Insights avançados',
-    description: 'A análise financeira com IA estará disponível em breve.',
+    title: 'Analyze',
+    refresh: 'Refresh analytics',
+    last_updated: 'Last updated: {{time}}',
+    last_updated_never: 'Last updated: never',
+    automatic_insights: {
+      title: 'Automatic Insights',
+    },
+    deep_analysis: {
+      title: 'Deep Analysis',
+      description: 'AI-guided narrative analysis will appear here in the next update.',
+      coming_soon: 'Deep analysis powered by AI — coming in next update.',
+    },
+    could_not_calculate: 'Could not calculate',
+    momentum: {
+      title: 'Spending Momentum',
+      accelerating: 'Accelerating',
+      normal: 'On Track',
+      decelerating: 'Slowing Down',
+      rows: {
+        ma7: '7-day average',
+        ma30: '30-day average',
+        ratio: 'Ratio',
+      },
+      insights: {
+        accelerating: 'Your spending is running {{acceleration_pct}}% above your monthly trend.',
+        decelerating: 'Your spending is slowing down — {{acceleration_pct}}% below monthly trend.',
+        normal: 'Your spending pace is consistent with your monthly average.',
+      },
+    },
+    stability: {
+      title: 'Expense Stability',
+      status: {
+        stable: 'Stable',
+        moderate: 'Moderate',
+        volatile: 'Volatile',
+      },
+      insights: {
+        most_volatile: 'Your most volatile spending category is {{category}}. Consider setting a stricter budget.',
+        all_stable: 'Your spending patterns are consistent across all categories.',
+      },
+    },
+    forecast: {
+      title: 'Expense Forecast',
+      status: {
+        over_budget: 'Over Budget',
+        within_budget: 'Within Budget',
+        no_budget: 'No Budget Set',
+        early_estimate: 'Early Estimate',
+      },
+      rows: {
+        spent_so_far: 'Spent so far',
+        fixed_expenses: 'Fixed expenses',
+        projected_total: 'Projected total',
+        budget: 'Budget',
+        projected_difference: 'Projected difference',
+      },
+      insights: {
+        over_budget: 'At this pace you will exceed your budget by {{excess_amount}} this period.',
+        within_budget: 'You are on track to stay {{projected_vs_budget}} under budget.',
+        no_budget: 'You have spent {{current_expenses}} so far. Set a budget to track your target.',
+        low_confidence_append: ' (based on {{days_passed}} days of data — estimate may change.)',
+      },
+    },
+    optimization: {
+      title: 'Budget Opportunities',
+      potential_monthly_saving: 'potential monthly saving',
+      status: {
+        opportunities_found: 'Opportunities Found',
+        well_optimized: 'Well Optimized',
+        budgets_missing: 'Budgets Missing',
+      },
+      recommendation: {
+        reduce_budget: 'Reduce budget',
+        increase_budget: 'Over budget',
+        set_budget: 'Set a budget',
+        on_track: 'On track',
+      },
+      avg_over_months: 'avg over {{months}} months',
+      insights: {
+        top_opportunity: 'Your biggest opportunity is {{top_opportunity}} — addressing it could save {{potential_saving}} per month.',
+        all_on_track: 'All budgeted categories are within target. Well done.',
+        only_missing_budgets: 'You have {{count}} categories without a budget. Setting targets will improve your tracking.',
+      },
+    },
   },
   profile: {
     defaultCurrency: {
