@@ -40,9 +40,10 @@ export function CategoryBudgetProgressCard({ rows, currencySymbol, title }: Cate
           <p className="text-sm text-muted-foreground">{t("dashboard.noBudgetsSetYet")}</p>
         ) : (
           rows.slice(0, 15).map((cat) => {
-            const allowedPct = cat.annualBudget > 0 ? Math.min((cat.allowedByNow / cat.annualBudget) * 100, 100) : 0;
-            const spentPct = cat.annualBudget > 0 ? Math.min((cat.spent / cat.annualBudget) * 100, 100) : 0;
-            const overspentPct = cat.annualBudget > 0 ? Math.min((Math.max(0, cat.spent - cat.allowedByNow) / cat.annualBudget) * 100, 100) : 0;
+            const maxBarValue = Math.max(cat.annualBudget, cat.spent, 1);
+            const allowedPct = Math.min((cat.allowedByNow / maxBarValue) * 100, 100);
+            const spentPct = Math.min((cat.spent / maxBarValue) * 100, 100);
+            const overspentPct = Math.min((Math.max(0, cat.spent - cat.allowedByNow) / maxBarValue) * 100, 100);
 
             return (
               <div key={cat.id} className="space-y-1.5">

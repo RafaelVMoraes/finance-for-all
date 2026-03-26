@@ -12,13 +12,11 @@ import {
   MonthlySnapshot,
   SpendingMomentumResult,
 } from '@/lib/analytics';
-import { getFinancialPeriodBounds, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
+import { getFinancialPeriodBounds, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
 
 interface AnalyticsUserSettings {
   mainCurrency?: Currency;
   main_currency?: Currency;
-  cycleStartDay?: number;
-  cycle_start_day?: number;
   fiscalYearStartMonth?: number;
   fiscal_year_start_month?: number;
 }
@@ -85,12 +83,6 @@ const resolveMainCurrency = (userSettings: AnalyticsUserSettings): Currency => {
   return (userSettings.mainCurrency || userSettings.main_currency || DEFAULT_MAIN_CURRENCY) as Currency;
 };
 
-const resolveCycleStartDay = (userSettings: AnalyticsUserSettings): number => {
-  const fromSettings = userSettings.cycleStartDay ?? userSettings.cycle_start_day;
-  const fromStorage = Number(localStorage.getItem('fintrack_cycle_start_day') ?? 1);
-  return normalizeCycleStartDay(fromSettings ?? fromStorage);
-};
-
 const resolveFiscalYearStartMonth = (userSettings: AnalyticsUserSettings): number => {
   const fromSettings = userSettings.fiscalYearStartMonth ?? userSettings.fiscal_year_start_month;
   const fromStorage = Number(localStorage.getItem('fintrack_year_start_month') ?? 0) + 1;
@@ -109,7 +101,6 @@ export function useAnalytics(
 ): UseAnalyticsReturn {
   const { user } = useAuthContext();
   const mainCurrency = resolveMainCurrency(userSettings);
-  const cycleStartDay = resolveCycleStartDay(userSettings);
   const fiscalYearStartMonth = resolveFiscalYearStartMonth(userSettings);
 
   const query = useQuery<UseAnalyticsQueryResult>({
@@ -119,7 +110,6 @@ export function useAnalytics(
       financialPeriod.year,
       financialPeriod.month,
       mainCurrency,
-      cycleStartDay,
       fiscalYearStartMonth,
     ],
     enabled: Boolean(user?.id),
@@ -131,7 +121,7 @@ export function useAnalytics(
       const periodBounds = getFinancialPeriodBounds(
         financialPeriod.year,
         financialPeriod.month,
-        cycleStartDay,
+        1,
         fiscalYearStartMonth,
       );
 
