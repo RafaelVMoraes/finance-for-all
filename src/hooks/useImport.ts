@@ -536,11 +536,13 @@ export function useImport() {
         
         // Fire-and-forget rule usage update (non-blocking)
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase.rpc as any)('increment_import_rule_usage', {
-            p_increments: JSON.stringify(increments),
+          await supabase.rpc('increment_import_rule_usage', {
+            p_increments: increments,
           });
-        } catch {
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.debug('[IMPORT_RULE_USAGE_RPC_ERR]', error);
+          }
           // RPC may not exist yet — silently ignore
         }
       }

@@ -620,7 +620,7 @@ export type Database = {
       }
       get_yearly_summary: { Args: { p_year: number }; Returns: Json }
       increment_import_rule_usage: {
-        Args: { p_increments: Json }
+        Args: { p_increments: { increment: number; rule_id: string }[] }
         Returns: undefined
       }
     }
