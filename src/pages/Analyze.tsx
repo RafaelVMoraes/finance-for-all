@@ -1,26 +1,39 @@
 import { formatDistanceToNow } from 'date-fns';
 import {
   Activity,
+  AlertTriangle,
   AlertCircle,
+  CalendarSearch,
+  Copy,
   Lightbulb,
   RefreshCw,
   Target,
   TrendingDown,
   TrendingUp,
+  X,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ElementType } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useGeminiAnalysis } from '@/hooks/useGeminiAnalysis';
 import { useI18n } from '@/i18n/I18nProvider';
+import { GeminiError } from '@/lib/gemini';
 import { CategoryStabilityResult } from '@/lib/analytics';
 import { getFinancialPeriod, getFinancialPeriodLabel, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
+import type { AnalysisResult } from '@/types/analysis';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const formatMoney = (value: number, currency: string) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
@@ -59,6 +72,256 @@ const CardRow = ({ label, value, emphasize = false }: { label: string; value: st
   </div>
 );
 
+const parseNarrative = (narrative: string): Array<{ type: 'paragraph' | 'orderedList'; items: string[] }> => {
+  const lines = narrative.split('\n').map((line) => line.trim());
+  const blocks: Array<{ type: 'paragraph' | 'orderedList'; items: string[] }> = [];
+  let paragraphBuffer: string[] = [];
+  let orderedListBuffer: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphBuffer.length > 0) {
+      blocks.push({ type: 'paragraph', items: [paragraphBuffer.join(' ')] });
+      paragraphBuffer = [];
+    }
+  };
+
+  const flushOrderedList = () => {
+    if (orderedListBuffer.length > 0) {
+      blocks.push({ type: 'orderedList', items: orderedListBuffer });
+      orderedListBuffer = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    if (!line) {
+      flushParagraph();
+      flushOrderedList();
+      return;
+    }
+
+    const orderedListMatch = line.match(/^\d+\.\s+(.*)$/);
+    if (orderedListMatch) {
+      flushParagraph();
+      orderedListBuffer.push(orderedListMatch[1]);
+      return;
+    }
+
+    flushOrderedList();
+    paragraphBuffer.push(line);
+  });
+
+  flushParagraph();
+  flushOrderedList();
+
+  return blocks;
+};
+
+const renderBoldText = (text: string) => {
+  return text.split(/(\*\*.*?\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={`${part}-${index}`}>{part}</span>;
+  });
+};
+
+const formatGeneratedAgo = (date: Date | null): string | null => {
+  if (!date) return null;
+  return formatDistanceToNow(date, { addSuffix: true });
+};
+
+const getErrorMessageKey = (errorCode: GeminiError['code']) => {
+  if (errorCode === 'API_KEY_MISSING') return 'analyze.deep.error.no_key';
+  if (errorCode === 'NETWORK_ERROR') return 'analyze.deep.error.network';
+  if (errorCode === 'RATE_LIMITED') return 'analyze.deep.error.rate_limit';
+  if (errorCode === 'EMPTY_RESPONSE') return 'analyze.deep.error.empty';
+  return 'analyze.deep.error.unknown';
+};
+
+interface AnalysisPanelProps {
+  icon: ElementType;
+  titleKey: string;
+  descriptionKey: string;
+  ctaKey: string;
+  disabledReason: string | null;
+  apiKeyMissing: boolean;
+  result: AnalysisResult | null;
+  isLoading: boolean;
+  error: GeminiError | null;
+  lastGeneratedAt: Date | null;
+  onTrigger: () => Promise<void>;
+  onRegenerate: () => Promise<void>;
+  onRetry: () => Promise<void>;
+}
+
+const AnalysisPanel = ({
+  icon: Icon,
+  titleKey,
+  descriptionKey,
+  ctaKey,
+  disabledReason,
+  apiKeyMissing,
+  result,
+  isLoading,
+  error,
+  lastGeneratedAt,
+  onTrigger,
+  onRegenerate,
+  onRetry,
+}: AnalysisPanelProps) => {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  const periodGeneratedLabel = result
+    ? t('analyze.deep.period_generated', {
+        period: result.period_label,
+        time: formatGeneratedAgo(lastGeneratedAt) || t('analyze.last_updated_never'),
+      })
+    : '';
+
+  const isDisabled = Boolean(disabledReason || apiKeyMissing);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <Skeleton className="h-28 w-full animate-pulse" />
+          <p className="text-center text-sm text-muted-foreground">{t('analyze.deep.loading')}</p>
+          <p className="text-center text-xs text-muted-foreground">{t('analyze.deep.loading_note')}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50/50">
+        <CardContent className="space-y-3 p-4">
+          <div className="flex items-start gap-2 text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">{t('analyze.deep.error.title')}</p>
+              <p className="text-sm">{t(getErrorMessageKey(error.code))}</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              void onRetry();
+            }}
+          >
+            {t('analyze.deep.error.try_again')}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!result) {
+    const idleContent = (
+      <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Icon className="mt-0.5 h-5 w-5 text-primary" />
+          <div>
+            <p className="font-medium">{t(titleKey)}</p>
+            <p className="text-sm text-muted-foreground">{t(descriptionKey)}</p>
+          </div>
+        </div>
+        <Button
+          onClick={() => {
+            void onTrigger();
+          }}
+          disabled={isDisabled}
+          className="w-full sm:w-auto"
+        >
+          {t(ctaKey)}
+        </Button>
+      </CardContent>
+    );
+
+    if (disabledReason) {
+      return (
+        <Card>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>{idleContent}</div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{disabledReason}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </Card>
+      );
+    }
+
+    return <Card>{idleContent}</Card>;
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-medium">{t(titleKey)}</p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                void onRegenerate();
+              }}
+              aria-label={t('analyze.deep.regenerate')}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <TooltipProvider>
+              <Tooltip open={copied}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(result.narrative);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    aria-label={t('analyze.deep.copy')}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('analyze.deep.copied')}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">{periodGeneratedLabel}</p>
+        <div className="h-px w-full bg-border" />
+
+        <div className="space-y-3 text-sm leading-relaxed">
+          {parseNarrative(result.narrative).map((block, blockIndex) =>
+            block.type === 'orderedList' ? (
+              <ol key={`ol-${blockIndex}`} className="list-inside list-decimal space-y-1">
+                {block.items.map((item, itemIndex) => (
+                  <li key={`item-${itemIndex}`}>{renderBoldText(item)}</li>
+                ))}
+              </ol>
+            ) : (
+              <p key={`p-${blockIndex}`}>{renderBoldText(block.items[0])}</p>
+            ),
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground">{t('analyze.deep.result_disclaimer')}</p>
+      </CardContent>
+    </Card>
+  );
+};
+
 export default function Analyze() {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
@@ -74,12 +337,30 @@ export default function Analyze() {
     [cycleStartDay, fiscalYearStartMonth],
   );
 
-  const { momentum, stability, forecast, optimization, isLoading, error, lastUpdated } = useAnalytics(currentPeriod, {
+  const { momentum, stability, forecast, optimization, isLoading, error, lastUpdated, guardData } = useAnalytics(currentPeriod, {
     ...settings,
     mainCurrency,
     cycleStartDay,
     fiscalYearStartMonth,
   });
+  const [apiBannerDismissed, setApiBannerDismissed] = useState(
+    sessionStorage.getItem('analyze.deep.apiBannerDismissed') === 'true',
+  );
+  const apiKeyMissing = !import.meta.env.VITE_GEMINI_API_KEY;
+
+  const analysisUserSettings = useMemo(
+    () =>
+      ({
+        ...(settings || {}),
+        main_currency: mainCurrency,
+        user_language: locale,
+      }),
+    [locale, mainCurrency, settings],
+  );
+
+  const monthlyAnalysis = useGeminiAnalysis('monthly_review', currentPeriod, analysisUserSettings);
+  const investmentAnalysis = useGeminiAnalysis('investment_review', currentPeriod, analysisUserSettings);
+  const budgetAnalysis = useGeminiAnalysis('budget_optimization', currentPeriod, analysisUserSettings);
 
   const periodLabel = getFinancialPeriodLabel(
     currentPeriod.year,
@@ -96,6 +377,10 @@ export default function Analyze() {
   const topVolatileCategories: CategoryStabilityResult[] = stability?.by_category.slice(0, 3) || [];
   const topOptimizationRows = optimization?.results.slice(0, 4) || [];
   const topOpportunity = optimization?.results[0] || null;
+  const monthlyGuard = guardData.transactionDaysInPeriod < 7 ? t('analyze.deep.guard.monthly') : null;
+  const investmentGuard =
+    guardData.investmentHistoryMonths < 1 ? t('analyze.deep.guard.investment') : null;
+  const budgetGuard = guardData.transactionHistoryMonths < 2 ? t('analyze.deep.guard.budget') : null;
 
   return (
     <div className="space-y-6">
@@ -407,16 +692,101 @@ export default function Analyze() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">{t('analyze.deep_analysis.title')}</h2>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('analyze.deep_analysis.title')}</CardTitle>
-            <CardDescription>{t('analyze.deep_analysis.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{t('analyze.deep_analysis.coming_soon')}</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-1">
+          <h2 className="text-lg font-medium">{t('analyze.deep.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('analyze.deep.subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('analyze.deep.disclaimer')}</p>
+        </div>
+
+        {apiKeyMissing && !apiBannerDismissed && (
+          <Card className="border-amber-200 bg-amber-50/70">
+            <CardContent className="flex items-start justify-between gap-3 p-4">
+              <div className="flex items-start gap-2 text-amber-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm">{t('analyze.deep.no_api_key')}</p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-amber-900"
+                onClick={() => {
+                  sessionStorage.setItem('analyze.deep.apiBannerDismissed', 'true');
+                  setApiBannerDismissed(true);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="space-y-3">
+          <AnalysisPanel
+            icon={CalendarSearch}
+            titleKey="analyze.deep.monthly.title"
+            descriptionKey="analyze.deep.monthly.desc"
+            ctaKey="analyze.deep.monthly.cta"
+            disabledReason={monthlyGuard}
+            apiKeyMissing={apiKeyMissing}
+            result={monthlyAnalysis.result}
+            isLoading={monthlyAnalysis.isLoading}
+            error={monthlyAnalysis.error}
+            lastGeneratedAt={monthlyAnalysis.lastGeneratedAt}
+            onTrigger={monthlyAnalysis.trigger}
+            onRegenerate={async () => {
+              monthlyAnalysis.reset();
+              await monthlyAnalysis.trigger();
+            }}
+            onRetry={async () => {
+              monthlyAnalysis.reset();
+              await monthlyAnalysis.trigger();
+            }}
+          />
+
+          <AnalysisPanel
+            icon={TrendingUp}
+            titleKey="analyze.deep.investment.title"
+            descriptionKey="analyze.deep.investment.desc"
+            ctaKey="analyze.deep.investment.cta"
+            disabledReason={investmentGuard}
+            apiKeyMissing={apiKeyMissing}
+            result={investmentAnalysis.result}
+            isLoading={investmentAnalysis.isLoading}
+            error={investmentAnalysis.error}
+            lastGeneratedAt={investmentAnalysis.lastGeneratedAt}
+            onTrigger={investmentAnalysis.trigger}
+            onRegenerate={async () => {
+              investmentAnalysis.reset();
+              await investmentAnalysis.trigger();
+            }}
+            onRetry={async () => {
+              investmentAnalysis.reset();
+              await investmentAnalysis.trigger();
+            }}
+          />
+
+          <AnalysisPanel
+            icon={Lightbulb}
+            titleKey="analyze.deep.budget.title"
+            descriptionKey="analyze.deep.budget.desc"
+            ctaKey="analyze.deep.budget.cta"
+            disabledReason={budgetGuard}
+            apiKeyMissing={apiKeyMissing}
+            result={budgetAnalysis.result}
+            isLoading={budgetAnalysis.isLoading}
+            error={budgetAnalysis.error}
+            lastGeneratedAt={budgetAnalysis.lastGeneratedAt}
+            onTrigger={budgetAnalysis.trigger}
+            onRegenerate={async () => {
+              budgetAnalysis.reset();
+              await budgetAnalysis.trigger();
+            }}
+            onRetry={async () => {
+              budgetAnalysis.reset();
+              await budgetAnalysis.trigger();
+            }}
+          />
+        </div>
       </section>
     </div>
   );

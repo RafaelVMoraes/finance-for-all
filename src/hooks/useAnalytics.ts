@@ -31,6 +31,11 @@ export interface UseAnalyticsReturn {
   isLoading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  guardData: {
+    transactionDaysInPeriod: number;
+    transactionHistoryMonths: number;
+    investmentHistoryMonths: number;
+  };
 }
 
 interface UseAnalyticsQueryResult {
@@ -40,6 +45,11 @@ interface UseAnalyticsQueryResult {
   optimization: CategoryOptimizationReport | null;
   error: string | null;
   lastUpdated: Date;
+  guardData: {
+    transactionDaysInPeriod: number;
+    transactionHistoryMonths: number;
+    investmentHistoryMonths: number;
+  };
 }
 
 interface TxRow {
@@ -63,6 +73,10 @@ interface MonthlyCategorySummaryRow {
 interface BudgetRow {
   expected_amount: number;
   categories: { name: string; type: 'fixed' | 'variable' | 'income' } | null;
+}
+
+interface InvestmentSnapshotRow {
+  month: string;
 }
 
 const DEFAULT_MAIN_CURRENCY: Currency = 'EUR';
@@ -125,7 +139,7 @@ export function useAnalytics(
       const txStart = toDateKey(lookbackStart);
       const txEnd = toDateKey(periodBounds.end);
 
-      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult] = await Promise.all([
+      const [txResult, monthlyTotalsResult, monthlyCategorySummaryResult, budgetResult, investmentSnapshotsResult] = await Promise.all([
         supabase
           .from('transactions')
           .select('payment_date,amount,categories(name,type)')
@@ -147,17 +161,24 @@ export function useAnalytics(
           .from('budgets')
           .select('expected_amount,categories(name,type)')
           .eq('user_id', user.id),
+        supabase
+          .from('investment_snapshots')
+          .select('month')
+          .eq('user_id', user.id)
+          .order('month', { ascending: true }),
       ]);
 
       if (txResult.error) throw txResult.error;
       if (monthlyTotalsResult.error) throw monthlyTotalsResult.error;
       if (monthlyCategorySummaryResult.error) throw monthlyCategorySummaryResult.error;
       if (budgetResult.error) throw budgetResult.error;
+      if (investmentSnapshotsResult.error) throw investmentSnapshotsResult.error;
 
       const txRows = (txResult.data || []) as TxRow[];
       const monthlyTotalRows = (monthlyTotalsResult.data || []) as MonthlyTotalRow[];
       const monthlyCategoryRows = (monthlyCategorySummaryResult.data || []) as MonthlyCategorySummaryRow[];
       const budgetRows = (budgetResult.data || []) as BudgetRow[];
+      const investmentSnapshotRows = (investmentSnapshotsResult.data || []) as InvestmentSnapshotRow[];
 
       const dailyExpenses: DailyExpense[] = txRows
         .filter((tx) => tx.categories?.type !== 'income')
@@ -218,6 +239,20 @@ export function useAnalytics(
 
       const now = new Date();
 
+      const transactionDaysInPeriod = new Set(
+        txRows
+          .filter((tx) => tx.payment_date >= toDateKey(periodBounds.start) && tx.payment_date <= toDateKey(periodBounds.end))
+          .map((tx) => tx.payment_date),
+      ).size;
+
+      const transactionHistoryMonths = new Set(
+        monthlyTotalRows.map((row) => row.month.slice(0, 7)),
+      ).size;
+
+      const investmentHistoryMonths = new Set(
+        investmentSnapshotRows.map((row) => row.month.slice(0, 7)),
+      ).size;
+
       const momentum = runSafely('spendingMomentum', () => analytics.spendingMomentum(dailyExpenses, now));
       const stability = runSafely('expenseStability', () =>
         analytics.expenseStability(categorySnapshots, monthlySnapshots),
@@ -245,6 +280,11 @@ export function useAnalytics(
         optimization,
         error: analysisErrors.length > 0 ? analysisErrors.join(' | ') : null,
         lastUpdated: new Date(),
+        guardData: {
+          transactionDaysInPeriod,
+          transactionHistoryMonths,
+          investmentHistoryMonths,
+        },
       };
     },
     staleTime: 1000 * 60,
@@ -258,5 +298,10 @@ export function useAnalytics(
     isLoading: query.isLoading || query.isFetching,
     error: query.error instanceof Error ? query.error.message : query.data?.error ?? null,
     lastUpdated: query.data?.lastUpdated ?? null,
+    guardData: query.data?.guardData ?? {
+      transactionDaysInPeriod: 0,
+      transactionHistoryMonths: 0,
+      investmentHistoryMonths: 0,
+    },
   };
 }
