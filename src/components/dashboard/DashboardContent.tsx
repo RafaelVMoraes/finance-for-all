@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  addMonths,
   addWeeks,
   differenceInCalendarDays,
   endOfMonth,
@@ -8,7 +7,6 @@ import {
   format,
   max as dateMax,
   min as dateMin,
-  parseISO,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -35,6 +33,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  FinancialPeriod,
   getFinancialPeriod,
   getFinancialPeriodBounds,
   getFinancialPeriodLabel,
@@ -45,8 +44,6 @@ const formatPercent = (value: number) => `${Math.round(value)}%`;
 
 const calculateRatio = (value: number, total: number) =>
   total > 0 ? (value / total) * 100 : 0;
-
-const normalizeExpenseAmount = (amount: number) => Math.abs(amount);
 
 /** Build exactly 4 week buckets for a given month, returning both the
  *  collapsed spending values AND the number of days in each bucket
@@ -136,8 +133,6 @@ export default function DashboardContent() {
   const { t, locale } = useI18n();
   const { user } = useAuthContext();
   const today = useMemo(() => new Date(), []);
-  const [selectedMonth, setSelectedMonth] = useState(format(today, "yyyy-MM"));
-  const monthDate = useMemo(() => parseISO(`${selectedMonth}-01`), [selectedMonth]);
 
   const { settings, currencySymbol } = useUserSettings();
   const { getRate } = useExchangeRates();
@@ -152,6 +147,20 @@ export default function DashboardContent() {
   } = useDashboardViewState({ today });
   const safeCycleStartDay = normalizeCycleStartDay(cycleStartDay);
   const fiscalYearStartMonth = yearStartMonth + 1;
+  const [selectedFinancialPeriod, setSelectedFinancialPeriod] = useState<FinancialPeriod>(() =>
+    getFinancialPeriod(today, safeCycleStartDay, fiscalYearStartMonth),
+  );
+  const selectedPeriodBounds = useMemo(
+    () =>
+      getFinancialPeriodBounds(
+        selectedFinancialPeriod.year,
+        selectedFinancialPeriod.month,
+        safeCycleStartDay,
+        fiscalYearStartMonth,
+      ),
+    [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth],
+  );
+  const monthDate = useMemo(() => selectedPeriodBounds.start, [selectedPeriodBounds]);
   const [monthlyTransactions, setMonthlyTransactions] = useState<any[]>([]);
   const {
     monthlySettings,
@@ -175,23 +184,34 @@ export default function DashboardContent() {
   } = useYearlySummary(selectedYear + 1, safeCycleStartDay, fiscalYearStartMonth);
   const { data: investmentSummary } = useInvestmentSummary();
 
-  const selectedFinancialPeriod = useMemo(
-    () => getFinancialPeriod(monthDate, safeCycleStartDay, fiscalYearStartMonth),
-    [monthDate, safeCycleStartDay, fiscalYearStartMonth],
-  );
+  useEffect(() => {
+    setSelectedFinancialPeriod((current) => {
+      const { start } = getFinancialPeriodBounds(
+        current.year,
+        current.month,
+        safeCycleStartDay,
+        fiscalYearStartMonth,
+      );
+      return getFinancialPeriod(start, safeCycleStartDay, fiscalYearStartMonth);
+    });
+  }, [safeCycleStartDay, fiscalYearStartMonth]);
+
   const monthlyPeriodLabel = useMemo(
     () => `${getFinancialPeriodLabel(selectedFinancialPeriod.year, selectedFinancialPeriod.month, safeCycleStartDay, fiscalYearStartMonth, locale)} ${selectedFinancialPeriod.year}`,
     [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth, locale],
   );
   const stepFinancialPeriod = useCallback((delta: number) => {
-    const { start } = getFinancialPeriodBounds(
+    const { start, end } = getFinancialPeriodBounds(
       selectedFinancialPeriod.year,
       selectedFinancialPeriod.month,
       safeCycleStartDay,
       fiscalYearStartMonth,
     );
-    const next = addMonths(start, delta);
-    setSelectedMonth(format(next, "yyyy-MM"));
+    const probe = delta > 0 ? new Date(end) : new Date(start);
+    probe.setDate(probe.getDate() + (delta > 0 ? 1 : -1));
+    setSelectedFinancialPeriod(
+      getFinancialPeriod(probe, safeCycleStartDay, fiscalYearStartMonth),
+    );
   }, [selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
 
   useEffect(() => {
@@ -209,7 +229,15 @@ export default function DashboardContent() {
         .eq("user_id", user.id)
         .gte("payment_date", format(start, "yyyy-MM-dd"))
         .lte("payment_date", format(end, "yyyy-MM-dd"));
-      setMonthlyTransactions(data || []);
+      setMonthlyTransactions(
+        (data || []).map((tx) => ({
+          ...tx,
+          amount:
+            tx.categories?.type === "income"
+              ? Number(tx.amount || 0)
+              : Math.abs(Number(tx.amount || 0)),
+        })),
+      );
     };
     run();
   }, [user, selectedFinancialPeriod, safeCycleStartDay, fiscalYearStartMonth]);
@@ -385,9 +413,7 @@ export default function DashboardContent() {
     const byDay = new Map<string, { total: number; variableTotal: number; fixedOnly: boolean; categories: Map<string, { amount: number; color: string; type: string }> }>();
     monthlyTransactions.forEach((tx) => {
       const day = tx.payment_date;
-      const amount = tx.categories?.type === "income"
-        ? Number(tx.amount || 0)
-        : normalizeExpenseAmount(Number(tx.amount || 0));
+      const amount = Number(tx.amount || 0);
       const categoryType = tx.categories?.type || "variable";
       const existing = byDay.get(day) || {
         total: 0,
@@ -446,7 +472,7 @@ export default function DashboardContent() {
       .map((tx) => ({
         id: tx.id,
         name: tx.edited_label || tx.original_label,
-        amount: normalizeExpenseAmount(Number(tx.amount || 0)),
+        amount: Number(tx.amount || 0),
         categoryName: tx.categories?.name || t("dashboard.uncategorized"),
         categoryColor: tx.categories?.color || "#94a3b8",
       }))

@@ -11,6 +11,11 @@ interface TxRow {
   categories: { type: 'fixed' | 'variable' | 'income' } | null;
 }
 
+const normalizeTransactionAmount = (
+  amount: number,
+  categoryType?: 'fixed' | 'variable' | 'income',
+) => (categoryType === 'income' ? amount : Math.abs(amount));
+
 export function useBudgetMonthlySummary(month: Date, cycleStartDay = 1, fiscalYearStartMonth = 1) {
   const [categorySpent, setCategorySpent] = useState<Record<string, number>>({});
   const [actualIncome, setActualIncome] = useState(0);
@@ -54,7 +59,7 @@ export function useBudgetMonthlySummary(month: Date, cycleStartDay = 1, fiscalYe
     const spentMap: Record<string, number> = {};
     let income = 0;
     ((data || []) as TxRow[]).forEach((row) => {
-      const amount = Number(row.amount || 0);
+      const amount = normalizeTransactionAmount(Number(row.amount || 0), row.categories?.type);
       if (row.categories?.type === 'income') {
         income += amount;
         return;
