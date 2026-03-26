@@ -27,9 +27,8 @@ export function useDashboardViewState({ today }: UseDashboardViewStateParams) {
   const [aggregation, setAggregation] = useState<YearAggregation>("month");
 
   useEffect(() => {
-    // Keep dashboard year aligned with real current year when a new year starts,
-    // while still allowing manual navigation afterwards.
-    setSelectedYear((savedYear) => (savedYear < currentYear ? currentYear : savedYear));
+    // Always open yearly dashboard in the real current year.
+    setSelectedYear(currentYear);
   }, [currentYear]);
 
   useEffect(() => {
