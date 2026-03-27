@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useI18n } from '@/i18n/I18nProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,6 @@ import { TutorialSection } from '@/types/tutorial';
 import { Smartphone } from 'lucide-react';
 
 const YEAR_START_MONTH_KEY = 'fintrack_year_start_month';
-const YEAR_START_DAY_KEY = 'fintrack_year_start_day'; // legacy (unused) - kept only for migration cleanup
 
 const tutorialSections: TutorialSection[] = ['dashboard', 'transactions', 'budget', 'investment', 'import'];
 
@@ -25,18 +24,6 @@ export default function Profile() {
   const { user, logout } = useAuthContext();
   const { startSectionTutorial } = useTutorial();
   const [yearStartMonth, setYearStartMonth] = useState(() => Number(localStorage.getItem(YEAR_START_MONTH_KEY) ?? 0));
-
-  useEffect(() => {
-    // Clean up legacy state so it can't ever desync user expectations.
-    if (localStorage.getItem(YEAR_START_DAY_KEY) !== null) {
-      localStorage.removeItem(YEAR_START_DAY_KEY);
-      window.dispatchEvent(new Event('fintrack-settings-changed'));
-    }
-    if (localStorage.getItem('fintrack_cycle_start_day') !== null) {
-      localStorage.removeItem('fintrack_cycle_start_day');
-      window.dispatchEvent(new Event('fintrack-settings-changed'));
-    }
-  }, []);
 
   const onMonthChange = (value: string) => {
     const parsed = Number(value);

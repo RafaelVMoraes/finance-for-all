@@ -1,34 +1,32 @@
-import { addMonths, format } from "date-fns";
-
 export interface FinancialPeriod {
   year: number;
   month: number;
 }
-
-const clampCycleStartDay = (day: number) => {
-  if (!Number.isFinite(day)) return 1;
-  return Math.min(28, Math.max(1, Math.trunc(day)));
-};
 
 const clampFiscalStartMonth = (month: number) => {
   if (!Number.isFinite(month)) return 1;
   return Math.min(12, Math.max(1, Math.trunc(month)));
 };
 
+const resolveFiscalStartMonth = (
+  fiscalYearStartMonth: number,
+  legacyFiscalYearStartMonth?: unknown,
+) => {
+  if (typeof legacyFiscalYearStartMonth === "number") {
+    return clampFiscalStartMonth(legacyFiscalYearStartMonth);
+  }
+  return clampFiscalStartMonth(fiscalYearStartMonth);
+};
+
 export function getFinancialPeriod(
   date: Date,
-  cycleStartDay: number,
   fiscalYearStartMonth: number,
+  ..._legacyArgs: unknown[]
 ): FinancialPeriod {
-  const safeDay = clampCycleStartDay(cycleStartDay);
-  const safeFiscalStart = clampFiscalStartMonth(fiscalYearStartMonth);
+  const safeFiscalStart = resolveFiscalStartMonth(fiscalYearStartMonth, _legacyArgs[0]);
 
-  const baseYear = date.getFullYear();
-  const baseMonth = date.getMonth() + 1;
-  const shouldRollToNextMonth = safeDay > 1 && date.getDate() >= safeDay;
-  const monthDate = addMonths(new Date(baseYear, baseMonth - 1, 1), shouldRollToNextMonth ? 1 : 0);
-  const month = monthDate.getMonth() + 1;
-  const calendarYear = monthDate.getFullYear();
+  const month = date.getMonth() + 1;
+  const calendarYear = date.getFullYear();
 
   const year = month >= safeFiscalStart ? calendarYear : calendarYear - 1;
 
@@ -38,35 +36,28 @@ export function getFinancialPeriod(
 export function getFinancialPeriodBounds(
   year: number,
   month: number,
-  cycleStartDay: number,
   fiscalYearStartMonth: number,
+  ..._legacyArgs: unknown[]
 ): { start: Date; end: Date } {
-  const safeDay = clampCycleStartDay(cycleStartDay);
-  const safeFiscalStart = clampFiscalStartMonth(fiscalYearStartMonth);
+  const safeFiscalStart = resolveFiscalStartMonth(fiscalYearStartMonth, _legacyArgs[0]);
   const safeMonth = Math.min(12, Math.max(1, Math.trunc(month)));
 
   const calendarYear = safeMonth >= safeFiscalStart ? year : year + 1;
-  const start =
-    safeDay === 1
-      ? new Date(calendarYear, safeMonth - 1, 1)
-      : new Date(calendarYear, safeMonth - 2, safeDay);
-  const end =
-    safeDay === 1
-      ? new Date(calendarYear, safeMonth, 0)
-      : new Date(calendarYear, safeMonth - 1, safeDay - 1);
+  const start = new Date(calendarYear, safeMonth - 1, 1);
+  const end = new Date(calendarYear, safeMonth, 0);
 
   return { start, end };
 }
 
 export function getFinancialPeriodsInYear(
   year: number,
-  cycleStartDay: number,
   fiscalYearStartMonth: number,
+  ..._legacyArgs: unknown[]
 ): Array<{ year: number; month: number; start: Date; end: Date }> {
-  const safeFiscalStart = clampFiscalStartMonth(fiscalYearStartMonth);
+  const safeFiscalStart = resolveFiscalStartMonth(fiscalYearStartMonth, _legacyArgs[0]);
   return Array.from({ length: 12 }, (_, idx) => {
     const month = ((safeFiscalStart - 1 + idx) % 12) + 1;
-    const bounds = getFinancialPeriodBounds(year, month, cycleStartDay, safeFiscalStart);
+    const bounds = getFinancialPeriodBounds(year, month, safeFiscalStart);
     return { year, month, start: bounds.start, end: bounds.end };
   });
 }
@@ -74,25 +65,18 @@ export function getFinancialPeriodsInYear(
 export function getFinancialPeriodLabel(
   year: number,
   month: number,
-  cycleStartDay: number,
   fiscalYearStartMonth: number,
-  locale: string,
+  locale: string | number,
+  ..._legacyArgs: unknown[]
 ): string {
-  const safeDay = clampCycleStartDay(cycleStartDay);
-  const formatter = new Intl.DateTimeFormat(locale, { month: "short" });
-  const monthDate = new Date(month >= fiscalYearStartMonth ? year : year + 1, month - 1, 1);
-  const monthName = formatter.format(monthDate);
-
-  if (safeDay === 1) {
-    return monthName;
-  }
-
-  const { start, end } = getFinancialPeriodBounds(year, month, safeDay, fiscalYearStartMonth);
-  return `${monthName} (${format(start, "d MMM")} – ${format(end, "d MMM")})`;
-}
-
-export function normalizeCycleStartDay(day?: number | null): number {
-  return clampCycleStartDay(day ?? 1);
+  const safeFiscalStart = typeof locale === "number"
+    ? resolveFiscalStartMonth(locale, undefined)
+    : resolveFiscalStartMonth(fiscalYearStartMonth, _legacyArgs[0]);
+  const safeLocale =
+    (typeof locale === "string" ? locale : _legacyArgs[0]) as string | undefined;
+  const formatter = new Intl.DateTimeFormat(safeLocale, { month: "short" });
+  const monthDate = new Date(month >= safeFiscalStart ? year : year + 1, month - 1, 1);
+  return formatter.format(monthDate);
 }
 
 export function normalizeFiscalYearStartMonth(month?: number | null): number {

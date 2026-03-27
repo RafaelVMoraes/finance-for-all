@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { logClientError } from '@/lib/logger';
-import { getFinancialPeriod, getFinancialPeriodBounds, normalizeCycleStartDay, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
+import { getFinancialPeriod, getFinancialPeriodBounds, normalizeFiscalYearStartMonth } from '@/lib/financialPeriod';
 
 interface TxRow {
   amount: number;
@@ -16,17 +16,16 @@ const normalizeTransactionAmount = (
   categoryType?: 'fixed' | 'variable' | 'income',
 ) => (categoryType === 'income' ? amount : Math.abs(amount));
 
-export function useBudgetMonthlySummary(month: Date, cycleStartDay = 1, fiscalYearStartMonth = 1) {
+export function useBudgetMonthlySummary(month: Date, fiscalYearStartMonth = 1) {
   const [categorySpent, setCategorySpent] = useState<Record<string, number>>({});
   const [actualIncome, setActualIncome] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthContext();
   const requestIdRef = useRef(0);
 
-  const safeDay = normalizeCycleStartDay(cycleStartDay);
   const safeFiscal = normalizeFiscalYearStartMonth(fiscalYearStartMonth);
-  const period = getFinancialPeriod(month, safeDay, safeFiscal);
-  const { start, end } = getFinancialPeriodBounds(period.year, period.month, safeDay, safeFiscal);
+  const period = getFinancialPeriod(month, safeFiscal);
+  const { start, end } = getFinancialPeriodBounds(period.year, period.month, safeFiscal);
   const periodStart = format(start, 'yyyy-MM-dd');
   const periodEnd = format(end, 'yyyy-MM-dd');
 

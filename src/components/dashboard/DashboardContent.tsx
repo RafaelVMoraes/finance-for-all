@@ -37,7 +37,6 @@ import {
   getFinancialPeriodLabel,
   getFinancialPeriodsInYear,
 } from "@/lib/financialPeriod";
-const DEFAULT_CYCLE_START_DAY = 1;
 const formatPercent = (value: number) => `${Math.round(value)}%`;
 
 const calculateRatio = (value: number, total: number) =>
@@ -155,17 +154,17 @@ export default function DashboardContent() {
     data: monthlySummary,
     loading: monthlyLoading,
     error: monthlyError,
-  } = useMonthlySummary(monthDate, DEFAULT_CYCLE_START_DAY, 1);
+  } = useMonthlySummary(monthDate, 1);
   const {
     data: yearlySummary,
     loading: yearlyLoading,
     error: yearlyError,
-  } = useYearlySummary(selectedYear, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
+  } = useYearlySummary(selectedYear, fiscalYearStartMonth);
   const {
     data: yearlySummaryNext,
     loading: yearlyLoadingNext,
     error: yearlyErrorNext,
-  } = useYearlySummary(selectedYear + 1, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
+  } = useYearlySummary(selectedYear + 1, fiscalYearStartMonth);
   const { data: investmentSummary } = useInvestmentSummary();
 
   const monthlyPeriodLabel = useMemo(
@@ -502,7 +501,7 @@ export default function DashboardContent() {
     const nextYearMonths = yearlySummaryNext?.monthly_data || [];
     const merged = [...currentYearMonths, ...nextYearMonths];
     const mergedMap = new Map(merged.map((m) => [m.month_date, m]));
-    const periods = getFinancialPeriodsInYear(selectedYear, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth);
+    const periods = getFinancialPeriodsInYear(selectedYear, fiscalYearStartMonth);
 
     return periods.map((period, idx) => {
       const found = mergedMap.get(format(period.start, 'yyyy-MM-dd'));
@@ -510,7 +509,7 @@ export default function DashboardContent() {
       return {
         key,
         monthDate: period.start,
-        monthLabel: getFinancialPeriodLabel(period.year, period.month, DEFAULT_CYCLE_START_DAY, fiscalYearStartMonth, locale),
+        monthLabel: getFinancialPeriodLabel(period.year, period.month, fiscalYearStartMonth, locale),
         quarterLabel: `Q${Math.floor(idx / 3) + 1}`,
         income: Number(found?.income || 0),
         fixed: Number(found?.fixed_expenses || 0),

@@ -539,13 +539,8 @@ export const pt: TranslationTree = {
     },
     yearStart: {
       title: 'Início do ano',
-      description: 'Defina o mês e o dia padrão para as visualizações anuais.',
+      description: 'Defina o mês padrão para as visualizações anuais.',
       monthLabel: 'Mês inicial',
-      dayLabel: 'Dia inicial',
-    },
-    cycleStartDay: {
-      label: 'Monthly cut-off day',
-      description: 'Set the day your financial month starts. If you receive your salary on the 25th, set this to 26.',
     },
     help: {
       title: 'Tutoriais e ajuda',
