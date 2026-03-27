@@ -1,7 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import {
   Activity,
-  AlertTriangle,
   AlertCircle,
   CalendarSearch,
   Copy,
@@ -10,9 +9,8 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
-  X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { ElementType } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -144,7 +142,6 @@ interface AnalysisPanelProps {
   descriptionKey: string;
   ctaKey: string;
   disabledReason: string | null;
-  apiKeyMissing: boolean;
   result: AnalysisResult | null;
   isLoading: boolean;
   error: GeminiError | null;
@@ -160,7 +157,6 @@ const AnalysisPanel = ({
   descriptionKey,
   ctaKey,
   disabledReason,
-  apiKeyMissing,
   result,
   isLoading,
   error,
@@ -179,7 +175,7 @@ const AnalysisPanel = ({
       })
     : '';
 
-  const isDisabled = Boolean(disabledReason || apiKeyMissing);
+  const isDisabled = Boolean(disabledReason);
 
   if (isLoading) {
     return (
@@ -341,11 +337,6 @@ export default function Analyze() {
     mainCurrency,
     fiscalYearStartMonth,
   });
-  const [apiBannerDismissed, setApiBannerDismissed] = useState(
-    sessionStorage.getItem('analyze.deep.apiBannerDismissed') === 'true',
-  );
-  const apiKeyMissing = !import.meta.env.GEMINI_API_KEY;
-
   const analysisUserSettings = useMemo(
     () =>
       ({
@@ -696,28 +687,6 @@ export default function Analyze() {
           <p className="text-xs text-muted-foreground">{t('analyze.deep.disclaimer')}</p>
         </div>
 
-        {apiKeyMissing && !apiBannerDismissed && (
-          <Card className="border-amber-200 bg-amber-50/70">
-            <CardContent className="flex items-start justify-between gap-3 p-4">
-              <div className="flex items-start gap-2 text-amber-900">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p className="text-sm">{t('analyze.deep.no_api_key')}</p>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 text-amber-900"
-                onClick={() => {
-                  sessionStorage.setItem('analyze.deep.apiBannerDismissed', 'true');
-                  setApiBannerDismissed(true);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         <div className="space-y-3">
           <AnalysisPanel
             icon={CalendarSearch}
@@ -725,7 +694,6 @@ export default function Analyze() {
             descriptionKey="analyze.deep.monthly.desc"
             ctaKey="analyze.deep.monthly.cta"
             disabledReason={monthlyGuard}
-            apiKeyMissing={apiKeyMissing}
             result={monthlyAnalysis.result}
             isLoading={monthlyAnalysis.isLoading}
             error={monthlyAnalysis.error}
@@ -747,7 +715,6 @@ export default function Analyze() {
             descriptionKey="analyze.deep.investment.desc"
             ctaKey="analyze.deep.investment.cta"
             disabledReason={investmentGuard}
-            apiKeyMissing={apiKeyMissing}
             result={investmentAnalysis.result}
             isLoading={investmentAnalysis.isLoading}
             error={investmentAnalysis.error}
@@ -769,7 +736,6 @@ export default function Analyze() {
             descriptionKey="analyze.deep.budget.desc"
             ctaKey="analyze.deep.budget.cta"
             disabledReason={budgetGuard}
-            apiKeyMissing={apiKeyMissing}
             result={budgetAnalysis.result}
             isLoading={budgetAnalysis.isLoading}
             error={budgetAnalysis.error}
