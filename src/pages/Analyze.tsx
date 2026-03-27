@@ -328,7 +328,7 @@ export default function Analyze() {
   );
 
   const currentPeriod = useMemo(
-    () => getFinancialPeriod(new Date(), 1, fiscalYearStartMonth),
+    () => getFinancialPeriod(new Date(), fiscalYearStartMonth),
     [fiscalYearStartMonth],
   );
 
@@ -354,7 +354,6 @@ export default function Analyze() {
   const periodLabel = getFinancialPeriodLabel(
     currentPeriod.year,
     currentPeriod.month,
-    1,
     fiscalYearStartMonth,
     locale,
   );

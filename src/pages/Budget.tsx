@@ -27,7 +27,7 @@ export default function Budget() {
     categorySpent,
     actualIncome,
     loading: summaryLoading,
-  } = useBudgetMonthlySummary(selectedMonth, 1, fiscalYearStartMonth);
+  } = useBudgetMonthlySummary(selectedMonth, fiscalYearStartMonth);
   const { currencySymbol } = useUserSettings();
 
   // Calculate categories by type

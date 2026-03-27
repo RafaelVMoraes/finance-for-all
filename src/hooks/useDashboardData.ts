@@ -7,7 +7,6 @@ import {
   getFinancialPeriod,
   getFinancialPeriodBounds,
   getFinancialPeriodsInYear,
-  normalizeCycleStartDay,
   normalizeFiscalYearStartMonth,
 } from '@/lib/financialPeriod';
 
@@ -104,7 +103,6 @@ const aggregateMonthlySummary = (transactions: TxRow[], periodStart: Date): Mont
 
 export function useMonthlySummary(
   date: Date = new Date(),
-  cycleStartDay = 1,
   fiscalYearStartMonth = 1,
 ) {
   const [data, setData] = useState<MonthlySummary | null>(null);
@@ -113,17 +111,16 @@ export function useMonthlySummary(
   const { user } = useAuthContext();
   const requestIdRef = useRef(0);
 
-  const safeDay = normalizeCycleStartDay(cycleStartDay);
   const safeFiscal = normalizeFiscalYearStartMonth(fiscalYearStartMonth);
-  const period = getFinancialPeriod(date, safeDay, safeFiscal);
-  const { start, end } = getFinancialPeriodBounds(period.year, period.month, safeDay, safeFiscal);
+  const period = getFinancialPeriod(date, safeFiscal);
+  const { start, end } = getFinancialPeriodBounds(period.year, period.month, safeFiscal);
   const startStr = format(start, 'yyyy-MM-dd');
   const endStr = format(end, 'yyyy-MM-dd');
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     const requestId = ++requestIdRef.current;
-    const cacheKey = getCacheKey(user.id, 'monthly', `${startStr}-${endStr}-${safeDay}-${safeFiscal}`);
+    const cacheKey = getCacheKey(user.id, 'monthly', `${startStr}-${endStr}-${safeFiscal}`);
     const cached = getCachedData<MonthlySummary>(cacheKey);
     if (cached) { setData(cached); setLoading(false); return; }
 
@@ -148,7 +145,7 @@ export function useMonthlySummary(
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [user, startStr, endStr, safeDay, safeFiscal]);
+  }, [user, startStr, endStr, safeFiscal]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   return { data, loading, error, refetch: fetchData };
@@ -156,7 +153,6 @@ export function useMonthlySummary(
 
 export function useYearlySummary(
   year: number,
-  cycleStartDay = 1,
   fiscalYearStartMonth = 1,
 ) {
   const [data, setData] = useState<YearlySummary | null>(null);
@@ -165,16 +161,15 @@ export function useYearlySummary(
   const { user } = useAuthContext();
   const requestIdRef = useRef(0);
 
-  const safeDay = normalizeCycleStartDay(cycleStartDay);
   const safeFiscal = normalizeFiscalYearStartMonth(fiscalYearStartMonth);
-  const periods = getFinancialPeriodsInYear(year, safeDay, safeFiscal);
+  const periods = getFinancialPeriodsInYear(year, safeFiscal);
   const yearStartStr = format(periods[0].start, 'yyyy-MM-dd');
   const yearEndStr = format(periods[periods.length - 1].end, 'yyyy-MM-dd');
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     const requestId = ++requestIdRef.current;
-    const cacheKey = getCacheKey(user.id, 'yearly', `${year}-${safeDay}-${safeFiscal}`);
+    const cacheKey = getCacheKey(user.id, 'yearly', `${year}-${safeFiscal}`);
     const cached = getCachedData<YearlySummary>(cacheKey);
     if (cached) { setData(cached); setLoading(false); return; }
 
@@ -202,7 +197,7 @@ export function useYearlySummary(
 
       ((txData || []) as TxRow[]).forEach((tx) => {
         if (!tx.categories || !tx.category_id) return;
-        const period = getFinancialPeriod(new Date(tx.payment_date), safeDay, safeFiscal);
+        const period = getFinancialPeriod(new Date(tx.payment_date), safeFiscal);
         if (period.year !== year) return;
         const key = `${period.year}-${String(period.month).padStart(2, '0')}`;
         const idx = periodIndex.get(key);
@@ -243,7 +238,7 @@ export function useYearlySummary(
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [user, year, safeDay, safeFiscal, yearStartStr, yearEndStr, periods]);
+  }, [user, year, safeFiscal, yearStartStr, yearEndStr, periods]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   return { data, loading, error, refetch: fetchData };
